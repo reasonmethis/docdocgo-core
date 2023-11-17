@@ -1,0 +1,6 @@
+{
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "search.useIgnoreFiles": true
+}

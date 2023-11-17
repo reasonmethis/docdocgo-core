@@ -1,0 +1,22 @@
+FROM python:3.11-bookworm
+
+# Needed for ingesting attachments 
+# # Install system packages: tesseract and poppler
+# RUN apt update && apt install -y \
+#     tesseract-ocr \
+#     poppler-utils \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Install Python package dependencies
+RUN pip install langchain openai chromadb tiktoken unstructured flask waitress \
+    beautifulsoup4 Pillow pytesseract docx2txt pdf2image \
+    xlrd reportlab svglib
+
+# Copy all application files into the container
+COPY . .
+
+# RUN mkdir /test-docs
+# RUN mkdir /test-dbs
+
+

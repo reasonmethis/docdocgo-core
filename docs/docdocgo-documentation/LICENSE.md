@@ -1,0 +1,1 @@
+Copyright © 2023, Dmitriy Vasilyuk. All Rights Reserved.
