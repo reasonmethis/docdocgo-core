@@ -1,7 +1,8 @@
+from typing import Any
+
 import sys
 import os
 
-from langchain.document_loaders import TextLoader, DirectoryLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 
@@ -27,6 +28,11 @@ os.chdir(script_directory)
 
 
 class CallbackHandlerDDG(BaseCallbackHandler):
+    def on_llm_start(
+        self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
+    ) -> None:
+        print("BOT: ", end="", flush=True)
+
     def on_llm_new_token(self, token, **kwargs) -> None:
         print(token, end="", flush=True)
 
@@ -185,14 +191,21 @@ if __name__ == "__main__":
         query, search_params = parse_query(query)
 
         # Get response from bot
-        result = bot(
-            {
-                "question": query,
-                "chat_history": chat_history,
-                "search_params": search_params,
-                # "search_params": {"where_document": {"$contains": "some text"}},
-            }
-        )
+        try:
+            result = bot(
+                {
+                    "question": query,
+                    "chat_history": chat_history,
+                    "search_params": search_params,
+                    # "search_params": {"where_document": {"$contains": "some text"}},
+                }
+            )
+        except Exception as e:
+            print("<Apologies, an error has occurred>")
+            print("ERROR:", e)
+            print(DELIMITER)
+            continue
+
         reply = result["answer"]
 
         # Print reply

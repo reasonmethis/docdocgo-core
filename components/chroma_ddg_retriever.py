@@ -106,7 +106,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
                 if (k := i + 1) > self.k_max:
                     break
 
-                # Find score_threshold we were to have i+1 docs
+                # Find score_threshold if we were to have i+1 docs
                 score_threshold_if_stop = lin_interpolate(
                     k,
                     self.k_min,
