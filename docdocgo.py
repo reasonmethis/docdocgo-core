@@ -18,7 +18,6 @@ from utils.helpers import DELIMITER, INTRO_ASCII_ART, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
-from utils import docgrab
 
 VERBOSE = False
 
@@ -211,11 +210,13 @@ if __name__ == "__main__":
         # Update chat history
         chat_history.append((query, reply))
 
-        print(f"Standalone query: {result['generated_question']}")
-        print(DELIMITER)
-
         # Get sources
         source_links = get_source_links(result)
         print("Sources:")
         print(*source_links, sep="\n")
         print(DELIMITER)
+
+        # Print standalone query if needed
+        if os.getenv("PRINT_STANDALONE_QUERY"):
+            print(f"Standalone query: {result['generated_question']}")
+            print(DELIMITER)

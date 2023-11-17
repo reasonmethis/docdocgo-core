@@ -10,7 +10,7 @@ from langchain.docstore.document import Document
 from langchain.vectorstores.base import VectorStoreRetriever
 from chromadb.api.types import Where, WhereDocument
 
-from utils.helpers import lin_interpolate
+from utils.helpers import lin_interpolate, DELIMITER
 
 
 class ChromaDDGRetriever(VectorStoreRetriever):
@@ -27,16 +27,16 @@ class ChromaDDGRetriever(VectorStoreRetriever):
     `where_document` parameters in its `similarity_search`-type methods.
     """
 
-    k_overshot = 20 # number of docs to return initially (prune later)
-    score_threshold_overshot = 0.0 # score threshold to use initially (prune later)
-    k_min = 2 # min number of docs to return after pruning
-    score_threshold_min = 0.61 # use k_min if score of k_min'th doc is <= this
-    k_max = 10 # max number of docs to return after pruning
-    score_threshold_max = 0.76 # use k_max if score of k_max'th doc is >= this
+    k_overshot = 20  # number of docs to return initially (prune later)
+    score_threshold_overshot = 0.0  # score threshold to use initially (prune later)
+    k_min = 2  # min number of docs to return after pruning
+    score_threshold_min = 0.61  # use k_min if score of k_min'th doc is <= this
+    k_max = 10  # max number of docs to return after pruning
+    score_threshold_max = 0.76  # use k_max if score of k_max'th doc is >= this
 
     # get_relent_documents() must return only docs, but we'll save scores here
     similarities: list = Field(default_factory=list)
-    
+
     allowed_search_types: ClassVar[tuple[str]] = (
         "similarity",
         "similarity_score_threshold",
@@ -95,7 +95,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
             )
 
             for doc, similarity in docs_and_similarities_overshot:
-                print(f"[SIMILARITY: {similarity:.2f}] {doc.page_content[:60]}")
+                print(f"[SIMILARITY: {similarity:.2f}] {repr(doc.page_content[:60])}")
             print(f"Before paring down: {len(docs_and_similarities_overshot)} docs.")
 
             # Now, pare down the results
@@ -130,8 +130,9 @@ class ChromaDDGRetriever(VectorStoreRetriever):
         print(f"After paring down: {len(docs)} docs.")
         if docs:
             print(
-                f"Similarities from {self.similarities[-1]:.2f} to {self.similarities[0]:.2f}\n"
+                f"Similarities from {self.similarities[-1]:.2f} to {self.similarities[0]:.2f}"
             )
+        print(DELIMITER)
         return docs
 
     async def _aget_relevant_documents(
