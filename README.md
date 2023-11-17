@@ -81,7 +81,11 @@ If this happens you will need to install the Microsoft C++ Build Tools. You can 
 cp .env.example .env
 ```
 
+At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are.
+
 ## Ingesting Documents
+
+> You can skip this section if you just want to quickly try out the bot - the repo comes with a default database, obtained by ingesting this very README.
 
 To ingest your documents and use them when chatting with the bot, follow the steps below.
 
