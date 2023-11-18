@@ -15,7 +15,10 @@ from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
 from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
-from utils.helpers import DELIMITER, INTRO_ASCII_ART, parse_query
+from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
+from utils.helpers import DELIMITER, INTRO_ASCII_ART
+from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID
+from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
@@ -36,6 +39,23 @@ class CallbackHandlerDDG(BaseCallbackHandler):
 
     def on_retry(self, *args, **kwargs):
         print(f"ON_RETRY: \nargs = {args}\nkwargs = {kwargs}")
+
+
+def get_bot_response(message, chat_history, search_params, command_id):
+    if command_id == DETAILS_COMMAND_ID:  # /details command
+        bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
+    elif command_id == QUOTES_COMMAND_ID:  # /quotes command
+        bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
+    else:
+        bot = create_bot(vectorstore)
+
+    return bot(
+        {
+            "question": message,
+            "chat_history": chat_history,
+            "search_params": search_params,
+        }
+    )
 
 
 def get_source_links(result_from_conv_retr_chain):
@@ -133,7 +153,6 @@ def create_bot(
 
 print(INTRO_ASCII_ART + "\n\n")
 
-# Check that the necessary environment variables are set
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
@@ -144,15 +163,19 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
-if not os.getenv("OPENAI_API_KEY"):
+# Check that the necessary environment variables are set
+if (IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME)) or (
+    not IS_AZURE and not os.getenv("OPENAI_API_KEY")
+):
     print("Please set the environment variables in .env, as shown in .env.example.")
     sys.exit()
 
 # Verify the validity of the db path
-if not VECTORDB_DIR or not os.path.exists(VECTORDB_DIR):
+if not VECTORDB_DIR or not os.path.isdir(VECTORDB_DIR):
     print(
         "You have not specified a valid directory for the vector database. "
-        'If you have not created one yet, please do so by running "python ingest_confluence.py", '
+        "If you have not created one yet, please do so by ingesting your "
+        "documents, as described in the README. If you have already done so,"
         "then set the VECTORDB_DIR environment variable to the vector database directory."
     )
     sys.exit()
@@ -165,11 +188,7 @@ vectorstore = ChromaDDG(
 print("Done!")
 
 if __name__ == "__main__":
-    TWO_BOTS = os.getenv("TWO_BOTS", False)
-
-    bot = create_bot(vectorstore)
-    if TWO_BOTS:
-        bot2 = create_bot(vectorstore)  # can put some other params here
+    TWO_BOTS = False # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
     print()
@@ -190,19 +209,13 @@ if __name__ == "__main__":
                 break
         print()
 
-        # Parse the query to extract search params, if any
+        # Parse the query to extract command id & search params, if any
+        query, command_id = extract_command_id_from_query(query)
         query, search_params = parse_query(query)
 
         # Get response from bot
         try:
-            result = bot(
-                {
-                    "question": query,
-                    "chat_history": chat_history,
-                    "search_params": search_params,
-                    # "search_params": {"where_document": {"$contains": "some text"}},
-                }
-            )
+            result = get_bot_response(query, chat_history, search_params, command_id)
         except Exception as e:
             print("<Apologies, an error has occurred>")
             print("ERROR:", e)
@@ -216,12 +229,12 @@ if __name__ == "__main__":
         print()
         print(DELIMITER)
 
-        if TWO_BOTS:
-            result2 = bot2({"question": query, "chat_history": chat_history})
-            reply2 = result2["answer"]
-            print()
-            print(f"AI2: {reply2}")
-            print(DELIMITER)
+        # if TWO_BOTS:
+        #     result2 = bot2({"question": query, "chat_history": chat_history})
+        #     reply2 = result2["answer"]
+        #     print()
+        #     print(f"AI2: {reply2}")
+        #     print(DELIMITER)
 
         # Update chat history
         chat_history.append((query, reply))

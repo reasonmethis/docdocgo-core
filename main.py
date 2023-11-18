@@ -5,9 +5,8 @@ import json
 from flask import Flask, jsonify, request
 
 from utils.type_utils import JSONish, PairwiseChatHistory
-from docdocgo import vectorstore, create_bot, get_source_links
+from docdocgo import get_bot_response, get_source_links
 from utils.helpers import DELIMITER, parse_query
-from utils.prompts import QA_PROMPT_SUMMARIZE_KB, QA_PROMPT_QUOTES
 
 app = Flask(__name__)
 
@@ -88,20 +87,7 @@ def chat():
             return jsonify(prev_outputs[username])
 
         # Initialize the chain with the right settings and get the bot's response
-        if command_id == 2:  # /details command
-            bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
-        elif command_id == 3:  # /quotes command
-            bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
-        else:
-            bot = create_bot(vectorstore)
-
-        result = bot(
-            {
-                "question": message,
-                "chat_history": chat_history,
-                "search_params": search_params,
-            }
-        )
+        result = get_bot_response(message, chat_history, search_params, command_id)
 
         # Get the reply and sources from the bot's response
         reply = result["answer"]
@@ -116,7 +102,7 @@ def chat():
         return jsonify(prev_outputs[username])
 
     # Print and return the response
-    print() # ("AI:", reply) - no need, we are streaming to stdout now
+    print()  # ("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
     print("Sources:")
     print("\n".join(source_links))

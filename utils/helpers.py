@@ -3,6 +3,10 @@ import json
 import re
 from datetime import datetime
 
+DEFAULT_COMMAND_ID = 1
+DETAILS_COMMAND_ID = 2
+QUOTES_COMMAND_ID = 3
+
 DELIMITER = "-" * 94 + "\n"
 INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
@@ -23,6 +27,21 @@ def lin_interpolate(x, x_min, x_max, y_min, y_max):
 def clamp(value, min_value, max_value):
     """Clamps value between min_value and max_value"""
     return max(min_value, min(value, max_value))
+
+
+command_ids = {
+    "/details": DETAILS_COMMAND_ID,
+    "/quotes": QUOTES_COMMAND_ID,
+}
+
+
+def extract_command_id_from_query(query: str) -> tuple[str, int]:
+    """Extracts the command ID from the query, if any"""
+    command = query.split(" ")[0]
+    try:
+        return query[len(command) + 1 :], command_ids[command]
+    except KeyError:
+        return query, DEFAULT_COMMAND_ID
 
 
 def parse_query(query: str, mode="normal"):
@@ -77,6 +96,7 @@ def parse_query(query: str, mode="normal"):
         return query, {"where_document": filters[0]}
 
     return query, {"where_document": {"$and": filters}}
+
 
 def utc_timestamp_int() -> int:
     """Returns the current UTC timestamp as an integer (seconds since epoch)"""
