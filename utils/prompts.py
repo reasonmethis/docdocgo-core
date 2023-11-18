@@ -29,9 +29,7 @@ END OF CONVERSATION HISTORY
 User's current message: {question}
 Your response: """
 
-QA_PROMPT_CHAT = PromptTemplate(
-    template=qa_template_chat, input_variables=["context", "question", "chat_history"]
-)
+QA_PROMPT_CHAT = PromptTemplate.from_template(qa_template_chat)
 
 qa_template_summarize_kb = """You are a helpful Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
 
@@ -46,9 +44,7 @@ YOUR TASK: present the retrieved parts in a digestible way:
 2. The full presentation must have section headings in bold. For this part, completely ignore user's query.
 
 YOUR RESPONSE: """
-QA_PROMPT_SUMMARIZE_KB = PromptTemplate(
-    template=qa_template_summarize_kb, input_variables=["context", "question"]
-)
+QA_PROMPT_SUMMARIZE_KB = PromptTemplate.from_template(qa_template_summarize_kb)
 
 qa_template_quotes = """You are a helpful Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
 
@@ -60,6 +56,4 @@ USER'S QUERY: {question}
 
 YOUR TASK: print any quotes from your knowledge base relevant to user's query, if there are any.
 YOUR RESPONSE: """
-QA_PROMPT_QUOTES = PromptTemplate(
-    template=qa_template_quotes, input_variables=["context", "question"]
-)
+QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)

@@ -27,6 +27,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
     `where_document` parameters in its `similarity_search`-type methods.
     """
 
+    verbose: bool = False  # print similarity scores and other info
     k_overshot = 20  # number of docs to return initially (prune later)
     score_threshold_overshot = 0.0  # score threshold to use initially (prune later)
     k_min = 2  # min number of docs to return after pruning
@@ -34,7 +35,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
     k_max = 10  # max number of docs to return after pruning
     score_threshold_max = 0.76  # use k_max if score of k_max'th doc is >= this
 
-    # get_relent_documents() must return only docs, but we'll save scores here
+    # get_relevant_documents() must return only docs, but we'll save scores here
     similarities: list = Field(default_factory=list)
 
     allowed_search_types: ClassVar[tuple[str]] = (
@@ -94,9 +95,12 @@ class ChromaDDGRetriever(VectorStoreRetriever):
                 )
             )
 
-            for doc, similarity in docs_and_similarities_overshot:
-                print(f"[SIMILARITY: {similarity:.2f}] {repr(doc.page_content[:60])}")
-            print(f"Before paring down: {len(docs_and_similarities_overshot)} docs.")
+            if self.verbose:
+                for doc, sim in docs_and_similarities_overshot:
+                    print(f"[SIMILARITY: {sim:.2f}] {repr(doc.page_content[:60])}")
+                print(
+                    f"Before paring down: {len(docs_and_similarities_overshot)} docs."
+                )
 
             # Now, pare down the results
             docs = []
@@ -127,12 +131,13 @@ class ChromaDDGRetriever(VectorStoreRetriever):
         else:
             raise ValueError(f"search_type of {self.search_type} not allowed.")
 
-        print(f"After paring down: {len(docs)} docs.")
-        if docs:
-            print(
-                f"Similarities from {self.similarities[-1]:.2f} to {self.similarities[0]:.2f}"
-            )
-        print(DELIMITER)
+        if self.verbose:
+            print(f"After paring down: {len(docs)} docs.")
+            if docs:
+                print(
+                    f"Similarities from {self.similarities[-1]:.2f} to {self.similarities[0]:.2f}"
+                )
+            print(DELIMITER)
         return docs
 
     async def _aget_relevant_documents(

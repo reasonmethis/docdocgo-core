@@ -19,6 +19,7 @@ from langchain.schema import BaseRetriever, Document
 from langchain.schema.messages import BaseMessage
 
 from utils.type_utils import JSONish, PairwiseChatHistory
+from utils.helpers import DELIMITER
 from utils import lang_utils
 
 
@@ -26,7 +27,10 @@ class ChatWithDocsChain(Chain):
     """
     Chain for chatting with documents using a retriever. This class incorporates
     both the chat history and the retrieved documents into the final prompt and
-    limits the number of tokens in both to stay within the specified limits.
+    limits the number of tokens in both to stay within the specified limits. It
+    dynamically adjusts the number of documents to keep based on their relevance
+    scores, and then correspondingly adjusts the number of chat history messages
+    (shortening the first message pair if necessary). 
 
     Attributes:
         combine_docs_chain (BaseCombineDocumentsChain): The chain used to
@@ -57,6 +61,7 @@ class ChatWithDocsChain(Chain):
     combine_docs_chain: BaseCombineDocumentsChain
     question_generator: LLMChain
     retriever: BaseRetriever
+
     max_tokens_limit_rephrase: int = 2000
     max_tokens_limit_qa: int = 3000  # docs + chat (no prompt); must leave room for ans
     max_tokens_limit_chat: int = 1000
@@ -214,6 +219,7 @@ class ChatWithDocsChain(Chain):
         # Submit limited docs and chat history to the chat/qa chain
         new_inputs = inputs.copy()
         new_inputs["chat_history"] = _get_chat_history_str(chat_history_for_qa)
+
         answer = self.combine_docs_chain.run(
             input_documents=docs, callbacks=_run_manager.get_child(), **new_inputs
         )

@@ -20,8 +20,6 @@ from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 
-VERBOSE = False
-
 # Change the working directory in all files to the root of the project
 script_directory = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_directory)
@@ -94,16 +92,19 @@ def create_bot(
 
         # Initialize chain for answering queries based on provided doc snippets
         load_chain = load_qa_with_sources_chain if use_sources else load_qa_chain
+        PRINT_QA_PROMPT = bool(os.getenv("PRINT_QA_PROMPT"))
         combine_docs_chain = (
-            load_chain(llm, prompt=prompt_qa, verbose=VERBOSE)
+            load_chain(llm, prompt=prompt_qa, verbose=PRINT_QA_PROMPT)
             if prompt_qa
-            else load_chain(llm, verbose=VERBOSE)  # use default Langchain prompt
+            else load_chain(llm, verbose=PRINT_QA_PROMPT)
         )
 
         # Initialize retriever from the provided vectorstore
         if isinstance(vectorstore, ChromaDDG):
             retriever = ChromaDDGRetriever(
-                vectorstore=vectorstore, search_type="similarity_ddg"
+                vectorstore=vectorstore,
+                search_type="similarity_ddg",
+                verbose=bool(os.getenv("PRINT_SIMILARITIES")),
             )
         else:
             retriever = VectorStoreRetriever(vectorstore=vectorstore)
@@ -115,7 +116,9 @@ def create_bot(
         # Initialize full chain: question generation + doc retrieval + answer generation
         bot = ChatWithDocsChain(
             question_generator=LLMChain(
-                llm=llm_condense, prompt=CONDENSE_QUESTION_PROMPT, verbose=VERBOSE
+                llm=llm_condense,
+                prompt=CONDENSE_QUESTION_PROMPT,
+                verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
             ),
             retriever=retriever,
             combine_docs_chain=combine_docs_chain,
