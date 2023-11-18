@@ -8,6 +8,7 @@
 - [Ingesting Documents](#ingesting-documents)
 - [Running the Bot](#running-the-bot)
 - [Running the Containerized Application](#running-the-containerized-application)
+- [Advanced Usage](#advanced-usage)
 
 ## Introduction
 
@@ -17,8 +18,8 @@ There are several well-developed commercial applications allowing you to chat wi
 
 Features:
 
-- it provides several response modes ("chat", "detailed report", "quotes")
-- it allows to query simultaneously based on semantics and on substrings in documents
+- it provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes")
+- it allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
 - it uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
 - it provides links to source documents
 - it has been tuned to be resilient to "jail-breaking" it (by contrast, some other applications allow you to access their "internals")
@@ -174,3 +175,28 @@ docker rm -f docdocgo
 ```
 
 After that, follow the above steps to rebuild the container and restart the service.
+
+## Advanced Usage
+
+### Response Modes
+
+DocDocGo has several response modes. The default mode is "chat", which is the mode that most closely resembles a typical chatbot. The other modes are "detailed report" and "quotes".
+
+- Default Mode - regular conversation mode.
+- Detailed Report Mode - generate a detailed report that summarizes all of the information retrieved in response to the query.
+- Quotes Mode - generate a list of quotes from the documents retrieved in response to the query.
+
+To select a different mode, start your message with the corresponding slash command:
+
+- `/details` - detailed report mode
+- `/quotes` - quotes mode
+
+### Querying based on substrings
+
+DocDocGo allows you to query your documents simultaneously based on the meaning of your query and on keywords (or any substrings) in the documents. To do this, simply include the substrings in your query, enclosed in quotes. For example, if your message is:
+
+```markdown
+When is "Christopher" scheduled to attend the conference?
+```
+
+DocDocGo will only consider document chunks that contain the substring "Christopher" when answering your query.
