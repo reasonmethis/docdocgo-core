@@ -21,13 +21,12 @@ qa_template_chat = """You are a helpful Assistant AI who has been equipped with 
 {context}
 
 END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
-Please use them for your response, if relevant.
-Here are the most recent messages from your conversation with user:
-{chat_history}
+Use them for your response ONLY if relevant.
 
-END OF CONVERSATION HISTORY
-User's current message: {question}
-Your response: """
+CURRENT CHAT HISTORY:
+{chat_history}
+Human: {question}
+AI: """
 
 QA_PROMPT_CHAT = PromptTemplate.from_template(qa_template_chat)
 
