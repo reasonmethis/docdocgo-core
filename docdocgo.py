@@ -2,6 +2,9 @@ from typing import Any
 
 import sys
 import os
+import json
+
+from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
@@ -13,11 +16,13 @@ from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
+from langchain.schema.output_parser import StrOutputParser
+
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
-from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
+from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT, WEBSEARCHER_PROMPT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import DELIMITER, INTRO_ASCII_ART
-from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID
+from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, GOOGLE_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
@@ -46,6 +51,8 @@ def get_bot_response(message, chat_history, search_params, command_id):
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
+    elif command_id == GOOGLE_COMMAND_ID:  # /google command
+        return get_websearcher_response(message)
     else:
         bot = create_bot(vectorstore)
 
@@ -71,6 +78,41 @@ def get_source_links(result_from_conv_retr_chain):
     return list(dict.fromkeys(source_links_with_duplicates))
 
 
+def get_llm(temperature=None, print_streamed=False):
+    """Returns an LLM instance (either AzureChatOpenAI or ChatOpenAI, depending
+    on the value of IS_AZURE)"""
+    if temperature is None:
+        temperature = TEMPERATURE
+    callbacks = [CallbackHandlerDDG()] if print_streamed else []
+    if IS_AZURE:
+        llm = AzureChatOpenAI(
+            deployment_name=CHAT_DEPLOYMENT_NAME,
+            temperature=temperature,
+            request_timeout=LLM_REQUEST_TIMEOUT,
+            streaming=True,
+            callbacks=callbacks,
+        )
+    else:
+        llm = ChatOpenAI(
+            model=MODEL_NAME,
+            temperature=temperature,
+            request_timeout=LLM_REQUEST_TIMEOUT,
+            streaming=True,
+            callbacks=callbacks,
+        )
+    return llm
+
+
+def get_websearcher_response(message: str):
+    search = GoogleSerperAPIWrapper()
+    search_results = search.results(message)
+    json_results = json.dumps(search_results, indent=4)
+
+    chain = WEBSEARCHER_PROMPT | get_llm(print_streamed=True) | StrOutputParser()
+    answer = chain.invoke({"results": json_results, "query": message})
+    return {"answer": answer}
+
+
 def create_bot(
     vectorstore: VectorStore,  # NOTE in our case, this is a ChromaDDG vectorstore
     prompt_qa=QA_PROMPT_CHAT,
@@ -81,34 +123,10 @@ def create_bot(
     if temperature is None:
         temperature = TEMPERATURE
     try:
-        if IS_AZURE:
-            llm = AzureChatOpenAI(
-                deployment_name=CHAT_DEPLOYMENT_NAME,
-                temperature=temperature,
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-                callbacks=[CallbackHandlerDDG()],
-            )  # main llm
-            llm_condense = AzureChatOpenAI(
-                deployment_name=CHAT_DEPLOYMENT_NAME,
-                temperature=0,  # 0 to have reliable rephrasing
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-            )  # condense query
-        else:
-            llm = ChatOpenAI(
-                model=MODEL_NAME,
-                temperature=temperature,
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-                callbacks=[CallbackHandlerDDG()],
-            )  # main llm
-            llm_condense = ChatOpenAI(
-                model=MODEL_NAME,
-                temperature=0,  # 0 to have reliable rephrasing
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-            )  # condense query
+        llm = get_llm(print_streamed=True)  # main llm
+        llm_condense = get_llm(
+            temperature=0
+        )  # condense query (0 to have reliable rephrasing)
 
         # Initialize chain for answering queries based on provided doc snippets
         load_chain = load_qa_with_sources_chain if use_sources else load_qa_chain
@@ -188,7 +206,7 @@ vectorstore = ChromaDDG(
 print("Done!")
 
 if __name__ == "__main__":
-    TWO_BOTS = False # os.getenv("TWO_BOTS", False) # disabled for now
+    TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
     print()
@@ -222,7 +240,7 @@ if __name__ == "__main__":
             print(DELIMITER)
             continue
 
-        reply = result["answer"]
+        answer = result["answer"]
 
         # Print reply
         # print(f"AI: {reply}") - no need, it's streamed to stdout now
@@ -237,15 +255,16 @@ if __name__ == "__main__":
         #     print(DELIMITER)
 
         # Update chat history
-        chat_history.append((query, reply))
+        chat_history.append((query, answer))
 
         # Get sources
         source_links = get_source_links(result)
-        print("Sources:")
-        print(*source_links, sep="\n")
-        print(DELIMITER)
+        if source_links:
+            print("Sources:")
+            print(*source_links, sep="\n")
+            print(DELIMITER)
 
         # Print standalone query if needed
-        if os.getenv("PRINT_STANDALONE_QUERY"):
+        if os.getenv("PRINT_STANDALONE_QUERY") and "generated_question" in result:
             print(f"Standalone query: {result['generated_question']}")
             print(DELIMITER)

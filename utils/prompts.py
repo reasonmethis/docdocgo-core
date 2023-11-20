@@ -56,3 +56,14 @@ USER'S QUERY: {question}
 YOUR TASK: print any quotes from your knowledge base relevant to user's query, if there are any.
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
+
+websearcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
+
+RAW GOOGLE SEARCH RESULTS:
+
+{results}
+
+USER SEARCHED FOR: {query}
+
+YOUR RESPONSE: """
+WEBSEARCHER_PROMPT = PromptTemplate.from_template(websearcher_template)
