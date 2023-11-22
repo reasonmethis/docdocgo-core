@@ -1,25 +1,17 @@
-from typing import Any
-
 import sys
 import os
 import json
 
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
-
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
-
-from langchain.chat_models import ChatOpenAI, AzureChatOpenAI
-from langchain.callbacks.base import BaseCallbackHandler
 
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
-from langchain.schema.output_parser import StrOutputParser
-
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
-from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT, WEBSEARCHER_PROMPT
+from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE 
+from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import DELIMITER, INTRO_ASCII_ART
 from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, GOOGLE_COMMAND_ID
@@ -27,23 +19,12 @@ from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
+from components.llm import get_llm
+from agents.websearcher import get_websearcher_response
 
 # Change the working directory in all files to the root of the project
 script_directory = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_directory)
-
-
-class CallbackHandlerDDG(BaseCallbackHandler):
-    def on_llm_start(
-        self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
-    ) -> None:
-        print("BOT: ", end="", flush=True)
-
-    def on_llm_new_token(self, token, **kwargs) -> None:
-        print(token, end="", flush=True)
-
-    def on_retry(self, *args, **kwargs):
-        print(f"ON_RETRY: \nargs = {args}\nkwargs = {kwargs}")
 
 
 def get_bot_response(message, chat_history, search_params, command_id):
@@ -76,41 +57,6 @@ def get_source_links(result_from_conv_retr_chain):
 
     # Remove duplicates while keeping order
     return list(dict.fromkeys(source_links_with_duplicates))
-
-
-def get_llm(temperature=None, print_streamed=False):
-    """Returns an LLM instance (either AzureChatOpenAI or ChatOpenAI, depending
-    on the value of IS_AZURE)"""
-    if temperature is None:
-        temperature = TEMPERATURE
-    callbacks = [CallbackHandlerDDG()] if print_streamed else []
-    if IS_AZURE:
-        llm = AzureChatOpenAI(
-            deployment_name=CHAT_DEPLOYMENT_NAME,
-            temperature=temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
-            streaming=True,
-            callbacks=callbacks,
-        )
-    else:
-        llm = ChatOpenAI(
-            model=MODEL_NAME,
-            temperature=temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
-            streaming=True,
-            callbacks=callbacks,
-        )
-    return llm
-
-
-def get_websearcher_response(message: str):
-    search = GoogleSerperAPIWrapper()
-    search_results = search.results(message)
-    json_results = json.dumps(search_results, indent=4)
-
-    chain = WEBSEARCHER_PROMPT | get_llm(print_streamed=True) | StrOutputParser()
-    answer = chain.invoke({"results": json_results, "query": message})
-    return {"answer": answer}
 
 
 def create_bot(
@@ -171,32 +117,7 @@ def create_bot(
 
 print(INTRO_ASCII_ART + "\n\n")
 
-IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
-EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
-CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
-
-VECTORDB_DIR = os.getenv("VECTORDB_DIR")
-
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
-TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
-LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
-
-# Check that the necessary environment variables are set
-if (IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME)) or (
-    not IS_AZURE and not os.getenv("OPENAI_API_KEY")
-):
-    print("Please set the environment variables in .env, as shown in .env.example.")
-    sys.exit()
-
-# Verify the validity of the db path
-if not VECTORDB_DIR or not os.path.isdir(VECTORDB_DIR):
-    print(
-        "You have not specified a valid directory for the vector database. "
-        "If you have not created one yet, please do so by ingesting your "
-        "documents, as described in the README. If you have already done so,"
-        "then set the VECTORDB_DIR environment variable to the vector database directory."
-    )
-    sys.exit()
+validate_settings()
 
 # Load the vector database
 print("Loading the vector database of your documents... ", end="", flush=True)

@@ -173,7 +173,7 @@ def shorten_msg(text: str, fraction_to_remove: float) -> str:
     The actual goal is to shorten the token count, but we use words as a proxy,
     by splitting on spaces.
     """
-    words = text.split(" ") # NOTE could use RecursiveCharacterTextSplitter
+    words = text.split(" ")  # NOTE could use RecursiveCharacterTextSplitter
     num_words_to_keep = int(len(words) * (1 - fraction_to_remove))
     if num_words_to_keep < 4:
         return "..."
