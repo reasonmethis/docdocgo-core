@@ -14,22 +14,20 @@
 
 DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
-There are several well-developed commercial applications allowing you to chat with your data (e.g. [Inkeep](https://inkeep.com/), [Mendable](https://www.mendable.ai/)). DocDocGo is a much smaller project, however, as of the time of writing, some of its features below appear to be unique to it.
+## Features
 
-Features:
-
-- it provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes")
-- it allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
-- it uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
-- it provides links to source documents
-- it has been tuned to be resilient to "jail-breaking" it (by contrast, some other applications allow you to access their "internals")
+- Provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes")
+- Allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
+- Uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
+- Provides links to source documents
+- Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
 
 For reference, the commercial version of DocDocGo (not available here) has these features:
 
-- it is integrated with a Google Chat App
-- it interacts with the client company's Confluence documentation
-- it offers the ability to provide feedback on the quality of its responses
-- it has a database for conversations and feedback and allowed to resume the conversation
+- It is integrated with a Google Chat App
+- Interacts with the client company's Confluence documentation
+- Offers the ability to provide feedback on the quality of its responses
+- Has a database for conversations and feedback and allows to resume the conversation
 
 ## Installation
 
@@ -178,7 +176,7 @@ After that, follow the above steps to rebuild the container and restart the serv
 
 ## Advanced Usage
 
-### Response Modes
+### Response modes
 
 DocDocGo has several response modes. The default mode is "chat", which is the mode that most closely resembles a typical chatbot. The other modes are "detailed report" and "quotes".
 
