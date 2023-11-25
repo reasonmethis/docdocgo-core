@@ -90,7 +90,7 @@ def create_vectorstore(docs, save_dir=None) -> ChromaDDG:
     )
 
     vectorstore = ChromaDDG.from_documents(docs, embeddings, persist_directory=save_dir)
-    print(f"Created vectorstore")
+    print("Created vectorstore")
     if save_dir:
         print(f"  - Saved to {save_dir}")
     return vectorstore
