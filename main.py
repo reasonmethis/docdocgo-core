@@ -45,7 +45,7 @@ def chat():
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
             print(f"Invalid API key: {api_key}")
-            return jsonify({"content": f"Invalid DocDocGo API key"})
+            return jsonify({"content": "Invalid DocDocGo API key"})
 
         # Parse the query to extract search params, if any
         message, search_params = parse_query(message)
