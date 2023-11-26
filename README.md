@@ -18,11 +18,11 @@ DocDocGo is a chatbot that can ingest documents you provide and use them in its 
 
 - Provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
 - Allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
-- Uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
+- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
 - Provides links to source documents
 - Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
 
-For reference, the commercial version of DocDocGo (not available here) has these features:
+For reference, DocDocGo Carbon (not available here) has these features:
 
 - It is integrated with a Google Chat App
 - Interacts with the client company's Confluence documentation
