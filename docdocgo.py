@@ -1,44 +1,29 @@
-from typing import Any
-
 import sys
 import os
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 
-from langchain.chat_models import ChatOpenAI, AzureChatOpenAI
-from langchain.callbacks.base import BaseCallbackHandler
-
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
+from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
 from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
-from utils.helpers import DELIMITER, INTRO_ASCII_ART
-from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID
+from utils.helpers import DELIMITER, INTRO_ASCII_ART, HINT_MESSAGE
+from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, GOOGLE_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
+from components.llm import get_llm
+from agents.websearcher import get_websearcher_response
 
 # Change the working directory in all files to the root of the project
 script_directory = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_directory)
-
-
-class CallbackHandlerDDG(BaseCallbackHandler):
-    def on_llm_start(
-        self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
-    ) -> None:
-        print("BOT: ", end="", flush=True)
-
-    def on_llm_new_token(self, token, **kwargs) -> None:
-        print(token, end="", flush=True)
-
-    def on_retry(self, *args, **kwargs):
-        print(f"ON_RETRY: \nargs = {args}\nkwargs = {kwargs}")
 
 
 def get_bot_response(message, chat_history, search_params, command_id):
@@ -46,6 +31,8 @@ def get_bot_response(message, chat_history, search_params, command_id):
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
+    elif command_id == GOOGLE_COMMAND_ID:  # /web command
+        return get_websearcher_response(message)
     else:
         bot = create_bot(vectorstore)
 
@@ -81,34 +68,10 @@ def create_bot(
     if temperature is None:
         temperature = TEMPERATURE
     try:
-        if IS_AZURE:
-            llm = AzureChatOpenAI(
-                deployment_name=CHAT_DEPLOYMENT_NAME,
-                temperature=temperature,
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-                callbacks=[CallbackHandlerDDG()],
-            )  # main llm
-            llm_condense = AzureChatOpenAI(
-                deployment_name=CHAT_DEPLOYMENT_NAME,
-                temperature=0,  # 0 to have reliable rephrasing
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-            )  # condense query
-        else:
-            llm = ChatOpenAI(
-                model=MODEL_NAME,
-                temperature=temperature,
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-                callbacks=[CallbackHandlerDDG()],
-            )  # main llm
-            llm_condense = ChatOpenAI(
-                model=MODEL_NAME,
-                temperature=0,  # 0 to have reliable rephrasing
-                request_timeout=LLM_REQUEST_TIMEOUT,
-                streaming=True,
-            )  # condense query
+        llm = get_llm(print_streamed=True)  # main llm
+        llm_condense = get_llm(
+            temperature=0
+        )  # condense query (0 to have reliable rephrasing)
 
         # Initialize chain for answering queries based on provided doc snippets
         load_chain = load_qa_with_sources_chain if use_sources else load_qa_chain
@@ -153,32 +116,7 @@ def create_bot(
 
 print(INTRO_ASCII_ART + "\n\n")
 
-IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
-EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
-CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
-
-VECTORDB_DIR = os.getenv("VECTORDB_DIR")
-
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
-TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
-LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
-
-# Check that the necessary environment variables are set
-if (IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME)) or (
-    not IS_AZURE and not os.getenv("OPENAI_API_KEY")
-):
-    print("Please set the environment variables in .env, as shown in .env.example.")
-    sys.exit()
-
-# Verify the validity of the db path
-if not VECTORDB_DIR or not os.path.isdir(VECTORDB_DIR):
-    print(
-        "You have not specified a valid directory for the vector database. "
-        "If you have not created one yet, please do so by ingesting your "
-        "documents, as described in the README. If you have already done so,"
-        "then set the VECTORDB_DIR environment variable to the vector database directory."
-    )
-    sys.exit()
+validate_settings()
 
 # Load the vector database
 print("Loading the vector database of your documents... ", end="", flush=True)
@@ -188,7 +126,7 @@ vectorstore = ChromaDDG(
 print("Done!")
 
 if __name__ == "__main__":
-    TWO_BOTS = False # os.getenv("TWO_BOTS", False) # disabled for now
+    TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
     print()
@@ -199,6 +137,8 @@ if __name__ == "__main__":
     chat_history = []
     while True:
         # Get query from user
+        if os.getenv("SHOW_HINTS", True):
+            print(HINT_MESSAGE)
         query = input("YOU: ")
         if query == "exit" or query == "quit":
             break
@@ -222,7 +162,7 @@ if __name__ == "__main__":
             print(DELIMITER)
             continue
 
-        reply = result["answer"]
+        answer = result["answer"]
 
         # Print reply
         # print(f"AI: {reply}") - no need, it's streamed to stdout now
@@ -237,15 +177,16 @@ if __name__ == "__main__":
         #     print(DELIMITER)
 
         # Update chat history
-        chat_history.append((query, reply))
+        chat_history.append((query, answer))
 
         # Get sources
         source_links = get_source_links(result)
-        print("Sources:")
-        print(*source_links, sep="\n")
-        print(DELIMITER)
+        if source_links:
+            print("Sources:")
+            print(*source_links, sep="\n")
+            print(DELIMITER)
 
         # Print standalone query if needed
-        if os.getenv("PRINT_STANDALONE_QUERY"):
+        if os.getenv("PRINT_STANDALONE_QUERY") and "generated_question" in result:
             print(f"Standalone query: {result['generated_question']}")
             print(DELIMITER)

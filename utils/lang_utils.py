@@ -173,7 +173,7 @@ def shorten_msg(text: str, fraction_to_remove: float) -> str:
     The actual goal is to shorten the token count, but we use words as a proxy,
     by splitting on spaces.
     """
-    words = text.split(" ") # NOTE could use RecursiveCharacterTextSplitter
+    words = text.split(" ")  # NOTE could use RecursiveCharacterTextSplitter
     num_words_to_keep = int(len(words) * (1 - fraction_to_remove))
     if num_words_to_keep < 4:
         return "..."
@@ -182,3 +182,58 @@ def shorten_msg(text: str, fraction_to_remove: float) -> str:
         + " ... "
         + " ".join(words[-(num_words_to_keep // 2 - 1) :])
     )
+
+
+def limit_tokens_in_text(
+    text: str,
+    max_tokens: int,
+    llm_for_token_counting: BaseLanguageModel | None = None,
+    slow_down_factor=1.0,  # 0 = quick but can undershoot significantly
+) -> str:
+    """
+    Limit the number of tokens in a text to the specified amount (or slightly less).
+    """
+    if llm_for_token_counting is None:
+        llm_for_token_counting = ChatOpenAI()
+
+    words = text.split(" ")
+    num_tokens = 0
+    at_most_words = len(words)
+
+    # Get the initial guess for the number of words to keep
+    for i, word in enumerate(words):
+        curr_num_tokens = llm_for_token_counting.get_num_tokens(word)
+        num_tokens += curr_num_tokens
+        if num_tokens > max_tokens:
+            at_most_words = i
+            break
+
+    # Keep reducing the number of words to keep until we're below the token limit
+    while True:
+        text = " ".join(words[:at_most_words])
+        true_num_tokens = llm_for_token_counting.get_num_tokens(text)
+        if true_num_tokens <= max_tokens:
+            return text, true_num_tokens
+        # Reduce the number of words to keep and try again
+        # print("true_num_tokens:", true_num_tokens)
+        # print("at_most_words:", at_most_words, end=" -> ")
+        at_most_words = int(
+            at_most_words
+            * (max_tokens / true_num_tokens + slow_down_factor)
+            / (1 + slow_down_factor)
+        )
+        # print(at_most_words)
+
+
+def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
+    """Get the number of tokens in a text."""
+    if llm_for_token_counting is None:
+        llm_for_token_counting = ChatOpenAI()
+    return llm_for_token_counting.get_num_tokens(text)
+
+
+# text = "What to eat in Russia?  10 Most Popular  Russian Desserts      Last update: Fri Nov 17 2023         shutterstock            VIEW MORE   View Russian Desserts List and Map (russia/Desserts)    10 Best Rated Russian Desserts (best-rated-desserts-in-russia)                   Show Map     Russian Desserts        View more        (most-popular-desserts-in-north-netherlands)    (most-popular-desserts-in-north-netherlands)  3 Most Popular  Northern Dutch Desserts   (most-popular-desserts-in-north-netherlands)     (50-best-rated-desserts-in-scandinavia)    (50-best-rated-desserts-in-scandinavia)  50 Best Rated  Scandinavian Desserts   (50-best-rated-desserts-in-scandinavia)     (best-rated-desserts-in-iraq)    (best-rated-desserts-in-iraq)  4 Best Rated  Iraqi Desserts   (best-rated-desserts-in-iraq)     (most-popular-desserts-in-eastern-india)    (most-popular-desserts-in-eastern-india)  10 Most Popular  Eastern Indian Desserts   (most-popular-desserts-in-eastern-india)     (most-popular-desserts-in-silesian-voivodeship)    (most-popular-desserts-in-silesian-voivodeship)  3 Most Popular  Silesian Desserts   (most-popular-desserts-in-silesian-voivodeship)     (most-popular-appetizers-in-russia)    (most-popular-appetizers-in-russia)  7 Most Popular  Russian Appetizers   (most-popular-appetizers-in-russia)     (best-rated-appetizers-in-russia)    (best-rated-appetizers-in-russia)  7 Best Rated  Russian Appetizers   (best-rated-appetizers-in-russia)     (worst-rated-salads-in-russia)    (worst-rated-salads-in-russia)  4 Worst Rated  Russian Salads   (worst-rated-salads-in-russia)     (worst-rated-pies-in-russia)    (worst-rated-pies-in-russia)  3 Worst Rated  Russian Pies   (worst-rated-pies-in-russia)     (worst-rated-desserts-in-russia)    (worst-rated-desserts-in-russia)  10 Worst Rated  Russian Desserts   (worst-rated-desserts-in-russia)"
+
+# llm_for_token_counting = ChatOpenAI()
+# text, num_tokens = limit_tokens_in_text(text, 0)
+# print("num tokens:", llm_for_token_counting.get_num_tokens(text), num_tokens)
