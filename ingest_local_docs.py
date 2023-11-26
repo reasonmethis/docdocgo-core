@@ -12,14 +12,21 @@ if __name__ == "__main__":
     SAVE_VECTORDB_DIR = os.getenv("SAVE_VECTORDB_DIR")
 
     if not DOCS_TO_INGEST_DIR_OR_FILE or not SAVE_VECTORDB_DIR:
-        print("Please set  DOCS_TO_INGEST_DIR_OR_FILE and SAVE_VECTORDB_DIR in `.env`.")
+        print("Please set DOCS_TO_INGEST_DIR_OR_FILE and SAVE_VECTORDB_DIR in `.env`.")
         sys.exit()
     if not os.path.exists(DOCS_TO_INGEST_DIR_OR_FILE):
         print(f"{DOCS_TO_INGEST_DIR_OR_FILE} does not exist.")
-        sys.exit()
     if not os.path.isdir(SAVE_VECTORDB_DIR):
         print(f"{SAVE_VECTORDB_DIR} is not an existing directory.")
-        sys.exit()
+        ans = input("Do you want to create it? [y/N] ")
+        if ans.lower() != "y":
+            sys.exit()
+        else:
+            try:
+                os.makedirs(SAVE_VECTORDB_DIR)
+            except Exception as e:
+                print(f"Could not create {SAVE_VECTORDB_DIR}: {e}")
+                sys.exit()    
     if not is_directory_empty(SAVE_VECTORDB_DIR):
         print(f"{SAVE_VECTORDB_DIR} is not empty. Please specify an empty directory.")
         sys.exit()

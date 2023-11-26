@@ -18,7 +18,7 @@ There are several well-developed commercial applications allowing you to chat wi
 
 Features:
 
-- it provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes")
+- it provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
 - it allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
 - it uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
 - it provides links to source documents
@@ -180,16 +180,20 @@ After that, follow the above steps to rebuild the container and restart the serv
 
 ### Response Modes
 
-DocDocGo has several response modes. The default mode is "chat", which is the mode that most closely resembles a typical chatbot. The other modes are "detailed report" and "quotes".
+DocDocGo has several response modes:
 
-- Default Mode - regular conversation mode.
+- Chat Mode - mode for a regular conversation about ingested documents or any other topic.
 - Detailed Report Mode - generate a detailed report that summarizes all of the information retrieved in response to the query.
 - Quotes Mode - generate a list of quotes from the documents retrieved in response to the query.
+- Web Research Mode - perform web research about your query and generate a report
 
-To select a different mode, start your message with the corresponding slash command:
+To select a mode, start your message with the corresponding slash command: `/chat`, `/details`, `/quotes`, `/web`. For example:
 
-- `/details` - detailed report mode
-- `/quotes` - quotes mode
+```markdown
+/details When is the conference?
+```
+
+If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `\chat`).
 
 ### Querying based on substrings
 
