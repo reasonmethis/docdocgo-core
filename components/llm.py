@@ -1,5 +1,6 @@
 from typing import Any
 
+from langchain.schema.output_parser import StrOutputParser
 from langchain.chat_models import ChatOpenAI, AzureChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
 
@@ -30,6 +31,13 @@ def get_llm(temperature=None, print_streamed=False):
             callbacks=callbacks,
         )
     return llm
+
+
+def get_llm_with_output_parser(temperature=None, print_streamed=False):
+    return (
+        get_llm(temperature=temperature, print_streamed=print_streamed)
+        | StrOutputParser()
+    )
 
 
 class CallbackHandlerDDG(BaseCallbackHandler):

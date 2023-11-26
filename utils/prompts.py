@@ -57,7 +57,7 @@ YOUR TASK: print any quotes from your knowledge base relevant to user's query, i
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
 
-websearcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
+simple_websearcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
 
 RAW GOOGLE SEARCH RESULTS:
 
@@ -66,4 +66,45 @@ RAW GOOGLE SEARCH RESULTS:
 USER SEARCHED FOR: {query}
 
 YOUR RESPONSE: """
+SIMPLE_WEBSEARCHER_PROMPT = PromptTemplate.from_template(simple_websearcher_template)
+
+websearcher_template0 = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
+
+{texts_str}
+
+END OF RETRIEVED INFO
+
+USER'S QUERY: {query}
+
+YOUR TASK: present the info in a digestible way:
+1. Start your report with TLDR section directly relevant to the user's query.
+2. Then write a LONG report detailing all the information, broken into sections. For this part, completely ignore user's query. Don't call this part "Report".
+
+YOUR RESPONSE: """
+
+websearcher_template = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
+
+{texts_str}
+
+END OF RETRIEVED INFO
+
+USER'S QUERY: {query}
+
+YOUR TASK: throw out irrelevant info and write a LONG well-crafted, well-formatted report to help the user and present the info in a digestible way.
+
+YOUR RESPONSE: """
 WEBSEARCHER_PROMPT = PromptTemplate.from_template(websearcher_template)
+
+if __name__ == "__main__":
+    # Here we can test the prompts
+    # NOTE: Run this file as "python -m utils.prompts"
+ 
+    from components.llm import get_llm_with_output_parser
+    from utils.test_content import query, content
+
+    prompts_to_test = [WEBSEARCHER_PROMPT]
+
+    for i, prompt in enumerate(prompts_to_test):
+        chain = prompt | get_llm_with_output_parser(temperature=0, print_streamed=True)
+        print("Prompt", i)
+        chain.invoke({"query": query, "texts_str": content})

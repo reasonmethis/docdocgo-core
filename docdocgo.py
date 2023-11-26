@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
@@ -10,7 +9,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
-from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE 
+from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
 from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import DELIMITER, INTRO_ASCII_ART
@@ -32,7 +31,7 @@ def get_bot_response(message, chat_history, search_params, command_id):
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
-    elif command_id == GOOGLE_COMMAND_ID:  # /google command
+    elif command_id == GOOGLE_COMMAND_ID:  # /web command
         return get_websearcher_response(message)
     else:
         bot = create_bot(vectorstore)

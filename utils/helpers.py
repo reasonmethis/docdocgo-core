@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime
 
-DELIMITER = "-" * 94 + "\n"
+DELIMITER = "-" * 90 + "\n"
 INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
  /)__)   /)__)   /)__)               WELCOME TO DOC DOC GO             /)__)   /)__)   /)__)
@@ -25,16 +25,20 @@ def clamp(value, min_value, max_value):
     return max(min_value, min(value, max_value))
 
 
-DEFAULT_COMMAND_ID = 1
+CHAT_COMMAND_ID = 1
 DETAILS_COMMAND_ID = 2
 QUOTES_COMMAND_ID = 3
 GOOGLE_COMMAND_ID = 4
 
 command_ids = {
+    "/chat": CHAT_COMMAND_ID,
     "/details": DETAILS_COMMAND_ID,
     "/quotes": QUOTES_COMMAND_ID,
-    "/google": GOOGLE_COMMAND_ID,
+    "/web": GOOGLE_COMMAND_ID,
 }
+
+DEFAULT_COMMAND_ID = command_ids[os.getenv("DEFAULT_COMMAND", "/chat")]
+
 
 def extract_command_id_from_query(query: str) -> tuple[str, int]:
     """Extracts the command ID from the query, if any"""
