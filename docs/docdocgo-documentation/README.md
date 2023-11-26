@@ -1,4 +1,3 @@
-
 # DocDocGo
 
 ## Table of Contents
@@ -96,9 +95,9 @@ Set the following values in the `.env` file:
 
 ```bash
 DOCS_TO_INGEST_DIR_OR_FILE="./docs-private/my-awesome-data"
-SAVE_VECTORDB_DIR="./dbs-private/my-awesome-data" 
+SAVE_VECTORDB_DIR="./dbs-private/my-awesome-data"
 
-VECTORDB_DIR="./dbs-private/my-awesome-data" 
+VECTORDB_DIR="./dbs-private/my-awesome-data"
 ```
 
 Feel free to use your own directory names. The `VECTORDB_DIR` value is not used for ingestion, it's the directory where the bot will look for the database when it's started.
