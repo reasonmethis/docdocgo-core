@@ -38,7 +38,7 @@ def get_websearcher_response(
         query for query in related_searches + people_also_ask if query != message
     ]
     queries = queries[:max_queries]
-    print("queries", queries)
+    print("queries:", queries)
 
     # Get links
     links = []
@@ -46,7 +46,7 @@ def get_websearcher_response(
     search_results = gather_tasks_sync(search_tasks)
     for search_result in search_results:
         links += [x["link"] for x in search_result["organic"]][:max_links_per_query]
-    print("links", links)
+    print("links:", links)
 
     # Get content from links, measuring time taken
     print("Fetching content from links...")

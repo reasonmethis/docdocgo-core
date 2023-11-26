@@ -37,7 +37,18 @@ command_ids = {
     "/web": GOOGLE_COMMAND_ID,
 }
 
-DEFAULT_COMMAND_ID = command_ids[os.getenv("DEFAULT_COMMAND", "/chat")]
+DEFAULT_MODE_ID = command_ids[os.getenv("DEFAULT_MODE", "/chat")]
+
+HINT_MESSAGE = (
+    f"Hints: "
+    f"Type a query to get started. You can also use the following prefixes:\n"
+    f"/chat: chat with the bot about your docs or anything else\n"
+    f"/details: get details about the retrieved documents\n"
+    f"/quotes: get quotes from the retrieved documents\n"
+    f"/web: perform web searches and generate a report\n\n"
+    f"Example: \"/web openai news\"\n"
+    f"{DELIMITER}"
+)
 
 
 def extract_command_id_from_query(query: str) -> tuple[str, int]:
@@ -46,7 +57,7 @@ def extract_command_id_from_query(query: str) -> tuple[str, int]:
     try:
         return query[len(command) + 1 :], command_ids[command]
     except KeyError:
-        return query, DEFAULT_COMMAND_ID
+        return query, DEFAULT_MODE_ID
 
 
 def parse_query(query: str, mode="normal"):

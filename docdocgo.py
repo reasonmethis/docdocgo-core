@@ -12,7 +12,7 @@ from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
 from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
-from utils.helpers import DELIMITER, INTRO_ASCII_ART
+from utils.helpers import DELIMITER, INTRO_ASCII_ART, HINT_MESSAGE
 from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, GOOGLE_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
@@ -137,6 +137,8 @@ if __name__ == "__main__":
     chat_history = []
     while True:
         # Get query from user
+        if os.getenv("SHOW_HINTS", True):
+            print(HINT_MESSAGE)
         query = input("YOU: ")
         if query == "exit" or query == "quit":
             break
