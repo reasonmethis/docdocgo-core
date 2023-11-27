@@ -12,7 +12,8 @@ from utils.web import (
     remove_failed_fetches,
     process_and_limit_texts,
     afetch_urls_in_parallel_html_loader,
-    afetch_urls_in_parallel_chromium,
+    afetch_urls_in_parallel_chromium_loader,
+    afetch_urls_in_parallel_playwright,
 )
 from components.llm import get_llm
 
@@ -78,17 +79,18 @@ def get_websearcher_response(
 
     # Get content from links, measuring time taken
     print("Fetching content from links...")
-    t_start = datetime.now()
+    # htmls = make_sync(afetch_urls_in_parallel_chromium_loader)(links)
+    htmls = make_sync(afetch_urls_in_parallel_playwright)(links, headless=False)
     # htmls = make_sync(afetch_urls_in_parallel_html_loader)(links)
-    htmls = make_sync(afetch_urls_in_parallel_chromium)(links)
     # htmls = fetch_urls_with_lc_html_loader(links) # takes ~20s, slow
-    # htmls = fetch_urls_with_lc_html_loader(links)
-    t_end = datetime.now()
 
+    t_start = datetime.now()
+    print("Processing content...")
     texts = [get_text_from_html(html) for html in htmls]
     ok_texts, ok_links = remove_failed_fetches(texts, links)
 
     processed_texts = process_and_limit_texts(ok_texts, max_tot_tokens=8000)
+    t_end = datetime.now()
     processed_texts = [
         f"SOURCE: {link}\nCONTENT:\n{text}\n====="
         for text, link in zip(processed_texts, ok_links)

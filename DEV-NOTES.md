@@ -35,3 +35,9 @@
 14. Add ability to (auto)update vector db
 15. Include current date/time in the prompt
 16. Use two different chunk sizes: search for small chunks, then small chunks point to larger chunks
+
+## Evaluations
+
+### Research tasks
+
+1. "extract main content from html"
