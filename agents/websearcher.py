@@ -11,7 +11,8 @@ from utils.web import (
     get_text_from_html,
     remove_failed_fetches,
     process_and_limit_texts,
-    fetch_urls_in_parallel_html_loader,
+    afetch_urls_in_parallel_html_loader,
+    afetch_urls_in_parallel_chromium,
 )
 from components.llm import get_llm
 
@@ -26,6 +27,32 @@ def get_simple_websearcher_response(message: str):
     chain = SIMPLE_WEBSEARCHER_PROMPT | get_llm(print_streamed=True) | StrOutputParser()
     answer = chain.invoke({"results": json_results, "query": message})
     return {"answer": answer}
+
+
+def get_related_websearch_queries(message: str):
+    search_results = search.results(message)
+    # print("search results:", json.dumps(search_results, indent=4))
+    related_searches = [x["query"] for x in search_results.get("relatedSearches", [])]
+    people_also_ask = [x["question"] for x in search_results.get("peopleAlsoAsk", [])]
+
+    return related_searches, people_also_ask
+
+
+def extract_domain(url: str):
+    try:
+        full_domain = url.split("://")[-1].split("/")[0]  # blah.blah.domain.com
+        return ".".join(full_domain.split(".")[-2:])  # domain.com
+    except:
+        return ""
+
+
+domain_blacklist = ["youtube.com"]
+
+
+def filter_links(links: list[str], max_links: int):
+    return [link for link in links if extract_domain(link) not in domain_blacklist][
+        :max_links
+    ]
 
 
 def get_websearcher_response(
@@ -45,13 +72,16 @@ def get_websearcher_response(
     search_tasks = [search.aresults(query) for query in queries]
     search_results = gather_tasks_sync(search_tasks)
     for search_result in search_results:
-        links += [x["link"] for x in search_result["organic"]][:max_links_per_query]
+        links_for_query = [x["link"] for x in search_result["organic"]]
+        links += filter_links(links_for_query, max_links_per_query)
     print("links:", links)
 
     # Get content from links, measuring time taken
     print("Fetching content from links...")
     t_start = datetime.now()
-    htmls = make_sync(fetch_urls_in_parallel_html_loader)(links)
+    # htmls = make_sync(afetch_urls_in_parallel_html_loader)(links)
+    htmls = make_sync(afetch_urls_in_parallel_chromium)(links)
+    # htmls = fetch_urls_with_lc_html_loader(links) # takes ~20s, slow
     # htmls = fetch_urls_with_lc_html_loader(links)
     t_end = datetime.now()
 
@@ -75,12 +105,3 @@ def get_websearcher_response(
     chain = WEBSEARCHER_PROMPT | get_llm(print_streamed=True) | StrOutputParser()
     answer = chain.invoke({"texts_str": texts_str, "query": message})
     return {"answer": answer}
-
-
-def get_related_websearch_queries(message: str):
-    search_results = search.results(message)
-    # print("search results:", json.dumps(search_results, indent=4))
-    related_searches = [x["query"] for x in search_results.get("relatedSearches", [])]
-    people_also_ask = [x["question"] for x in search_results.get("peopleAlsoAsk", [])]
-
-    return related_searches, people_also_ask

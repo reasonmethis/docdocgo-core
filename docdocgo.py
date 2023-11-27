@@ -1,5 +1,6 @@
 import sys
 import os
+import asyncio
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
@@ -20,10 +21,6 @@ from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm
 from agents.websearcher import get_websearcher_response
-
-# Change the working directory in all files to the root of the project
-script_directory = os.path.dirname(os.path.abspath(__file__))
-os.chdir(script_directory)
 
 
 def get_bot_response(message, chat_history, search_params, command_id):

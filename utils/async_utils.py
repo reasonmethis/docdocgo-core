@@ -1,33 +1,40 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+# TODO: consider using async_to_sync from asgiref.sync library
+
+
+def run_task_sync(task):
+    """
+    Run an asyncio task (more precisely, a coroutine object, such as the result of 
+    calling an async function) synchronously.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(task)  # no preexisting event loop, so run in the main thread
+        # TODO: consider a situation when there is a non-running loop
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(asyncio.run, task)
+        return future.result()
 
 
 def make_sync(async_func):
     """
     Make an asynchronous function synchronous.
     """
+
     def wrapper(*args, **kwargs):
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(async_func(*args, **kwargs))
+        return run_task_sync(async_func(*args, **kwargs))
+
     return wrapper
 
-# Other approaches:
-# asyncio.run(async_func(*args, **kwargs))
-#
-# from concurrent.futures import ThreadPoolExecutor
-#     with ThreadPoolExecutor() as executor:
-#         future = executor.submit(asyncio.run, async_func(*args, **kwargs))
-#         return future.result()
-
-
-def run_task_sync(task):
-    """
-    Run an asyncio task synchronously.
-    """
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(task)
 
 def gather_tasks_sync(tasks):
     """
     Run a list of asyncio tasks synchronously.
     """
-    return run_task_sync(asyncio.gather(*tasks))
+    async def coroutine_from_tasks():
+        return await asyncio.gather(*tasks)
+    return run_task_sync(coroutine_from_tasks())

@@ -1,21 +1,18 @@
 import asyncio
 import aiohttp
+
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from langchain.schema import Document
 from langchain.document_loaders import AsyncHtmlLoader, AsyncChromiumLoader
 from langchain.document_loaders.async_html import default_header_template
 from langchain.document_transformers import BeautifulSoupTransformer
+
 from utils.lang_utils import get_num_tokens, limit_tokens_in_text
-
-from utils.strings import (
-    limit_number_of_words,
-    remove_consecutive_blank_lines,
-    split_preserving_whitespace,
-)
+from utils.strings import remove_consecutive_blank_lines
 
 
-async def fetch_url_content(session: aiohttp.ClientSession, url: str):
+async def afetch_url_aiohttp(session: aiohttp.ClientSession, url: str):
     """
     Asynchronously fetch the content from a URL.
     """
@@ -27,35 +24,43 @@ async def fetch_url_content(session: aiohttp.ClientSession, url: str):
         return f"Error: {e}"
 
 
-async def fetch_urls_in_parallel(urls):
+async def afetch_urls_in_parallel_aiohttp(urls):
     """
     Asynchronously fetch multiple URLs in parallel. Return the HTML content of each URL.
     If there is an error in a particular URL, return the error message instead.
     """
     async with aiohttp.ClientSession() as session:
-        tasks = [fetch_url_content(session, url) for url in urls]
+        tasks = [afetch_url_aiohttp(session, url) for url in urls]
         html_contents = await asyncio.gather(*tasks)
 
     return html_contents
 
 
-async def fetch_urls_in_parallel_chromium(urls):
+MAX_PLAYWRIGHT_INSTANCES = 1
+
+
+async def afetch_urls_in_parallel_chromium(urls):
     """
     Asynchronously fetch multiple URLs in parallel using a headless instance of
     Chromium (with playwright). Return the HTML content of each URL.
     If there is an error in a particular URL, return the error message instead.
 
-    NOTE: Has several issues:
-    - It's slow, sometimes runs into 30s timeout
-    - Since it launches a new Chromium instance for each URL, may not scale well
+    Uses a semaphore to limit the number of concurrent playwright instances to 
+    MAX_PLAYWRIGHT_INSTANCES.
     """
+    semaphore = asyncio.Semaphore(MAX_PLAYWRIGHT_INSTANCES)
     loader = AsyncChromiumLoader([])
-    tasks = [loader.ascrape_playwright(url) for url in urls]
+
+    async def fetch_with_semaphore(url):
+        async with semaphore:
+            return await loader.ascrape_playwright(url)
+
+    tasks = [fetch_with_semaphore(url) for url in urls]
     htmls = await asyncio.gather(*tasks)
     return htmls
 
 
-async def fetch_urls_in_parallel_html_loader(urls):
+async def afetch_urls_in_parallel_html_loader(urls):
     """
     Asynchronously fetch multiple URLs in parallel using AsyncHtmlLoader.
     Return the HTML content of each URL.
