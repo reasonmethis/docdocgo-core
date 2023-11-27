@@ -4,13 +4,12 @@ import json
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain.schema.output_parser import StrOutputParser
 from utils.async_utils import gather_tasks_sync, make_sync
-from utils.lang_utils import get_num_tokens
+from utils.lang_utils import get_num_tokens, limit_tokens_in_texts
 
 from utils.prompts import SIMPLE_WEBSEARCHER_PROMPT, WEBSEARCHER_PROMPT
 from utils.web import (
     get_text_from_html,
     remove_failed_fetches,
-    process_and_limit_texts,
     afetch_urls_in_parallel_html_loader,
     afetch_urls_in_parallel_chromium_loader,
     afetch_urls_in_parallel_playwright,
@@ -89,7 +88,7 @@ def get_websearcher_response(
     texts = [get_text_from_html(html) for html in htmls]
     ok_texts, ok_links = remove_failed_fetches(texts, links)
 
-    processed_texts = process_and_limit_texts(ok_texts, max_tot_tokens=8000)
+    processed_texts = limit_tokens_in_texts(ok_texts, max_tot_tokens=8000)
     t_end = datetime.now()
     processed_texts = [
         f"SOURCE: {link}\nCONTENT:\n{text}\n====="

@@ -9,6 +9,13 @@ from utils.type_utils import PairwiseChatHistory
 load_dotenv()
 
 
+def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
+    """Get the number of tokens in a text."""
+    if llm_for_token_counting is None:
+        llm_for_token_counting = ChatOpenAI()
+    return llm_for_token_counting.get_num_tokens(text)
+
+
 def pairwise_chat_history_to_msg_list(
     chat_history: PairwiseChatHistory,
 ) -> list[BaseMessage]:
@@ -225,11 +232,49 @@ def limit_tokens_in_text(
         # print(at_most_words)
 
 
-def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
-    """Get the number of tokens in a text."""
-    if llm_for_token_counting is None:
-        llm_for_token_counting = ChatOpenAI()
-    return llm_for_token_counting.get_num_tokens(text)
+def limit_tokens_in_texts(texts: list[str], max_tot_tokens=8000):
+    token_counts = [get_num_tokens(text) for text in texts]
+    allowance_redistributed = [False] * len(texts)
+    allowance = max_tot_tokens // (len(texts) or 1)
+    while True:
+        # Calculate "unused allowance" we can "give" to other texts
+        unused_allowance = 0
+        num_texts_with_excess = 0
+        for i, (num_tokens, is_already_redistributed) in enumerate(
+            zip(token_counts, allowance_redistributed)
+        ):
+            if is_already_redistributed:
+                continue
+            if num_tokens > allowance:
+                num_texts_with_excess += 1
+            else:
+                unused_allowance += allowance - num_tokens
+                allowance_redistributed[i] = True  # or will be, once we inc allowance
+
+        # If no allowance to give, we're done
+        if (
+            num_texts_with_excess == 0
+            or (allowance_increment := unused_allowance // num_texts_with_excess) == 0
+        ):
+            break
+
+        # Distribute unused allowance and recalculate
+        # print("num_texts_with_excess:", num_texts_with_excess)
+        # print("allowance", allowance, end=" -> ")
+        allowance += allowance_increment
+        # print(allowance)
+
+    new_texts = []
+    # print("process_and_limit_text: allowance:", allowance)
+    for text, token_count in zip(texts, token_counts):
+        # print("process_and_limit_text: text:", text[:100])
+        # print("process_and_limit_text: token_count:", token_count)
+        if token_count > allowance:
+            # Limit tokens in text
+            text, num_tokens = limit_tokens_in_text(text, max_tokens=allowance)
+        # print("process_and_limit_text: token count after limiting:", num_tokens)
+        new_texts.append(text)
+    return new_texts
 
 
 # text = "What to eat in Russia?  10 Most Popular  Russian Desserts      Last update: Fri Nov 17 2023         shutterstock            VIEW MORE   View Russian Desserts List and Map (russia/Desserts)    10 Best Rated Russian Desserts (best-rated-desserts-in-russia)                   Show Map     Russian Desserts        View more        (most-popular-desserts-in-north-netherlands)    (most-popular-desserts-in-north-netherlands)  3 Most Popular  Northern Dutch Desserts   (most-popular-desserts-in-north-netherlands)     (50-best-rated-desserts-in-scandinavia)    (50-best-rated-desserts-in-scandinavia)  50 Best Rated  Scandinavian Desserts   (50-best-rated-desserts-in-scandinavia)     (best-rated-desserts-in-iraq)    (best-rated-desserts-in-iraq)  4 Best Rated  Iraqi Desserts   (best-rated-desserts-in-iraq)     (most-popular-desserts-in-eastern-india)    (most-popular-desserts-in-eastern-india)  10 Most Popular  Eastern Indian Desserts   (most-popular-desserts-in-eastern-india)     (most-popular-desserts-in-silesian-voivodeship)    (most-popular-desserts-in-silesian-voivodeship)  3 Most Popular  Silesian Desserts   (most-popular-desserts-in-silesian-voivodeship)     (most-popular-appetizers-in-russia)    (most-popular-appetizers-in-russia)  7 Most Popular  Russian Appetizers   (most-popular-appetizers-in-russia)     (best-rated-appetizers-in-russia)    (best-rated-appetizers-in-russia)  7 Best Rated  Russian Appetizers   (best-rated-appetizers-in-russia)     (worst-rated-salads-in-russia)    (worst-rated-salads-in-russia)  4 Worst Rated  Russian Salads   (worst-rated-salads-in-russia)     (worst-rated-pies-in-russia)    (worst-rated-pies-in-russia)  3 Worst Rated  Russian Pies   (worst-rated-pies-in-russia)     (worst-rated-desserts-in-russia)    (worst-rated-desserts-in-russia)  10 Worst Rated  Russian Desserts   (worst-rated-desserts-in-russia)"

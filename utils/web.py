@@ -1,15 +1,16 @@
 import asyncio
 import aiohttp
+from enum import Enum
 
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from playwright.async_api import async_playwright
+import trafilatura
 from langchain.schema import Document
 from langchain.document_loaders import AsyncHtmlLoader, AsyncChromiumLoader
 from langchain.document_loaders.async_html import default_header_template
 from langchain.document_transformers import BeautifulSoupTransformer
 
-from utils.lang_utils import get_num_tokens, limit_tokens_in_text
 from utils.strings import remove_consecutive_blank_lines
 
 
@@ -37,28 +38,53 @@ async def afetch_urls_in_parallel_aiohttp(urls):
     return htmls
 
 
-MAX_PLAYWRIGHT_INSTANCES = 1
+MAX_PLAYWRIGHT_INSTANCES = (
+    5  # 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
+)
+
+DEFAULT_PLAYWRIGHT_TIMEOUT = 3000
 
 
-async def afetch_url_playwright(url: str, headless=True, sleep_sec=0, **fetch_options):
+async def afetch_url_playwright(
+    url: str,
+    headless=True,
+    timeout=DEFAULT_PLAYWRIGHT_TIMEOUT,
+    sleep_after_load_ms=0,
+    **fetch_options,
+):
     """
     Asynchronously fetch the content from a URL using an instance of
     Chromium (with playwright).
-    """
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
-        page = await browser.new_page()
-        await page.goto(url, **fetch_options)  # wait_until="networkidle", timeout=60000
-        if sleep_sec:
-            await asyncio.sleep(sleep_sec)
-        html_content = await page.content()
-        await browser.close()
+    If there is an error, return the error message instead.
+    """
+    fetch_options["timeout"] = timeout
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=headless)
+            page = await browser.new_page()
+            try:
+                await page.goto(url, **fetch_options)  # eg wait_until="networkidle"
+            except Exception as e:
+                print(f"Error fetching URL {url}: {e}")
+                input("Press Enter to continue...")
+            else:
+                # Sleep after loading the page successfully, if requested
+                if sleep_after_load_ms:
+                    await asyncio.sleep(sleep_after_load_ms / 1000)
+            html_content = await page.content()
+            await browser.close()
+    except Exception as e:
+        html_content = f"Error: {e}"
     return html_content
 
 
 async def afetch_urls_in_parallel_playwright(
-    urls, headless=True, sleep_sec=0, **fetch_options
+    urls,
+    headless=True,
+    timeout=DEFAULT_PLAYWRIGHT_TIMEOUT,
+    sleep_after_load_ms=0,
+    **fetch_options,
 ):
     """
     Asynchronously fetch multiple URLs in parallel using
@@ -73,7 +99,11 @@ async def afetch_urls_in_parallel_playwright(
     async def fetch_with_semaphore(url):
         async with semaphore:
             return await afetch_url_playwright(
-                url, headless=headless, sleep_sec=sleep_sec, **fetch_options
+                url,
+                headless=headless,
+                timeout=timeout,
+                sleep_after_load_ms=sleep_after_load_ms,
+                **fetch_options,
             )
 
     tasks = [fetch_with_semaphore(url) for url in urls]
@@ -130,29 +160,6 @@ def fetch_urls_with_lc_html_loader(urls):
     return htmls
 
 
-def get_text_from_html(html_content: str, use_lc=True):
-    """
-    Extract text from HTML content, ignoring scripts and styles.
-    """
-    if use_lc:
-        # Use langchain to extract text
-        bs_transformer = BeautifulSoupTransformer()
-        tmp_docs = [Document(page_content=html_content)]
-        docs_transformed = bs_transformer.transform_documents(
-            tmp_docs,
-            unwanted_tags=["script", "style"],
-            remove_lines=True,
-            tags_to_extract=["p", "li", "div", "a"],
-        )
-        return docs_transformed[0].page_content
-    else:
-        soup = BeautifulSoup(html_content, "html.parser")
-        # Remove script and style elements
-        for script_or_style in soup(["script", "style"]):
-            script_or_style.extract()
-        return soup.get_text()
-
-
 def clean_text(text: str, break_multi_headlines=False):
     """
     Perform some basic cleaning on text extracted from HTML, such as removing
@@ -167,6 +174,49 @@ def clean_text(text: str, break_multi_headlines=False):
 
     lines = remove_consecutive_blank_lines(lines)
     text = "\n".join(lines)
+    return text
+
+
+class TextFromHtmlMode(Enum):
+    BASIC = 1
+    LC_BS_TRANSFORMER = 2
+    TRAFILATURA = 3
+
+
+def get_text_from_html(
+    html_content: str,
+    mode=TextFromHtmlMode.TRAFILATURA,
+    clean=True,
+    break_multi_headlines=False,
+):
+    """
+    Extract text from HTML content, ignoring scripts and styles.
+    """
+    if mode == TextFromHtmlMode.TRAFILATURA:
+        # Use trafilatura to extract text
+        text = trafilatura.extract(html_content, include_links=True, favor_recall=True)
+        clean = False  # trafilatura already does some cleaning
+    elif mode == TextFromHtmlMode.LC_BS_TRANSFORMER:
+        # Use langchain to extract text
+        bs_transformer = BeautifulSoupTransformer()
+        tmp_docs = [Document(page_content=html_content)]
+        docs_transformed = bs_transformer.transform_documents(
+            tmp_docs,
+            unwanted_tags=["script", "style"],
+            remove_lines=True,
+            tags_to_extract=["p", "li", "div", "a"],
+        )
+        text = docs_transformed[0].page_content
+    else:
+        soup = BeautifulSoup(html_content, "html.parser")
+        # Remove script and style elements
+        for script_or_style in soup(["script", "style"]):
+            script_or_style.extract()
+        text = soup.get_text()
+
+    if clean:
+        text = clean_text(text, break_multi_headlines=break_multi_headlines)
+
     return text
 
 
@@ -185,59 +235,13 @@ def remove_failed_fetches(texts: list[str], urls: list[str]):
             continue
         if len(text) < MIN_CHARS_PER_URL_CONTENT:
             print(
-                f"WARNING: URL {url} has only {len(text)} characters, "
+                f"Skipping URL {url}: it has only {len(text)} characters, "
                 f"less than the minimum of {MIN_CHARS_PER_URL_CONTENT}"
             )
             continue
         new_texts.append(text)
         new_urls.append(url)
     return new_texts, new_urls
-
-
-def process_and_limit_texts(texts: list[str], max_tot_tokens=8000):
-    texts = [clean_text(text) for text in texts]
-    token_counts = [get_num_tokens(text) for text in texts]
-    allowance_redistributed = [False] * len(texts)
-    allowance = max_tot_tokens // (len(texts) or 1)
-    while True:
-        # Calculate "unused allowance" we can "give" to other texts
-        unused_allowance = 0
-        num_texts_with_excess = 0
-        for i, (num_tokens, is_already_redistributed) in enumerate(
-            zip(token_counts, allowance_redistributed)
-        ):
-            if is_already_redistributed:
-                continue
-            if num_tokens > allowance:
-                num_texts_with_excess += 1
-            else:
-                unused_allowance += allowance - num_tokens
-                allowance_redistributed[i] = True  # or will be, once we inc allowance
-
-        # If no allowance to give, we're done
-        if (
-            num_texts_with_excess == 0
-            or (allowance_increment := unused_allowance // num_texts_with_excess) == 0
-        ):
-            break
-
-        # Distribute unused allowance and recalculate
-        # print("num_texts_with_excess:", num_texts_with_excess)
-        # print("allowance", allowance, end=" -> ")
-        allowance += allowance_increment
-        print(allowance)
-
-    new_texts = []
-    # print("process_and_limit_text: allowance:", allowance)
-    for text, token_count in zip(texts, token_counts):
-        # print("process_and_limit_text: text:", text[:100])
-        # print("process_and_limit_text: token_count:", token_count)
-        if token_count > allowance:
-            # Limit tokens in text
-            text, num_tokens = limit_tokens_in_text(text, max_tokens=allowance)
-        # print("process_and_limit_text: token count after limiting:", num_tokens)
-        new_texts.append(text)
-    return new_texts
 
 
 # NOTE: Fetching without chromium often leads to empty content (with chromium, that can still happen; also, it's slow). For example, of the following 27 URLs, only 8 have non-empty content:
