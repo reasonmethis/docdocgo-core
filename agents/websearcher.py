@@ -79,7 +79,7 @@ def get_websearcher_response(
     # Get content from links, measuring time taken
     print("Fetching content from links...")
     # htmls = make_sync(afetch_urls_in_parallel_chromium_loader)(links)
-    htmls = make_sync(afetch_urls_in_parallel_playwright)(links, headless=False)
+    htmls = make_sync(afetch_urls_in_parallel_playwright)(links)
     # htmls = make_sync(afetch_urls_in_parallel_html_loader)(links)
     # htmls = fetch_urls_with_lc_html_loader(links) # takes ~20s, slow
 

@@ -4,7 +4,10 @@ from enum import Enum
 
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-from playwright.async_api import async_playwright
+from playwright.async_api import (
+    async_playwright,
+    TimeoutError as PlaywrightTimeoutError,
+)
 import trafilatura
 from langchain.schema import Document
 from langchain.document_loaders import AsyncHtmlLoader, AsyncChromiumLoader
@@ -39,10 +42,10 @@ async def afetch_urls_in_parallel_aiohttp(urls):
 
 
 MAX_PLAYWRIGHT_INSTANCES = (
-    5  # 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
+    5  # TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
 )
 
-DEFAULT_PLAYWRIGHT_TIMEOUT = 3000
+DEFAULT_PLAYWRIGHT_TIMEOUT = 10000
 
 
 async def afetch_url_playwright(
@@ -61,19 +64,23 @@ async def afetch_url_playwright(
     fetch_options["timeout"] = timeout
     try:
         async with async_playwright() as p:
+            # NOTE: consider whether to use one p for all parallel fetches
             browser = await p.chromium.launch(headless=headless)
             page = await browser.new_page()
             try:
                 await page.goto(url, **fetch_options)  # eg wait_until="networkidle"
-            except Exception as e:
-                print(f"Error fetching URL {url}: {e}")
-                input("Press Enter to continue...")
-            else:
-                # Sleep after loading the page successfully, if requested
                 if sleep_after_load_ms:
                     await asyncio.sleep(sleep_after_load_ms / 1000)
-            html_content = await page.content()
-            await browser.close()
+                html_content = await page.content()
+            except PlaywrightTimeoutError:
+                # Still try to get the content
+                html_content = await page.content()
+                if not html_content or html_content.startswith(
+                    "<html><head></head><body></body></html>"
+                ):
+                    html_content = f"Error: timed out before any content was loaded"
+            finally:
+                await browser.close()
     except Exception as e:
         html_content = f"Error: {e}"
     return html_content
@@ -193,7 +200,7 @@ def get_text_from_html(
     Extract text from HTML content, ignoring scripts and styles.
     """
     if mode == TextFromHtmlMode.TRAFILATURA:
-        # Use trafilatura to extract text
+        # https://trafilatura.readthedocs.io/en/latest/usage-python.html
         text = trafilatura.extract(html_content, include_links=True, favor_recall=True)
         clean = False  # trafilatura already does some cleaning
     elif mode == TextFromHtmlMode.LC_BS_TRANSFORMER:
