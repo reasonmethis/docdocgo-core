@@ -68,20 +68,6 @@ USER SEARCHED FOR: {query}
 YOUR RESPONSE: """
 SIMPLE_WEBSEARCHER_PROMPT = PromptTemplate.from_template(simple_websearcher_template)
 
-websearcher_template0 = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
-
-{texts_str}
-
-END OF RETRIEVED INFO
-
-USER'S QUERY: {query}
-
-YOUR TASK: present the info in a digestible way:
-1. Start your report with TLDR section directly relevant to the user's query.
-2. Then write a LONG report detailing all the information, broken into sections. For this part, completely ignore user's query. Don't call this part "Report".
-
-YOUR RESPONSE: """
-
 websearcher_template = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
 
 {texts_str}
@@ -95,16 +81,58 @@ YOUR TASK: throw out irrelevant info and write a LONG well-crafted, well-formatt
 YOUR RESPONSE: """
 WEBSEARCHER_PROMPT = PromptTemplate.from_template(websearcher_template)
 
+websearcher_template_gpt_researcher = (
+    'Information: """{texts_str}"""\n\n'
+    "Using the above information, answer the following"
+    ' query or task: "{query}" in a detailed report --'
+    " The report should focus on the answer to the query, should be well structured, informative,"
+    " in depth and comprehensive, with facts and numbers if available and a minimum of 1000 words.\n"
+    "You should strive to write the report as long as you can using all relevant and necessary information provided.\n"
+    "You must write the report with markdown syntax.\n "
+    "Use an unbiased and journalistic tone. \n"
+    "You MUST determine your own concrete and valid opinion based on the given information. Do NOT deter to general and meaningless conclusions.\n"
+    "You MUST write all used source urls at the end of the report as references, and make sure to not add duplicated sources, but only one reference for each.\n"
+    "You MUST write the report in apa format.\n "
+    "Cite search results using inline notations. Only cite the most \
+            relevant results that answer the query accurately. Place these citations at the end \
+            of the sentence or paragraph that reference them.\n"
+    "Please do your best, this is very important to my career. "
+    "Assume that the current date is {datetime}"
+)
+
+websearcher_template1 = """<sources>{texts_str}</sources>
+Please extract all information relevant to the following query: 
+<query>{query}</query>
+Write a report, which should be: 1500-2000 words long, in markdown syntax, in apa format. List the references used.
+"""
+
 if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"
- 
+
     from components.llm import get_llm_with_output_parser
-    from utils.test_content import query, content
+    from utils.test_content import query_to_context
+    from datetime import datetime
 
-    prompts_to_test = [WEBSEARCHER_PROMPT]
+    prompts_templates_to_test = [
+        websearcher_template1.replace(
+            "{datetime}", datetime.now().strftime("%B %d, %Y")
+        )
+    ]
 
-    for i, prompt in enumerate(prompts_to_test):
-        chain = prompt | get_llm_with_output_parser(temperature=0, print_streamed=True)
-        print("Prompt", i)
-        chain.invoke({"query": query, "texts_str": content})
+    query = "openai news"
+    NUM_ITERATIONS = 2
+    for iteration in range(NUM_ITERATIONS):
+        print("\n" + "-" * 50)
+        print("Iteration", iteration)
+        print("-" * 50)
+        for i, t in enumerate(prompts_templates_to_test):
+            prompt = PromptTemplate.from_template(t)
+            chain = prompt | get_llm_with_output_parser(
+                temperature=0.2, print_streamed=True
+            )
+            print("Prompt", i)
+            try:
+                chain.invoke({"query": query, "texts_str": query_to_context[query]})
+            except Exception as e:
+                print("ERROR:", e)
