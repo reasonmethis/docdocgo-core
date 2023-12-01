@@ -36,24 +36,46 @@ HINT_MESSAGE = (
     f"{DELIMITER}"
 )
 
+def print_no_newline(*args, **kwargs):
+    """Print without adding a newline at the end"""
+    print(*args, **kwargs, end="", flush=True)
 
 def is_directory_empty(directory):
     return not os.listdir(directory)
 
 
+def clear_directory(directory):
+    """
+    Remove all files and subdirectories in the given directory.
+    """
+    import shutil
+    errors = []
+    for item in os.listdir(directory):
+        item_path = os.path.join(directory, item)
+        try:
+            if os.path.isfile(item_path) or os.path.islink(item_path):
+                os.unlink(item_path)
+            elif os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+        except Exception as e:
+            errors.append(e)
+    if errors:
+        err_str = "\n".join([str(e) for e in errors])
+        raise Exception("Could not delete all items:\n" + err_str)
+
 def lin_interpolate(x, x_min, x_max, y_min, y_max):
-    """Given x, returns y that linearly interpolates between two points
+    """Given x, return y that linearly interpolates between two points
     (x_min, y_min) and (x_max, y_max)"""
     return y_min + (y_max - y_min) * (x - x_min) / (x_max - x_min)
 
 
 def clamp(value, min_value, max_value):
-    """Clamps value between min_value and max_value"""
+    """Clamp value between min_value and max_value"""
     return max(min_value, min(value, max_value))
 
 
 def extract_command_id_from_query(query: str) -> tuple[str, int]:
-    """Extracts the command ID from the query, if any"""
+    """Extract the command ID from the query, if any"""
     try:
         command, actual_query = query.split(" ", maxsplit=1)
         return actual_query, command_ids[command]
