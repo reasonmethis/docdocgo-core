@@ -12,14 +12,14 @@
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It can also do web research for you and synthesize collected information into a well-structured report. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
 ## Features
 
 - Provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
 - Allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
 - Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
-- Provides links to source documents
+- Provides links to source documents or websites
 - Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
 
 For reference, DocDocGo Carbon (not available here) has these features:
@@ -191,7 +191,7 @@ To select a mode, start your message with the corresponding slash command: `/cha
 /details When is the conference?
 ```
 
-If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `\chat`).
+If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `/chat`).
 
 ### Querying based on substrings
 

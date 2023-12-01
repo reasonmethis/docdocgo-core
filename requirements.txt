@@ -3,6 +3,7 @@ aiosignal==1.3.1
 annotated-types==0.6.0
 anyio==3.7.1
 async-timeout==4.0.3
+atlassian-python-api==3.41.3
 attrs==23.1.0
 backoff==2.2.1
 bcrypt==4.0.1
@@ -17,12 +18,15 @@ chromadb==0.4.17
 click==8.1.7
 colorama==0.4.6
 coloredlogs==15.0.1
+courlan==0.9.4
 cssselect2==0.7.0
 dataclasses-json==0.6.2
+dateparser==1.2.0
 Deprecated==1.2.14
 distro==1.8.0
 docx2txt==0.8
 emoji==2.8.0
+fake-useragent==1.3.0
 fastapi==0.104.1
 filelock==3.13.1
 filetype==1.2.0
@@ -35,6 +39,7 @@ googleapis-common-protos==1.61.0
 greenlet==3.0.1
 grpcio==1.59.2
 h11==0.14.0
+htmldate==1.6.0
 httpcore==1.0.2
 httptools==0.6.1
 httpx==0.25.1
@@ -48,8 +53,10 @@ Jinja2==3.1.2
 joblib==1.3.2
 jsonpatch==1.33
 jsonpointer==2.4
+jusText==3.0.0
 kubernetes==28.1.0
 langchain==0.0.335
+langcodes==3.3.0
 langdetect==1.0.9
 langsmith==0.0.64
 lxml==4.9.3
@@ -74,6 +81,7 @@ overrides==7.4.0
 packaging==23.2
 pdf2image==1.16.3
 Pillow==10.1.0
+playwright==1.40.0
 posthog==3.0.2
 protobuf==4.25.0
 pulsar-client==3.3.0
@@ -81,6 +89,7 @@ pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pydantic==2.5.1
 pydantic_core==2.14.3
+pyee==11.0.1
 PyPika==0.48.9
 pyreadline3==3.4.1
 pytesseract==0.3.10
@@ -88,6 +97,7 @@ python-dateutil==2.8.2
 python-dotenv==1.0.0
 python-iso639==2023.6.15
 python-magic==0.4.27
+pytz==2023.3.post1
 PyYAML==6.0.1
 rapidfuzz==3.5.2
 regex==2023.10.3
@@ -106,11 +116,15 @@ tabulate==0.9.0
 tenacity==8.2.3
 tiktoken==0.5.1
 tinycss2==1.2.1
+tld==0.13
 tokenizers==0.15.0
 tqdm==4.66.1
+trafilatura==1.6.2
 typer==0.9.0
 typing-inspect==0.9.0
 typing_extensions==4.8.0
+tzdata==2023.3
+tzlocal==5.2
 unstructured==0.10.30
 urllib3==1.26.18
 uvicorn==0.24.0.post1
