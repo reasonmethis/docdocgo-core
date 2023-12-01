@@ -221,9 +221,12 @@ def get_text_from_html(
             script_or_style.extract()
         text = soup.get_text()
 
-    if clean:
+    if not text:  # it could be None
+        text = ""
+    elif clean:
         text = clean_text(text, break_multi_headlines=break_multi_headlines)
 
+    print(".", end="", flush=True)
     return text
 
 
@@ -238,11 +241,11 @@ def remove_failed_fetches(texts: list[str], urls: list[str]):
     new_urls = []
     for text, url in zip(texts, urls):
         if text.startswith("Error: "):
-            print("Error fetching URL:", text[7:])
+            print(f"Error fetching URL {url}:\n{text[7:]}")
             continue
         if len(text) < MIN_CHARS_PER_URL_CONTENT:
             print(
-                f"Skipping URL {url}: it has only {len(text)} characters, "
+                f"Skipping URL {url}: retrieved text has only {len(text)} characters, "
                 f"less than the minimum of {MIN_CHARS_PER_URL_CONTENT}"
             )
             continue

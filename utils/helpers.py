@@ -9,21 +9,7 @@ INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                     
  /)__)   /)__)   /)__)               WELCOME TO DOC DOC GO             /)__)   /)__)   /)__)
 --"--"----"--"----"--"--------------------------------------------------"--"----"--"----"--"--"""
 
-
-def is_directory_empty(directory):
-    return not os.listdir(directory)
-
-
-def lin_interpolate(x, x_min, x_max, y_min, y_max):
-    """Given x, returns y that linearly interpolates between two points
-    (x_min, y_min) and (x_max, y_max)"""
-    return y_min + (y_max - y_min) * (x - x_min) / (x_max - x_min)
-
-
-def clamp(value, min_value, max_value):
-    """Clamps value between min_value and max_value"""
-    return max(min_value, min(value, max_value))
-
+DEFAULT_STREAM_PREFIX = "DocDocGo: "
 
 CHAT_COMMAND_ID = 1
 DETAILS_COMMAND_ID = 2
@@ -46,17 +32,32 @@ HINT_MESSAGE = (
     f"/details: get details about the retrieved documents\n"
     f"/quotes: get quotes from the retrieved documents\n"
     f"/web: perform web searches and generate a report\n\n"
-    f"Example: \"/web openai news\"\n"
+    f'Example: "/web openai news"\n'
     f"{DELIMITER}"
 )
 
 
+def is_directory_empty(directory):
+    return not os.listdir(directory)
+
+
+def lin_interpolate(x, x_min, x_max, y_min, y_max):
+    """Given x, returns y that linearly interpolates between two points
+    (x_min, y_min) and (x_max, y_max)"""
+    return y_min + (y_max - y_min) * (x - x_min) / (x_max - x_min)
+
+
+def clamp(value, min_value, max_value):
+    """Clamps value between min_value and max_value"""
+    return max(min_value, min(value, max_value))
+
+
 def extract_command_id_from_query(query: str) -> tuple[str, int]:
     """Extracts the command ID from the query, if any"""
-    command = query.split(" ")[0]
     try:
-        return query[len(command) + 1 :], command_ids[command]
-    except KeyError:
+        command, actual_query = query.split(" ", maxsplit=1)
+        return actual_query, command_ids[command]
+    except (ValueError, KeyError):
         return query, DEFAULT_MODE_ID
 
 
