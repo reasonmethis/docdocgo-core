@@ -3,16 +3,17 @@ from dotenv import load_dotenv
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.messages import BaseMessage, HumanMessage, AIMessage
+from utils.async_utils import execute_func_map_in_threads
 
 from utils.type_utils import PairwiseChatHistory
 
 load_dotenv()
 
-
+default_llm_for_token_counting = ChatOpenAI()
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
     if llm_for_token_counting is None:
-        llm_for_token_counting = ChatOpenAI()
+        llm_for_token_counting = default_llm_for_token_counting
     return llm_for_token_counting.get_num_tokens(text)
 
 
@@ -195,30 +196,31 @@ def limit_tokens_in_text(
     text: str,
     max_tokens: int,
     llm_for_token_counting: BaseLanguageModel | None = None,
-    slow_down_factor=1.0,  # 0 = quick but can undershoot significantly
+    slow_down_factor=1.0,  # 0 = quicker but can undershoot significantly
 ) -> str:
     """
     Limit the number of tokens in a text to the specified amount (or slightly less).
     """
-    if llm_for_token_counting is None:
-        llm_for_token_counting = ChatOpenAI()
-
     words = text.split(" ")
     num_tokens = 0
     at_most_words = len(words)
 
     # Get the initial guess for the number of words to keep
+    print("max_tokens:", max_tokens)
+    print("Initial token counting...")
     for i, word in enumerate(words):
-        curr_num_tokens = llm_for_token_counting.get_num_tokens(word)
+        curr_num_tokens = get_num_tokens(word, llm_for_token_counting)
         num_tokens += curr_num_tokens
         if num_tokens > max_tokens:
             at_most_words = i
             break
+    print("actual number of words:", len(words))
+    print("at_most_words:", at_most_words)
 
     # Keep reducing the number of words to keep until we're below the token limit
     while True:
         text = " ".join(words[:at_most_words])
-        true_num_tokens = llm_for_token_counting.get_num_tokens(text)
+        true_num_tokens = get_num_tokens(text, llm_for_token_counting)
         if true_num_tokens <= max_tokens:
             return text, true_num_tokens
         # Reduce the number of words to keep and try again
@@ -232,16 +234,42 @@ def limit_tokens_in_text(
         # print(at_most_words)
 
 
-def limit_tokens_in_texts(texts: list[str], max_tot_tokens=8000):
-    token_counts = [get_num_tokens(text) for text in texts]
-    allowance_redistributed = [False] * len(texts)
+def get_num_tokens_in_texts(
+    texts: list[str], llm_for_token_counting: BaseLanguageModel | None = None
+) -> list[int]:
+    """
+    Get the number of tokens in a list of texts.
+    """
+
+    def _get_num_tokens(text):
+        return get_num_tokens(text, llm_for_token_counting)
+
+    token_counts = execute_func_map_in_threads(_get_num_tokens, texts)
+    return token_counts
+
+
+def get_max_token_allowance_for_texts(
+    texts: list[str], max_tot_tokens: int, cached_token_counts: list[int] | None = None
+) -> tuple[int, list[int]]:
+    """
+    Get the number of tokens we must limit each text to in order to keep the total
+    number of tokens below the specified amount.
+
+    Returns that number (the "allowance") and a list of token counts for each text.
+    """
+    token_counts = (
+        get_num_tokens_in_texts(texts)
+        if cached_token_counts is None
+        else cached_token_counts
+    )
+    is_allowance_redistributed_list = [False] * len(texts)
     allowance = max_tot_tokens // (len(texts) or 1)
     while True:
         # Calculate "unused allowance" we can "give" to other texts
         unused_allowance = 0
         num_texts_with_excess = 0
         for i, (num_tokens, is_already_redistributed) in enumerate(
-            zip(token_counts, allowance_redistributed)
+            zip(token_counts, is_allowance_redistributed_list)
         ):
             if is_already_redistributed:
                 continue
@@ -249,7 +277,8 @@ def limit_tokens_in_texts(texts: list[str], max_tot_tokens=8000):
                 num_texts_with_excess += 1
             else:
                 unused_allowance += allowance - num_tokens
-                allowance_redistributed[i] = True  # or will be, once we inc allowance
+                # Mark as already redistributed (will redistribute by increasing allowance)
+                is_allowance_redistributed_list[i] = True
 
         # If no allowance to give, we're done
         if (
@@ -264,21 +293,30 @@ def limit_tokens_in_texts(texts: list[str], max_tot_tokens=8000):
         allowance += allowance_increment
         # print(allowance)
 
+    return allowance, token_counts
+
+
+def limit_tokens_in_texts(
+    texts: list[str],
+    max_tot_tokens: int,
+    cached_token_counts: list[int] | None = None,
+) -> tuple[list[str], list[int]]:
+    """
+    Limit the number of tokens in a list of texts to the specified amount (or slightly less).
+
+    Returns a list of updated texts and a list of token counts for each text.
+    """
+    allowance, token_counts = get_max_token_allowance_for_texts(
+        texts, max_tot_tokens, cached_token_counts
+    )
+    print("max_tot_tokens:", max_tot_tokens)
+    print("numbert of texts:", len(texts))
+    print("allowance:", allowance)
     new_texts = []
-    # print("process_and_limit_text: allowance:", allowance)
-    for text, token_count in zip(texts, token_counts):
-        # print("process_and_limit_text: text:", text[:100])
-        # print("process_and_limit_text: token_count:", token_count)
-        if token_count > allowance:
-            # Limit tokens in text
+    new_token_counts = []
+    for text, num_tokens in zip(texts, token_counts):
+        if num_tokens > allowance:
             text, num_tokens = limit_tokens_in_text(text, max_tokens=allowance)
-        # print("process_and_limit_text: token count after limiting:", num_tokens)
         new_texts.append(text)
-    return new_texts
-
-
-# text = "What to eat in Russia?  10 Most Popular  Russian Desserts      Last update: Fri Nov 17 2023         shutterstock            VIEW MORE   View Russian Desserts List and Map (russia/Desserts)    10 Best Rated Russian Desserts (best-rated-desserts-in-russia)                   Show Map     Russian Desserts        View more        (most-popular-desserts-in-north-netherlands)    (most-popular-desserts-in-north-netherlands)  3 Most Popular  Northern Dutch Desserts   (most-popular-desserts-in-north-netherlands)     (50-best-rated-desserts-in-scandinavia)    (50-best-rated-desserts-in-scandinavia)  50 Best Rated  Scandinavian Desserts   (50-best-rated-desserts-in-scandinavia)     (best-rated-desserts-in-iraq)    (best-rated-desserts-in-iraq)  4 Best Rated  Iraqi Desserts   (best-rated-desserts-in-iraq)     (most-popular-desserts-in-eastern-india)    (most-popular-desserts-in-eastern-india)  10 Most Popular  Eastern Indian Desserts   (most-popular-desserts-in-eastern-india)     (most-popular-desserts-in-silesian-voivodeship)    (most-popular-desserts-in-silesian-voivodeship)  3 Most Popular  Silesian Desserts   (most-popular-desserts-in-silesian-voivodeship)     (most-popular-appetizers-in-russia)    (most-popular-appetizers-in-russia)  7 Most Popular  Russian Appetizers   (most-popular-appetizers-in-russia)     (best-rated-appetizers-in-russia)    (best-rated-appetizers-in-russia)  7 Best Rated  Russian Appetizers   (best-rated-appetizers-in-russia)     (worst-rated-salads-in-russia)    (worst-rated-salads-in-russia)  4 Worst Rated  Russian Salads   (worst-rated-salads-in-russia)     (worst-rated-pies-in-russia)    (worst-rated-pies-in-russia)  3 Worst Rated  Russian Pies   (worst-rated-pies-in-russia)     (worst-rated-desserts-in-russia)    (worst-rated-desserts-in-russia)  10 Worst Rated  Russian Desserts   (worst-rated-desserts-in-russia)"
-
-# llm_for_token_counting = ChatOpenAI()
-# text, num_tokens = limit_tokens_in_text(text, 0)
-# print("num tokens:", llm_for_token_counting.get_num_tokens(text), num_tokens)
+        new_token_counts.append(num_tokens)
+    return new_texts, new_token_counts

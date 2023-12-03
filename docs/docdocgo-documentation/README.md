@@ -1,3 +1,4 @@
+
 # DocDocGo
 
 ## Table of Contents
@@ -11,24 +12,22 @@
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It can also do web research for you and synthesize collected information into a well-structured report. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
-There are several well-developed commercial applications allowing you to chat with your data (e.g. [Inkeep](https://inkeep.com/), [Mendable](https://www.mendable.ai/)). DocDocGo is a much smaller project, however, as of the time of writing, some of its features below appear to be unique to it.
+## Features
 
-Features:
+- Provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
+- Allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
+- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
+- Provides links to source documents or websites
+- Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
 
-- it provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
-- it allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
-- it uses an algorithm to _dynamically distribute its "memory"_ between the source documents and the current conversation based on the relevance of the documents to the conversation
-- it provides links to source documents
-- it has been tuned to be resilient to "jail-breaking" it (by contrast, some other applications allow you to access their "internals")
+For reference, DocDocGo Carbon (not available here) has these features:
 
-For reference, the commercial version of DocDocGo (not available here) has these features:
-
-- it is integrated with a Google Chat App
-- it interacts with the client company's Confluence documentation
-- it offers the ability to provide feedback on the quality of its responses
-- it has a database for conversations and feedback and allowed to resume the conversation
+- It is integrated with a Google Chat App
+- Interacts with the client company's Confluence documentation
+- Offers the ability to provide feedback on the quality of its responses
+- Has a database for conversations and feedback and allows to resume the conversation
 
 ## Installation
 
@@ -95,9 +94,9 @@ Set the following values in the `.env` file:
 
 ```bash
 DOCS_TO_INGEST_DIR_OR_FILE="./docs-private/my-awesome-data"
-SAVE_VECTORDB_DIR="./dbs-private/my-awesome-data"
+SAVE_VECTORDB_DIR="./dbs-private/my-awesome-data" 
 
-VECTORDB_DIR="./dbs-private/my-awesome-data"
+VECTORDB_DIR="./dbs-private/my-awesome-data" 
 ```
 
 Feel free to use your own directory names. The `VECTORDB_DIR` value is not used for ingestion, it's the directory where the bot will look for the database when it's started.
@@ -192,7 +191,7 @@ To select a mode, start your message with the corresponding slash command: `/cha
 /details When is the conference?
 ```
 
-If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `\chat`).
+If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `/chat`).
 
 ### Querying based on substrings
 

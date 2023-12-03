@@ -1,6 +1,5 @@
 import sys
 import os
-import asyncio
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
@@ -8,6 +7,7 @@ from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from utils.algo import remove_duplicates_keep_order
 
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
 from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
@@ -23,7 +23,7 @@ from components.llm import get_llm
 from agents.websearcher import get_websearcher_response
 
 
-def get_bot_response(message, chat_history, search_params, command_id):
+def get_bot_response(message, chat_history, search_params, command_id, vectorstore):
     if command_id == DETAILS_COMMAND_ID:  # /details command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
@@ -51,8 +51,8 @@ def get_source_links(result_from_conv_retr_chain):
         doc.metadata["source"] for doc in source_docs if "source" in doc.metadata
     ]
 
-    # Remove duplicates while keeping order
-    return list(dict.fromkeys(source_links_with_duplicates))
+    # Remove duplicates while keeping order and return
+    return remove_duplicates_keep_order(source_links_with_duplicates)
 
 
 def create_bot(
@@ -65,7 +65,7 @@ def create_bot(
     if temperature is None:
         temperature = TEMPERATURE
     try:
-        llm = get_llm(print_streamed=True)  # main llm
+        llm = get_llm(stream=True)  # main llm
         llm_condense = get_llm(
             temperature=0
         )  # condense query (0 to have reliable rephrasing)
@@ -110,19 +110,21 @@ def create_bot(
         print(e)
         sys.exit()
 
+def do_intro_tasks():
+    print(INTRO_ASCII_ART + "\n\n")
 
-print(INTRO_ASCII_ART + "\n\n")
+    validate_settings()
 
-validate_settings()
-
-# Load the vector database
-print("Loading the vector database of your documents... ", end="", flush=True)
-vectorstore = ChromaDDG(
-    embedding_function=OpenAIEmbeddings(), persist_directory=VECTORDB_DIR
-)
-print("Done!")
+    # Load the vector database
+    print("Loading the vector database of your documents... ", end="", flush=True)
+    vectorstore = ChromaDDG(
+        embedding_function=OpenAIEmbeddings(), persist_directory=VECTORDB_DIR
+    )
+    print("Done!")
+    return vectorstore
 
 if __name__ == "__main__":
+    vectorstore = do_intro_tasks()
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -152,11 +154,13 @@ if __name__ == "__main__":
 
         # Get response from bot
         try:
-            result = get_bot_response(query, chat_history, search_params, command_id)
+            result = get_bot_response(query, chat_history, search_params, command_id, vectorstore)
         except Exception as e:
             print("<Apologies, an error has occurred>")
             print("ERROR:", e)
             print(DELIMITER)
+            if os.getenv("RERAISE_EXCEPTIONS"):
+                raise e
             continue
 
         answer = result["answer"]

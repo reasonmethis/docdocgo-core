@@ -63,10 +63,13 @@ async def afetch_url_playwright(
     """
     fetch_options["timeout"] = timeout
     try:
-        async with async_playwright() as p:
-            # NOTE: consider whether to use one p for all parallel fetches
-            browser = await p.chromium.launch(headless=headless)
-            page = await browser.new_page()
+        async with async_playwright() as pwt:
+            # NOTE: consider whether to use one pwt for all parallel fetches
+            # browser = await pwt.webkit.launch(headless=False)
+            browser = await pwt.chromium.launch(headless=headless)
+            iphone_13 = pwt.devices["iPhone 13"]
+            context = await browser.new_context(**iphone_13)
+            page = await context.new_page()
             try:
                 await page.goto(url, **fetch_options)  # eg wait_until="networkidle"
                 if sleep_after_load_ms:
@@ -91,6 +94,7 @@ async def afetch_urls_in_parallel_playwright(
     headless=True,
     timeout=DEFAULT_PLAYWRIGHT_TIMEOUT,
     sleep_after_load_ms=0,
+    callback=None,
     **fetch_options,
 ):
     """
@@ -105,13 +109,16 @@ async def afetch_urls_in_parallel_playwright(
 
     async def fetch_with_semaphore(url):
         async with semaphore:
-            return await afetch_url_playwright(
+            res = await afetch_url_playwright(
                 url,
                 headless=headless,
                 timeout=timeout,
                 sleep_after_load_ms=sleep_after_load_ms,
                 **fetch_options,
             )
+            if callback:
+                callback(url, res)
+            return res
 
     tasks = [fetch_with_semaphore(url) for url in urls]
     htmls = await asyncio.gather(*tasks)
@@ -185,9 +192,9 @@ def clean_text(text: str, break_multi_headlines=False):
 
 
 class TextFromHtmlMode(Enum):
-    BASIC = 1
-    LC_BS_TRANSFORMER = 2
-    TRAFILATURA = 3
+    BASIC = "BASIC"
+    LC_BS_TRANSFORMER = "LC_BS_TRANSFORMER"
+    TRAFILATURA = "TRAFILATURA"
 
 
 def get_text_from_html(
@@ -201,7 +208,15 @@ def get_text_from_html(
     """
     if mode == TextFromHtmlMode.TRAFILATURA:
         # https://trafilatura.readthedocs.io/en/latest/usage-python.html
-        text = trafilatura.extract(html_content, include_links=True, favor_recall=True)
+        text = trafilatura.extract(
+            html_content,
+            include_links=True,
+            favor_recall=True,
+            config=None,
+            settingsfile="./config/trafilatura.cfg",
+            output_format="txt",
+        )
+        # NOTE: can try extracting with different settings till get the length we want
         clean = False  # trafilatura already does some cleaning
     elif mode == TextFromHtmlMode.LC_BS_TRANSFORMER:
         # Use langchain to extract text
@@ -233,7 +248,9 @@ def get_text_from_html(
 MIN_CHARS_PER_URL_CONTENT = 100
 
 
-def remove_failed_fetches(texts: list[str], urls: list[str]):
+def remove_failed_fetches(
+    texts: list[str], urls: list[str]
+) -> tuple[list[str], list[str]]:
     """
     Remove failed fetches from a list of text strings obtained from a list of URLs.
     """

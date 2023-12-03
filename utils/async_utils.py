@@ -1,12 +1,12 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 # TODO: consider using async_to_sync from asgiref.sync library
 
 
 def run_task_sync(task):
     """
-    Run an asyncio task (more precisely, a coroutine object, such as the result of 
+    Run an asyncio task (more precisely, a coroutine object, such as the result of
     calling an async function) synchronously.
     """
     try:
@@ -35,6 +35,23 @@ def gather_tasks_sync(tasks):
     """
     Run a list of asyncio tasks synchronously.
     """
+
     async def coroutine_from_tasks():
         return await asyncio.gather(*tasks)
+
     return run_task_sync(coroutine_from_tasks())
+
+
+def execute_func_map_in_processes(func, inputs, max_workers=None):
+    """
+    Execute a function on a list of inputs in a separate process for each input.
+    """
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        return list(executor.map(func, inputs))
+    
+def execute_func_map_in_threads(func, inputs, max_workers=None):
+    """
+    Execute a function on a list of inputs in a separate thread for each input.
+    """
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        return list(executor.map(func, inputs))
