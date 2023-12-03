@@ -41,3 +41,15 @@
 ### Research tasks
 
 1. "extract main content from html"
+
+## Discovered Tricks for Getting Content from Websites
+
+1. To help with bot detection, it helps to set a different device in playwright
+    - e.g. "iphone13"
+    - For example, this helped with the following links:
+        - "https://www.sciencedaily.com/news/computers_math/artificial_intelligence/",
+        - "https://www.investors.com/news/technology/ai-stocks-artificial-intelligence-trends-and-news/",
+        - "https://www.forbes.com/sites/forbesbusinesscouncil/2022/10/07/recent-advancements-in-artificial-intelligence/?sh=266cd08e7fa5",
+2. I increased the MIN_EXTRACTED_SIZE setting from 250 to 1500 in trafilatura to extract more content
+    - for example, in the following link, with the default setting it only extracted a cookie banner:
+        - "https://www.artificialintelligence-news.com/"

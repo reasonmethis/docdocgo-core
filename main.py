@@ -5,8 +5,10 @@ import json
 from flask import Flask, jsonify, request
 
 from utils.type_utils import JSONish, PairwiseChatHistory
-from docdocgo import get_bot_response, get_source_links
+from docdocgo import do_intro_tasks, get_bot_response, get_source_links
 from utils.helpers import DELIMITER, parse_query
+
+vectorstore = do_intro_tasks()
 
 app = Flask(__name__)
 
@@ -87,7 +89,7 @@ def chat():
             return jsonify(prev_outputs[username])
 
         # Initialize the chain with the right settings and get the bot's response
-        result = get_bot_response(message, chat_history, search_params, command_id)
+        result = get_bot_response(message, chat_history, search_params, command_id, vectorstore)
 
         # Get the reply and sources from the bot's response
         reply = result["answer"]

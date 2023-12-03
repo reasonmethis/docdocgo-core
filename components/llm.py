@@ -11,12 +11,12 @@ from utils.prepare import TEMPERATURE, IS_AZURE, CHAT_DEPLOYMENT_NAME
 from utils.prepare import MODEL_NAME, LLM_REQUEST_TIMEOUT
 
 
-def get_llm(temperature=None, print_streamed=False, init_str=DEFAULT_STREAM_PREFIX):
+def get_llm(temperature=None, stream=False, init_str=DEFAULT_STREAM_PREFIX):
     """Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
     on the value of IS_AZURE)"""
     if temperature is None:
         temperature = TEMPERATURE
-    callbacks = [CallbackHandlerDDG(init_str)] if print_streamed else []
+    callbacks = [CallbackHandlerDDG(init_str)] if stream else []
     if IS_AZURE:
         llm = AzureChatOpenAI(
             deployment_name=CHAT_DEPLOYMENT_NAME,

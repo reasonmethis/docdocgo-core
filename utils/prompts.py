@@ -116,15 +116,39 @@ WEBSEARCHER_PROMPT_DYNAMIC_REPORT = PromptTemplate.from_template(
 )
 
 summarizer_template = """<source>{text}</source>
-Please write a summary of all information from the above source relevant to the following query:
-<query>{query}</query>"""
+Given the following query:
+<query>{query}</query>
+please remove any sections that are completely off-topic to the query. Keep the rest as is.
+
+# Guidelines for what counts as off-topic
+
+Cookie consent messages, ads, and other boilerplate text are off-topic.
+If a section addresses a completely different domain, it is off-topic. Example: query is "atomic physics", but an article is about dog grooming (and it's not used to illustrate a concept in atomic physics).
+
+# Guidelines for what counts as on-topic
+
+A section doesn't have to directly answer the query to be kept: if it is in the same general ballpark or on a related topic, that's good enough.
+
+# Output
+Your entire output should be the original text sans off-topic sections."""
+
+summarizer_template = """ORIGINAL TEXT:
+{text}
+
+END OF ORIGINAL TEXT
+Please reproduce the original text as is with only the following modification:
+- Keep only sections that may in some, even indirect way, be related to the following query: 
+{query}
+
+Your output should be just the modified text, no other info.
+"""
 SUMMARIZER_PROMPT = PromptTemplate.from_template(summarizer_template)
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
 
 # INPUT 
-You are given a query: {query}
+You are given the following query: {query}
 
 # HIGH LEVEL TASK
 You don't need to answer the query. Instead, your goal is to determine the information need behind the query and help USER generate a sophisticated plan to satisfy that information need.
@@ -146,19 +170,23 @@ output: {{"queries": ["langchain chatbot tutorial", "langchain getting started",
 
 query: "openai news"
 output: {{"queries": ["openai news", "openai products new features", "openai organization news"],
-"report_type": "comprehensive report in apa format, 1000-2000 words long"}}
+"report_type": "specifics-dense report rich in facts and figures, 1000-2000 words long"}}
 
 query: "how can I merge two dictionaries in python?"
 output: {{"queries": ["python merge dictionaries", "python dictionary union"],
 "report_type": "python code snippet with explanation, likely less than 500 words"}}
 
-query: "treat chronic migraines"
+query: "could you give me a comprehensive medical report on treating chronic migraines?"
 output: {{"queries": ["chronic migraines treatment", "medications for chronic migraines", "non-drug treatments for chronic migraines", "differential diagnosis migraines", "alternative treatments for chronic migraines"],
 "report_type": "comprehensive medical report, 1500-2000 words long"}}
 
 query: "how old was John Lennon during the Cuban Missile Crisis?"
 output: {{"queries": ["John Lennon birth date", "Cuban Missile Crisis dates"],
 "report_type": "brief relevant facts, followed by a formula to calculate the answer, followed by the answer"}}
+
+query: "how old was John Lennon during the Cuban Missile Crisis? I want a report in apa format."
+output: {{"queries": ["John Lennon birth date", "Cuban Missile Crisis dates", "John Lennon during Cuban Missile Crisis"],
+"report_type": "report in apa format, around 1000 words long"}}
 
 # YOUR ACTUAL OUTPUT
 query: "{query}"
@@ -170,17 +198,20 @@ if __name__ == "__main__":
     # NOTE: Run this file as "python -m utils.prompts"
 
     from components.llm import get_llm_with_str_output_parser
-    from utils.test_content import query_to_context
     from datetime import datetime
-    import sys
+    from eval.top_russian_desserts import *
+    from eval.openai_news import *
+    from eval.ai_news_1 import *
 
-    prompts_templates_to_test = [
-        websearcher_template_gpt_researcher.replace(
-            "{datetime}", datetime.now().strftime("%B %d, %Y")
-        )
-    ]
+    query_to_context = {
+        "top Russian desserts": top_russian_desserts,
+        "openai news": openai_news,
+        "ai news": ai_news_1,
+    }
 
-    query = "openai news"
+    prompts_templates_to_test = [summarizer_template]
+
+    query = "ai news"
     NUM_ITERATIONS = 2
     for iteration in range(NUM_ITERATIONS):
         print("\n" + "-" * 50)
@@ -189,10 +220,10 @@ if __name__ == "__main__":
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
             chain = prompt | get_llm_with_str_output_parser(
-                temperature=0.2, print_streamed=True
+                temperature=0.2, stream=True
             )
             print("Prompt", i)
             try:
-                chain.invoke({"query": query, "texts_str": query_to_context[query]})
+                chain.invoke({"query": query, "text": query_to_context[query]})
             except Exception as e:
                 print("ERROR:", e)
