@@ -104,7 +104,9 @@ Please extract all information relevant to the following query:
 <query>{query}</query>
 Write a report, which should be: 1500-2000 words long, in markdown syntax, in apa format. List the references used.
 """
-WEBSEARCHER_PROMPT = PromptTemplate.from_template(websearcher_template_short_and_sweet)
+WEBSEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(
+    websearcher_template_short_and_sweet
+)
 
 websearcher_template_dynamic_report = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 

@@ -19,7 +19,7 @@ from utils.prompts import (
     SIMPLE_WEBSEARCHER_PROMPT,
     QUERY_GENERATOR_PROMPT,
     SUMMARIZER_PROMPT,
-    WEBSEARCHER_PROMPT,
+    WEBSEARCHER_PROMPT_SIMPLE,
     WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
 )
 from utils.web import (
@@ -77,6 +77,15 @@ def add_links(current_links: list[str], new_links: list[str], num_links_to_add: 
 def get_websearcher_response_quick(
     message: str, max_queries: int = 3, max_links_per_query: int = 3
 ):
+    """
+    Perform quick web research on a query, with only one call to the LLM.
+
+    It gets related queries to search for by examining the "related searches" and 
+    "people also ask" sections of the Google search results for the query. It then
+    searches for each of these queries on Google, and gets the top links for each
+    query. It then fetches the content from each link, shortens them to fit all 
+    texts into one context window, and then sends it to the LLM to generate a report.
+    """
     related_searches, people_also_ask = get_related_websearch_queries(message)
 
     # Get queries to search for
@@ -124,7 +133,7 @@ def get_websearcher_response_quick(
     print("Time taken to process sites:", t_end - t_fetch_end)
     print("Number of resulting tokens:", get_num_tokens(texts_str))
 
-    chain = WEBSEARCHER_PROMPT | get_llm(stream=True) | StrOutputParser()
+    chain = WEBSEARCHER_PROMPT_SIMPLE | get_llm(stream=True) | StrOutputParser()
     answer = chain.invoke({"texts_str": texts_str, "query": message})
     return {"answer": answer}
 

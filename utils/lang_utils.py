@@ -206,16 +206,16 @@ def limit_tokens_in_text(
     at_most_words = len(words)
 
     # Get the initial guess for the number of words to keep
-    print("max_tokens:", max_tokens)
-    print("Initial token counting...")
+    # print("max_tokens:", max_tokens)
+    # print("Initial token counting...")
     for i, word in enumerate(words):
         curr_num_tokens = get_num_tokens(word, llm_for_token_counting)
         num_tokens += curr_num_tokens
         if num_tokens > max_tokens:
             at_most_words = i
             break
-    print("actual number of words:", len(words))
-    print("at_most_words:", at_most_words)
+    # print("actual number of words:", len(words))
+    # print("at_most_words:", at_most_words)
 
     # Keep reducing the number of words to keep until we're below the token limit
     while True:
@@ -309,9 +309,9 @@ def limit_tokens_in_texts(
     allowance, token_counts = get_max_token_allowance_for_texts(
         texts, max_tot_tokens, cached_token_counts
     )
-    print("max_tot_tokens:", max_tot_tokens)
-    print("numbert of texts:", len(texts))
-    print("allowance:", allowance)
+    # print("max_tot_tokens:", max_tot_tokens)
+    # print("numbert of texts:", len(texts))
+    # print("allowance:", allowance)
     new_texts = []
     new_token_counts = []
     for text, num_tokens in zip(texts, token_counts):
