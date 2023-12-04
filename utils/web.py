@@ -19,7 +19,7 @@ from utils.strings import remove_consecutive_blank_lines
 
 async def afetch_url_aiohttp(session: aiohttp.ClientSession, url: str):
     """
-    Asynchronously fetch the content from a URL.
+    Asynchronously fetch the content from a URL using an aiohttp session.
     """
     try:
         async with session.get(url) as response:
@@ -31,8 +31,9 @@ async def afetch_url_aiohttp(session: aiohttp.ClientSession, url: str):
 
 async def afetch_urls_in_parallel_aiohttp(urls):
     """
-    Asynchronously fetch multiple URLs in parallel. Return the HTML content of each URL.
-    If there is an error in a particular URL, return the error message instead.
+    Asynchronously fetch multiple URLs in parallel using aiohttp.
+    Return the HTML content of each URL. If there is an error in a particular URL, 
+    return the error message instead of that URL's content.
     """
     async with aiohttp.ClientSession() as session:
         tasks = [afetch_url_aiohttp(session, url) for url in urls]
@@ -41,9 +42,8 @@ async def afetch_urls_in_parallel_aiohttp(urls):
     return htmls
 
 
-MAX_PLAYWRIGHT_INSTANCES = (
-    5  # TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
-)
+MAX_PLAYWRIGHT_INSTANCES = 5
+# TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
 
 DEFAULT_PLAYWRIGHT_TIMEOUT = 10000
 
@@ -202,9 +202,9 @@ def get_text_from_html(
     mode=TextFromHtmlMode.TRAFILATURA,
     clean=True,
     break_multi_headlines=False,
-):
+) -> str:
     """
-    Extract text from HTML content, ignoring scripts and styles.
+    Extract text from an HTML string.
     """
     if mode == TextFromHtmlMode.TRAFILATURA:
         # https://trafilatura.readthedocs.io/en/latest/usage-python.html
@@ -253,6 +253,8 @@ def remove_failed_fetches(
 ) -> tuple[list[str], list[str]]:
     """
     Remove failed fetches from a list of text strings obtained from a list of URLs.
+
+    Return the filtered lists of texts and URLs.
     """
     new_texts = []
     new_urls = []
