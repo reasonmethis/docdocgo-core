@@ -136,14 +136,20 @@ def get_websearcher_response_medium(
     query: str,
     max_queries: int = 7,
     max_links_per_query: int = 5,
-    max_total_links: int = 7,
+    max_total_links: int = 7,  # small number to stuff into context window
     max_tokens_final_context: int = 8000,
 ):
     # Get queries to search for using query generator prompt
     query_generator_chain = get_prompt_llm_chain(QUERY_GENERATOR_PROMPT)
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
         try:
-            query_generator_output = query_generator_chain.invoke({"query": query})
+            query_generator_output = query_generator_chain.invoke(
+                {
+                    "query": query,
+                    # "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                }
+            )
             query_generator_output = json.loads(query_generator_output)
             queries = query_generator_output["queries"][:max_queries]
             report_type = query_generator_output["report_type"]
@@ -266,7 +272,9 @@ def get_websearcher_response_medium(
     print("Number of links after removing unsuccessfully fetched ones:", len(links))
     print("Time taken to fetch sites:", t_fetch_end - t_get_links_end)
     print("Time taken to process html from sites:", t_process_texts_end - t_fetch_end)
-    print("Time taken to summarize/shorten texts:", t_summarize_end - t_process_texts_end)
+    print(
+        "Time taken to summarize/shorten texts:", t_summarize_end - t_process_texts_end
+    )
     print("Number of resulting tokens:", get_num_tokens(final_context))
 
     print("Generating report...\n")
