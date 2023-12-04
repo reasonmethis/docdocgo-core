@@ -10,6 +10,8 @@ from utils.type_utils import PairwiseChatHistory
 load_dotenv()
 
 default_llm_for_token_counting = ChatOpenAI()
+
+
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
     if llm_for_token_counting is None:
@@ -63,10 +65,10 @@ def limit_chat_history(
     llm_for_token_counting: BaseLanguageModel | None = None,
     cached_token_counts: list[int] | None = None,
 ) -> tuple[PairwiseChatHistory, list[int]]:
-    """Limit the chat history to a maximum number of tokens."""
+    """
+    Limit the chat history to a maximum number of tokens.
+    """
 
-    if llm_for_token_counting is None and cached_token_counts is None:
-        llm_for_token_counting = ChatOpenAI()
     # msgs = pairwise_chat_history_to_msg_list(chat_history)
     # token_counts = [
     #     llm_for_token_counting.get_num_tokens_from_messages([m]) for m in msgs
@@ -87,8 +89,9 @@ def limit_chat_history(
         if cached_token_counts:
             token_count_in_pair = cached_token_counts[-i - 1]
         else:
-            token_count_in_pair = llm_for_token_counting.get_num_tokens(
-                pairwise_chat_history_to_buffer_string([human_and_ai_msgs])
+            token_count_in_pair = get_num_tokens(
+                pairwise_chat_history_to_buffer_string([human_and_ai_msgs]),
+                llm_for_token_counting,
             )
 
         tot_token_count += token_count_in_pair
@@ -129,33 +132,36 @@ def shorten_chat_msg_pair(
     human_and_ai_msgs,
     max_token_limit,
     curr_token_count,
-    llm_for_token_counting: BaseLanguageModel,
+    llm_for_token_counting: BaseLanguageModel | None = None,
 ):
-    """Shorten a chat pair to below a maximum number of tokens.
+    """
+    Shorten a chat pair to below a maximum number of tokens.
 
     There is some imprecision in the token counting,
-    but it should be ok as long as we only try to shorten long messages."""
+    but it should be ok as long as we only try to shorten long messages.
+    """
     human_msg, ai_msg = human_and_ai_msgs
     if max_token_limit < 10:
         # To prevent infinite loops from inability to shorten
         raise ValueError("max_token_limit must be at least 10")
 
     # Find the longest message
-    human_token_count = llm_for_token_counting.get_num_tokens(human_msg)
-    ai_token_count = llm_for_token_counting.get_num_tokens(ai_msg)
+    human_token_count = get_num_tokens(human_msg, llm_for_token_counting)
+    ai_token_count = get_num_tokens(ai_msg, llm_for_token_counting)
 
     # Shorten the longest message
     tokens_to_remove = curr_token_count - max_token_limit
     if human_token_count > ai_token_count:
         fraction_to_remove = min(0.9, tokens_to_remove / human_token_count)
-        human_msg = shorten_msg(human_msg, fraction_to_remove)
+        human_msg = shorten_text_remove_middle(human_msg, fraction_to_remove)
     else:
         fraction_to_remove = min(0.9, tokens_to_remove / ai_token_count)
-        ai_msg = shorten_msg(ai_msg, fraction_to_remove)
+        ai_msg = shorten_text_remove_middle(ai_msg, fraction_to_remove)
 
     # Recalculate token count
-    token_count_new = llm_for_token_counting.get_num_tokens(
-        pairwise_chat_history_to_buffer_string([(human_msg, ai_msg)])
+    token_count_new = get_num_tokens(
+        pairwise_chat_history_to_buffer_string([(human_msg, ai_msg)]),
+        llm_for_token_counting,
     )
 
     print(
@@ -175,10 +181,12 @@ def shorten_chat_msg_pair(
     return (human_msg, ai_msg), token_count_new
 
 
-def shorten_msg(text: str, fraction_to_remove: float) -> str:
-    """Shorten a message to a given fraction of its original length.
+def shorten_text_remove_middle(text: str, fraction_to_remove: float) -> str:
+    """
+    Shorten a text to a given fraction of its original length by removing the middle
+    and replacing it with " ... ".
 
-    The actual goal is to shorten the token count, but we use words as a proxy,
+    Usually the intended measure of the length is tokens but we use words as a proxy,
     by splitting on spaces.
     """
     words = text.split(" ")  # NOTE could use RecursiveCharacterTextSplitter
@@ -200,6 +208,8 @@ def limit_tokens_in_text(
 ) -> str:
     """
     Limit the number of tokens in a text to the specified amount (or slightly less).
+
+    Tokens are removed from the end of the text.
     """
     words = text.split(" ")
     num_tokens = 0
