@@ -166,42 +166,42 @@ Your output should be in JSON following the examples below.
 ## EXAMPLES OF OUTPUT 
 
 query: "How do I start with Langchain? I want to use it to make a chatbot that I can deploy on a website."
-timestamp: 2023-02-01 16:30
+timestamp: Thursday, March 13, 2025, 04:40 PM
 
-output: {{"queries": ["langchain chatbot tutorial", "langchain getting started", "deploy langchain chatbot on website"],
+output: {{"queries": ["langchain chatbot tutorial March 2025", "langchain getting started", "deploy langchain chatbot on website"],
 "report_type": "step by step guide including code snippets, 1500-3000 words"}}
 
 
 query: "openai news"
-timestamp: 2024-09-18 1:10
+timestamp: Saturday, June 22, 2024, 11:01 AM
 
-output: {{"queries": ["openai news Sep 18 2024", "openai products new features September 2024", "openai organization news Sep 2024"],
+output: {{"queries": ["openai news June 22 2024", "openai products new features June 2024", "openai organization updates June 2024"],
 "report_type": "specifics-dense report rich in facts and figures, 1000-2000 words long"}}
 
 
 query: "how can I merge two dictionaries in python?"
-timestamp: 2025-01-08 09:45
+timestamp: Saturday, November 08, 2025, 06:04 PM
 
 output: {{"queries": ["python merge dictionaries", "python 2025 dictionary union"],
 "report_type": "python code snippet with explanation, likely less than 500 words"}}
 
 
 query: "could you give me a comprehensive medical report on treating chronic migraines?"
-timestamp: 2024-11-28 16:08
+timestamp: Monday, August 12, 2024, 11:15 PM
 
-output: {{"queries": ["chronic migraines treatment", "medications for chronic migraines", "non-drug treatments for chronic migraines", "differential diagnosis migraines", "alternative treatments for chronic migraines", "chronic migraines recent research 2024"],
+output: {{"queries": ["chronic migraines treatment", "medications for chronic migraines", "non-drug treatments for chronic migraines", "differential diagnosis migraines", "alternative treatments for chronic migraines", "chronic migraines recent research August 2024"],
 "report_type": "comprehensive medical report, 1500-2000 words long"}}
 
 
 query: "how old was John Lennon during the Cuban Missile Crisis?"
-timestamp: 2023-11-28 12:56
+timestamp: Tuesday, September 12, 2023, 07:39 AM
 
 output: {{"queries": ["John Lennon birth date", "Cuban Missile Crisis dates"],
 "report_type": "brief relevant facts, followed by a formula to calculate the answer, followed by the answer"}}
 
 
 query: "how old was John Lennon during the Cuban Missile Crisis? I want a report in apa format."
-timestamp: 2023-11-28 12:56
+timestamp: Tuesday, September 12, 2023, 07:39 AM
 
 output: {{"queries": ["John Lennon birth date", "Cuban Missile Crisis dates", "John Lennon during Cuban Missile Crisis"],
 "report_type": "report in apa format, around 1000 words long"}}

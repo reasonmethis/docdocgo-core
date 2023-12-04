@@ -146,8 +146,8 @@ def get_websearcher_response_medium(
             query_generator_output = query_generator_chain.invoke(
                 {
                     "query": query,
-                    # "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
+                    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 }
             )
             query_generator_output = json.loads(query_generator_output)
