@@ -215,6 +215,28 @@ timestamp: {timestamp}
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
 
+iterative_report_improver_template = """You are AIRIA, Advanced Iterative Report Improvement Assistant. 
+
+USER's query: {query}
+
+MISSION: improve the report you generated on your previous iteration, with the help of additional information you retrieved. 
+
+<new_info>{new_info}</new_info>
+
+Your previous iteration's report: 
+
+<previous_report>{previous_report}</previous_report>
+
+If any new information is useful to improve the report to best serve USER's information need, please output the improved report. Otherwise, output "NO_IMPROVEMENT X%", where X is your estimate of how well the report serves USER's information need on a scale from 0% to 100%, based on their query: 
+
+{query}
+
+Your output MUST be just the improved report or "NO_IMPROVEMENT X%". Output: """
+
+ITERATIVE_REPORT_IMPROVER_PROMPT = PromptTemplate.from_template(
+    iterative_report_improver_template
+)
+
 if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"

@@ -13,23 +13,44 @@ from utils.algo import remove_duplicates_keep_order
 from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
 from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
-from utils.helpers import DELIMITER, INTRO_ASCII_ART, HINT_MESSAGE
-from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, GOOGLE_COMMAND_ID
+from utils.helpers import (
+    DELIMITER,
+    INTRO_ASCII_ART,
+    HINT_MESSAGE,
+    ITERATIVE_RESEARCH_COMMAND_ID,
+)
+from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, WEB_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm
-from agents.websearcher import get_websearcher_response
+from agents.websearcher import (
+    get_websearcher_iterative_response,
+    get_websearcher_response,
+    IterativeWebsearcherData,
+)
 
 
-def get_bot_response(message, chat_history, search_params, command_id, vectorstore):
+def get_bot_response(
+    message, chat_history, search_params, command_id, vectorstore, ws_data=None
+):
     if command_id == DETAILS_COMMAND_ID:  # /details command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
         bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
-    elif command_id == GOOGLE_COMMAND_ID:  # /web command
+    elif command_id == WEB_COMMAND_ID:  # /web command
         return get_websearcher_response(message)
+    elif command_id == ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
+        if message:
+            # Start new research
+            ws_data = IterativeWebsearcherData.from_query(message)
+        elif not ws_data:
+            raise ValueError("No query provided and no previous research found.")
+        # Get response from iterative researcher
+        ws_data = get_websearcher_iterative_response(ws_data)
+        return {"answer": ws_data.report, "ws_data": ws_data}
+
     else:
         bot = create_bot(vectorstore)
 
@@ -110,6 +131,7 @@ def create_bot(
         print(e)
         sys.exit()
 
+
 def do_intro_tasks():
     print(INTRO_ASCII_ART + "\n\n")
 
@@ -123,6 +145,7 @@ def do_intro_tasks():
     print("Done!")
     return vectorstore
 
+
 if __name__ == "__main__":
     vectorstore = do_intro_tasks()
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
@@ -134,6 +157,7 @@ if __name__ == "__main__":
     print('- To exit, type "exit" or "quit", or just enter an empty message twice.')
     print(DELIMITER)
     chat_history = []
+    ws_data = None
     while True:
         # Get query from user
         if os.getenv("SHOW_HINTS", True):
@@ -154,7 +178,9 @@ if __name__ == "__main__":
 
         # Get response from bot
         try:
-            result = get_bot_response(query, chat_history, search_params, command_id, vectorstore)
+            result = get_bot_response(
+                query, chat_history, search_params, command_id, vectorstore, ws_data
+            )
         except Exception as e:
             print("<Apologies, an error has occurred>")
             print("ERROR:", e)
@@ -179,6 +205,11 @@ if __name__ == "__main__":
 
         # Update chat history
         chat_history.append((query, answer))
+
+        # Update iterative research data
+        if "ws_data" in result:
+            ws_data = result["ws_data"]
+        # TODO: update in API as well
 
         # Get sources
         source_links = get_source_links(result)

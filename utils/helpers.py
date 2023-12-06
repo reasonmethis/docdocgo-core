@@ -14,31 +14,38 @@ DEFAULT_STREAM_PREFIX = "DocDocGo: "
 CHAT_COMMAND_ID = 1
 DETAILS_COMMAND_ID = 2
 QUOTES_COMMAND_ID = 3
-GOOGLE_COMMAND_ID = 4
+WEB_COMMAND_ID = 4
+ITERATIVE_RESEARCH_COMMAND_ID = 5
 
 command_ids = {
     "/chat": CHAT_COMMAND_ID,
     "/details": DETAILS_COMMAND_ID,
     "/quotes": QUOTES_COMMAND_ID,
-    "/web": GOOGLE_COMMAND_ID,
+    "/web": WEB_COMMAND_ID,
+    "/research": ITERATIVE_RESEARCH_COMMAND_ID,
 }
 
 DEFAULT_MODE_ID = command_ids[os.getenv("DEFAULT_MODE", "/chat")]
 
 HINT_MESSAGE = (
     f"Hints: "
-    f"Type a query to get started. You can also use the following prefixes:\n"
+    f'Type your query (or "exit"). You can also use the following prefixes:\n'
     f"/chat: chat with the bot about your docs or anything else\n"
     f"/details: get details about the retrieved documents\n"
     f"/quotes: get quotes from the retrieved documents\n"
-    f"/web: perform web searches and generate a report\n\n"
-    f'Example: "/web openai news"\n'
+    f"/web: perform web searches and generate a report\n"
+    f"/research: perform iterative research (no message = iterate on previous report)\n"
+    f'\nExample: "/web openai news"\n'
     f"{DELIMITER}"
 )
 
+
 def print_no_newline(*args, **kwargs):
-    """Print without adding a newline at the end"""
+    """
+    Print without adding a newline at the end
+    """
     print(*args, **kwargs, end="", flush=True)
+
 
 def is_directory_empty(directory):
     return not os.listdir(directory)
@@ -49,6 +56,7 @@ def clear_directory(directory):
     Remove all files and subdirectories in the given directory.
     """
     import shutil
+
     errors = []
     for item in os.listdir(directory):
         item_path = os.path.join(directory, item)
@@ -63,6 +71,7 @@ def clear_directory(directory):
         err_str = "\n".join([str(e) for e in errors])
         raise Exception("Could not delete all items:\n" + err_str)
 
+
 def lin_interpolate(x, x_min, x_max, y_min, y_max):
     """Given x, return y that linearly interpolates between two points
     (x_min, y_min) and (x_max, y_max)"""
@@ -76,6 +85,10 @@ def clamp(value, min_value, max_value):
 
 def extract_command_id_from_query(query: str) -> tuple[str, int]:
     """Extract the command ID from the query, if any"""
+    try:
+        return "", command_ids[query]
+    except KeyError:
+        pass
     try:
         command, actual_query = query.split(" ", maxsplit=1)
         return actual_query, command_ids[command]

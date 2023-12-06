@@ -206,6 +206,9 @@ def get_text_from_html(
     """
     Extract text from an HTML string.
     """
+    if html_content.startswith("Error: "):
+        return html_content
+    
     if mode == TextFromHtmlMode.TRAFILATURA:
         # https://trafilatura.readthedocs.io/en/latest/usage-python.html
         text = trafilatura.extract(
@@ -240,13 +243,20 @@ def get_text_from_html(
         text = ""
     elif clean:
         text = clean_text(text, break_multi_headlines=break_multi_headlines)
-
-    print(".", end="", flush=True)
     return text
 
 
 MIN_CHARS_PER_URL_CONTENT = 100
 
+def is_html_text_ok(text: str) -> bool:
+    """
+    Return True if the text extracted from an HTML string appears to be from a 
+    successfully fetched website.
+     
+    Specifically, return True if has at least MIN_CHARS_PER_URL_CONTENT
+    characters.
+    """
+    return len(text) >= MIN_CHARS_PER_URL_CONTENT
 
 def remove_failed_fetches(
     texts: list[str], urls: list[str]
@@ -262,7 +272,7 @@ def remove_failed_fetches(
         if text.startswith("Error: "):
             print(f"Error fetching URL {url}:\n{text[7:]}")
             continue
-        if len(text) < MIN_CHARS_PER_URL_CONTENT:
+        if not is_html_text_ok(text):
             print(
                 f"Skipping URL {url}: retrieved text has only {len(text)} characters, "
                 f"less than the minimum of {MIN_CHARS_PER_URL_CONTENT}"
