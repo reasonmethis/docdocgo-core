@@ -11,20 +11,21 @@ from utils.algo import remove_duplicates_keep_order
 
 # from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
 from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
-from utils.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT_CHAT
+from utils.prompts import CONDENSE_QUESTION_PROMPT, JUST_CHAT_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import (
     DELIMITER,
     INTRO_ASCII_ART,
     HINT_MESSAGE,
     ITERATIVE_RESEARCH_COMMAND_ID,
+    JUST_CHAT_COMMAND_ID,
 )
 from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, WEB_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG
 from components.chroma_ddg_retriever import ChromaDDGRetriever
-from components.llm import get_llm
+from components.llm import get_llm, get_prompt_llm_chain
 from agents.websearcher import (
     get_websearcher_iterative_response,
     get_websearcher_response,
@@ -36,9 +37,9 @@ def get_bot_response(
     message, chat_history, search_params, command_id, vectorstore, ws_data=None
 ):
     if command_id == DETAILS_COMMAND_ID:  # /details command
-        bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
+        chat_chain = create_bot(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
-        bot = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
+        chat_chain = create_bot(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
     elif command_id == WEB_COMMAND_ID:  # /web command
         return get_websearcher_response(message)
     elif command_id == ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
@@ -50,11 +51,14 @@ def get_bot_response(
         # Get response from iterative researcher
         ws_data = get_websearcher_iterative_response(ws_data)
         return {"answer": ws_data.report, "ws_data": ws_data}
-
+    elif command_id == JUST_CHAT_COMMAND_ID:  # /chat command
+        chat_chain = get_prompt_llm_chain(JUST_CHAT_PROMPT, stream=True)
+        answer = chat_chain.invoke({"message": message, "chat_history": chat_history})
+        return {"answer": answer}
     else:
-        bot = create_bot(vectorstore)
+        chat_chain = create_bot(vectorstore)
 
-    return bot(
+    return chat_chain(
         {
             "question": message,
             "chat_history": chat_history,
@@ -64,7 +68,9 @@ def get_bot_response(
 
 
 def get_source_links(result_from_conv_retr_chain):
-    """Returns a list of source links from the result of a ConversationalRetrievalChain"""
+    """
+    Returns a list of source links from the result of a ConversationalRetrievalChain
+    """
 
     source_docs = result_from_conv_retr_chain.get("source_documents", [])
 

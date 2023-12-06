@@ -11,30 +11,33 @@ INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                     
 
 DEFAULT_STREAM_PREFIX = "DocDocGo: "
 
-CHAT_COMMAND_ID = 1
+CHAT_WITH_DOCS_COMMAND_ID = 1
 DETAILS_COMMAND_ID = 2
 QUOTES_COMMAND_ID = 3
 WEB_COMMAND_ID = 4
 ITERATIVE_RESEARCH_COMMAND_ID = 5
+JUST_CHAT_COMMAND_ID = 6
 
 command_ids = {
-    "/chat": CHAT_COMMAND_ID,
+    "/chat": JUST_CHAT_COMMAND_ID,
+    "/docs": CHAT_WITH_DOCS_COMMAND_ID,
     "/details": DETAILS_COMMAND_ID,
     "/quotes": QUOTES_COMMAND_ID,
     "/web": WEB_COMMAND_ID,
     "/research": ITERATIVE_RESEARCH_COMMAND_ID,
 }
 
-DEFAULT_MODE_ID = command_ids[os.getenv("DEFAULT_MODE", "/chat")]
+DEFAULT_MODE_ID = command_ids[os.getenv("DEFAULT_MODE", "/docs")]
 
 HINT_MESSAGE = (
     f"Hints: "
     f'Type your query (or "exit"). You can also use the following prefixes:\n'
-    f"/chat: chat with the bot about your docs or anything else\n"
+    f"/docs: chat with the bot about your docs or anything else\n"
     f"/details: get details about the retrieved documents\n"
     f"/quotes: get quotes from the retrieved documents\n"
     f"/web: perform web searches and generate a report\n"
     f"/research: perform iterative research (no message = iterate on previous report)\n"
+    f"/chat: regular chat with the bot, without retrieving docs or websites\n"
     f'\nExample: "/web openai news"\n'
     f"{DELIMITER}"
 )
