@@ -47,7 +47,10 @@ def get_bot_response(
             # Start new research
             ws_data = IterativeWebsearcherData.from_query(message)
         elif not ws_data:
-            raise ValueError("No query provided and no previous research found.")
+            return {
+                "answer": "The /research prefix without a message is used to iterate "
+                "on the previous report. However, there is no previous report."
+            }
         # Get response from iterative researcher
         ws_data = get_websearcher_iterative_response(ws_data)
         return {"answer": ws_data.report, "ws_data": ws_data}
