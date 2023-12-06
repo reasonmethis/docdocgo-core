@@ -6,9 +6,9 @@ from flask import Flask, jsonify, request
 
 from utils.type_utils import JSONish, PairwiseChatHistory
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
-from utils.helpers import DELIMITER, parse_query
+from utils.helpers import DELIMITER, RETRY_COMMAND_ID, parse_query
 
-vectorstore = do_intro_tasks()
+vectorstore, vectorstore_name = do_intro_tasks()
 
 app = Flask(__name__)
 
@@ -53,7 +53,7 @@ def chat():
         message, search_params = parse_query(message)
 
         # Process commands that don't require a response from the bot
-        if command_id == 4:  # /retry command
+        if command_id == RETRY_COMMAND_ID:  # /retry command
             return jsonify(
                 {
                     "prev_user_msg": prev_input_by_user[username].get("message", ""),
@@ -89,7 +89,9 @@ def chat():
             return jsonify(prev_outputs[username])
 
         # Initialize the chain with the right settings and get the bot's response
-        result = get_bot_response(message, chat_history, search_params, command_id, vectorstore)
+        result = get_bot_response(
+            message, chat_history, search_params, command_id, vectorstore
+        )
 
         # Get the reply and sources from the bot's response
         reply = result["answer"]
@@ -106,9 +108,10 @@ def chat():
     # Print and return the response
     print()  # ("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
-    print("Sources:")
-    print("\n".join(source_links))
-    print(DELIMITER)
+    if source_links:
+        print("Sources:")
+        print("\n".join(source_links))
+        print(DELIMITER)
 
     prev_outputs[username] = {"content": reply, "sources": source_links}
     return jsonify(prev_outputs[username])

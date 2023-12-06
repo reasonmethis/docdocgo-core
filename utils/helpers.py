@@ -9,14 +9,16 @@ INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                     
  /)__)   /)__)   /)__)               WELCOME TO DOC DOC GO             /)__)   /)__)   /)__)
 --"--"----"--"----"--"--------------------------------------------------"--"----"--"----"--"--"""
 
-DEFAULT_STREAM_PREFIX = "DocDocGo: "
+MAIN_BOT_PREFIX = "DocDocGo: "
 
+RETRY_COMMAND_ID = 0
 CHAT_WITH_DOCS_COMMAND_ID = 1
 DETAILS_COMMAND_ID = 2
 QUOTES_COMMAND_ID = 3
 WEB_COMMAND_ID = 4
 ITERATIVE_RESEARCH_COMMAND_ID = 5
 JUST_CHAT_COMMAND_ID = 6
+SWITCH_DB_COMMAND_ID = 7
 
 command_ids = {
     "/chat": JUST_CHAT_COMMAND_ID,
@@ -25,9 +27,11 @@ command_ids = {
     "/quotes": QUOTES_COMMAND_ID,
     "/web": WEB_COMMAND_ID,
     "/research": ITERATIVE_RESEARCH_COMMAND_ID,
+    "/db": SWITCH_DB_COMMAND_ID,
 }
 
-DEFAULT_MODE_ID = command_ids[os.getenv("DEFAULT_MODE", "/docs")]
+DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
+DEFAULT_MODE_ID = command_ids[DEFAULT_MODE]
 
 HINT_MESSAGE = (
     f"Hints: "
@@ -38,6 +42,7 @@ HINT_MESSAGE = (
     f"/web: perform web searches and generate a report\n"
     f"/research: perform iterative research (no message = iterate on previous report)\n"
     f"/chat: regular chat with the bot, without retrieving docs or websites\n"
+    f"/db: select new document database\n"
     f'\nExample: "/web openai news"\n'
     f"{DELIMITER}"
 )

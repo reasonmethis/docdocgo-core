@@ -6,12 +6,12 @@ from langchain.prompts.prompt import PromptTemplate
 from langchain.chat_models import ChatOpenAI, AzureChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
 
-from utils.helpers import DEFAULT_STREAM_PREFIX
+from utils.helpers import MAIN_BOT_PREFIX
 from utils.prepare import TEMPERATURE, IS_AZURE, CHAT_DEPLOYMENT_NAME
 from utils.prepare import MODEL_NAME, LLM_REQUEST_TIMEOUT
 
 
-def get_llm(temperature=None, stream=False, init_str=DEFAULT_STREAM_PREFIX):
+def get_llm(temperature=None, stream=False, init_str=MAIN_BOT_PREFIX):
     """Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
     on the value of IS_AZURE)"""
     if temperature is None:
@@ -45,7 +45,7 @@ def get_prompt_llm_chain(prompt: PromptTemplate, **kwargs):
 
 
 class CallbackHandlerDDG(BaseCallbackHandler):
-    def __init__(self, init_str: str = DEFAULT_STREAM_PREFIX):
+    def __init__(self, init_str: str = MAIN_BOT_PREFIX):
         self.init_str = init_str
 
     def on_llm_start(

@@ -161,7 +161,7 @@ class LinkData(BaseModel):
         return cls(text=text, error="UNACCEPTABLE_EXTRACTED_TEXT")
 
 
-class IterativeWebsearcherData(BaseModel):
+class WebsearcherData(BaseModel):
     query: str
     report: str
     report_type: str
@@ -240,7 +240,7 @@ def get_websearcher_response_medium(
     t_fetch_end = datetime.now()
 
     # Initialize data object
-    ws_data = IterativeWebsearcherData.from_query(query)
+    ws_data = WebsearcherData.from_query(query)
     ws_data.report_type = report_type
     ws_data.processed_links = links  # we will process these links in this function
     ws_data.unprocessed_links = all_links[max_total_links:]
@@ -338,9 +338,9 @@ NUM_NEW_LINKS_TO_ACQUIRE = 3
 NUM_NEW_LINKS_TO_PROCESS = 2
 
 
-def get_websearcher_iterative_response(
-    ws_data: IterativeWebsearcherData,
-) -> IterativeWebsearcherData:
+def get_iterative_researcher_response(
+    ws_data: WebsearcherData,
+) -> WebsearcherData:
     # Special handling for first iteration
     if not ws_data.report:
         return get_websearcher_response_medium(ws_data.query)["ws_data"]

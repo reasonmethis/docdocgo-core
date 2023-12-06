@@ -22,7 +22,8 @@ class ChromaDDG(Chroma):
         filter: Where | None = None,
         **kwargs: Any,
     ) -> list[tuple[Document, float]]:
-        """Run similarity search with Chroma with distance.
+        """
+        Run similarity search with Chroma with distance.
 
         Args:
             query (str): Query text to search for.
@@ -34,7 +35,6 @@ class ChromaDDG(Chroma):
         Returns:
             list[tuple[Document, float]]: List of documents most similar to
             the query text and cosine distance in float for each.
-            Lower score represents more similarity.
         """
 
         # Determine if the passed kwargs contain a 'where_document' parameter
