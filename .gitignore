@@ -1,6 +1,5 @@
-.chroma
+my-chroma/
 docs-private
-dbs-private
 launch.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
