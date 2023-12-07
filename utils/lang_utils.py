@@ -164,10 +164,10 @@ def shorten_chat_msg_pair(
         llm_for_token_counting,
     )
 
-    print(
-        f"Shortened pair 'Human: {human_msg[:20]}..., AI: {ai_msg[:20]}...' to "
-        f"{token_count_new} tokens. Target was {max_token_limit} tokens."
-    )
+    # print(
+    #     f"Shortened pair 'Human: {human_msg[:20]}..., AI: {ai_msg[:20]}...' to "
+    #     f"{token_count_new} tokens. Target was {max_token_limit} tokens."
+    # )
 
     # If we are still over the limit, keep shortening
     if token_count_new > max_token_limit:
@@ -248,7 +248,7 @@ def get_num_tokens_in_texts(
     texts: list[str], llm_for_token_counting: BaseLanguageModel | None = None
 ) -> list[int]:
     """
-    Get the number of tokens in a list of texts.
+    Get the number of tokens in a list of texts using multiple threads.
     """
 
     def _get_num_tokens(text):
