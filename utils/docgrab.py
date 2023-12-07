@@ -3,12 +3,14 @@ import json
 import os
 from dotenv import load_dotenv
 
+from langchain.vectorstores.chroma import Chroma
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from components.chroma_ddg import ChromaDDG
-
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
+
+from components.chroma_ddg import ChromaDDG, get_embedding_function
+from utils.output import ConditionalLogger
 
 load_dotenv()
 
@@ -46,21 +48,24 @@ def load_gitbook(root_url: str) -> list[Document]:
     return all_pages_docs
 
 
-def create_vectorstore(docs, save_dir=None) -> ChromaDDG:
+def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
+    """
+    Prepare docs for vectorstore creation
+    """
+    clg = ConditionalLogger(verbose)
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,  # NOTE used to be 100 - can tune
         add_start_index=True,  # metadata will include start index of snippet in original doc
     )
 
-    print(f"Creating vectorstore with {len(docs)} documents")
+    clg.log(f"Ingesting {len(docs)} documents")
     docs = text_splitter.split_documents(docs)
-    print(f"  - Split documents into {len(docs)} snippets")
+    clg.log(f"  - Split documents into {len(docs)} snippets")
 
     # Group duplicates together
-    snippet_text_to_snippets: dict[
-        str, list[Document]
-    ] = {}  # all snippets with same text
+    snippet_text_to_snippets: dict[str, list[Document]] = {}
     for snippet in reversed(docs):  # reversed means we keep the latest snippet
         try:
             snippet_text_to_snippets[snippet.page_content].append(snippet)
@@ -77,22 +82,49 @@ def create_vectorstore(docs, save_dir=None) -> ChromaDDG:
                 [s.metadata for s in snippets[1:]]
             )
         docs.append(snippet)
-    print(f"  - After grouping duplicates - {len(docs)} snippets")
+    clg.log(f"  - After grouping duplicates - {len(docs)} snippets")
+    return docs
 
-    # Create vectorstore
-    # (as of Aug 8, 2023, max chunk size for Azure API is 16)
-    embeddings = (
-        OpenAIEmbeddings(
-            deployment=os.getenv("EMBEDDINGS_DEPLOYMENT_NAME"), chunk_size=16
-        )
-        if os.getenv("OPENAI_API_BASE")  # proxy for whether we're using Azure
-        else OpenAIEmbeddings()
+
+def ingest_docs_into_chroma_client(
+    docs: list[Document],
+    collection_name: str,
+    chroma_client: Chroma,
+    verbose: bool = False,
+) -> ChromaDDG:
+    """
+    Ingest a list of documents and return a vectorstore.
+    """
+    vectorstore = ChromaDDG.from_documents(
+        prepare_docs(docs, verbose=verbose),
+        embedding=get_embedding_function(),
+        client=chroma_client,
+        collection_name=collection_name,
     )
+    if verbose:
+        print(f"Created collection {collection_name}")
+    return vectorstore
 
-    vectorstore = ChromaDDG.from_documents(docs, embeddings, persist_directory=save_dir)
-    print("Created vectorstore")
-    if save_dir:
-        print(f"  - Saved to {save_dir}")
+# TODO: consider removing this
+def create_vectorstore_ram_or_disk(
+    docs: list[Document],
+    collection_name: str,
+    save_dir: str = None,
+    verbose: bool = False,
+) -> ChromaDDG:
+    """
+    Create a vectorstore from a list of documents.
+    """
+    vectorstore = ChromaDDG.from_documents(
+        prepare_docs(docs, verbose=verbose),
+        embedding=get_embedding_function(),
+        persist_directory=save_dir,
+        collection_name=collection_name,
+    )
+    if verbose:
+        print(f"Created collection {collection_name}")
+        if save_dir:
+            print(f"  - Saved to {save_dir}")
     return vectorstore
 
 

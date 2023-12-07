@@ -8,6 +8,7 @@ IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
 
+DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME")
 VECTORDB_DIR = os.getenv("VECTORDB_DIR")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-1106")
@@ -37,4 +38,11 @@ def validate_settings():
                 f"\nThe path you have specified is: {VECTORDB_DIR}.\n"
                 f"The absolute path resolves to: {os.path.abspath(VECTORDB_DIR)}."
             )
+        sys.exit()
+
+    # Verify the presence of the default collection name
+    if not DEFAULT_COLLECTION_NAME:
+        print(
+            "Please set the DEFAULT_COLLECTION_NAME environment variable in .env, as shown in .env.example."
+        )
         sys.exit()

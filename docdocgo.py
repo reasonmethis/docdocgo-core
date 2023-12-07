@@ -1,7 +1,6 @@
 import os
 from typing import Any
 
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 
 from langchain.chains import LLMChain
@@ -9,8 +8,11 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from utils.algo import remove_duplicates_keep_order
 
-# from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
-from utils.prepare import validate_settings, VECTORDB_DIR, TEMPERATURE  # loads env vars
+from utils.prepare import (
+    validate_settings,
+    DEFAULT_COLLECTION_NAME,
+    TEMPERATURE,
+) # loads environment variables
 from utils.prompts import CONDENSE_QUESTION_PROMPT, JUST_CHAT_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import (
@@ -28,7 +30,7 @@ from utils.helpers import (
 from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, WEB_COMMAND_ID
 from utils.helpers import extract_command_id_from_query, parse_query
 from components.chat_with_docs_chain import ChatWithDocsChain
-from components.chroma_ddg import ChromaDDG
+from components.chroma_ddg import ChromaDDG, initialize_client, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm, get_prompt_llm_chain
 from agents.websearcher import (
@@ -67,19 +69,25 @@ def get_bot_response(
         answer = chat_chain.invoke({"message": message, "chat_history": chat_history})
         return {"answer": answer}
     elif command_id == SWITCH_DB_COMMAND_ID:  # /db command
-        vectorstore_path = message.strip()
         stem = {"needs_print": True}
-        if not vectorstore_path:
-            return stem | {"answer": "A vector database path must be provided."}
         try:
-            vectorstore, vectorstore_name = load_vectorstore(vectorstore_path)
+            db_dir, collection_name = os.path.split(message)
+        except Exception as e:
+            db_dir = collection_name = ""
+        if not collection_name:
+            return stem | {"answer": "A valid docs db name must be provided."}
+        try:
+            if db_dir:
+                chroma_client = initialize_client(db_dir)
+            else:
+                chroma_client = vectorstore._client
+            vectorstore = load_vectorstore(collection_name, chroma_client)
         except Exception as e:
             return stem | {
-                "answer": f"Error loading requested vector database: {e}",
+                "answer": f"Error loading requested database: {e}",
             }
         return stem | {
-            "answer": f"Switching to vector database: {vectorstore_path}",
-            "vectorstore_name": vectorstore_name,
+            "answer": f"Switching to vector database: {message}",
             "vectorstore": vectorstore,
         }
     else:
@@ -161,19 +169,6 @@ def get_docs_chat_chain(
     )
 
 
-def load_vectorstore(path: str):
-    """
-    Load a ChromaDDG vectorstore from a given path.
-    """
-    if not os.path.isdir(path):
-        raise ValueError(f"Invalid vectorstore path: {path}")
-    vectorstore = ChromaDDG(
-        embedding_function=OpenAIEmbeddings(), persist_directory=path
-    )
-    vectorstore_name = os.path.basename(path)
-    return vectorstore, vectorstore_name
-
-
 def do_intro_tasks():
     print(INTRO_ASCII_ART + "\n\n")
 
@@ -181,13 +176,13 @@ def do_intro_tasks():
 
     # Load the vector database
     print_no_newline("Loading the vector database of your documents... ")
-    vectorstore, vectorstore_name = load_vectorstore(VECTORDB_DIR)
+    vectorstore = load_vectorstore(DEFAULT_COLLECTION_NAME)
     print("Done!")
-    return vectorstore, vectorstore_name
+    return vectorstore
 
 
 if __name__ == "__main__":
-    vectorstore, vectorstore_name = do_intro_tasks()
+    vectorstore = do_intro_tasks()
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -202,7 +197,7 @@ if __name__ == "__main__":
         # Print hints and other info
         if os.getenv("SHOW_HINTS", True):
             print(HINT_MESSAGE)
-        print(f"Vector database: {vectorstore_name}\t\tDefault mode: {DEFAULT_MODE}")
+        print(f"Vector database: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
 
         # Get query from user
         query = input("YOU: ")
@@ -249,7 +244,6 @@ if __name__ == "__main__":
         # Update vectorstore if needed
         if "vectorstore" in response:
             vectorstore = response["vectorstore"]
-            vectorstore_name = response["vectorstore_name"]
 
         # Get sources
         # TODO: also get sources from the websearcher

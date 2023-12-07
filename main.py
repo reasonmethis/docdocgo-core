@@ -8,7 +8,7 @@ from utils.type_utils import JSONish, PairwiseChatHistory
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
 from utils.helpers import DELIMITER, RETRY_COMMAND_ID, parse_query
 
-vectorstore, vectorstore_name = do_intro_tasks()
+vectorstore = do_intro_tasks()
 
 app = Flask(__name__)
 
