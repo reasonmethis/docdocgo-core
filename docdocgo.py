@@ -12,7 +12,7 @@ from utils.prepare import (
     validate_settings,
     DEFAULT_COLLECTION_NAME,
     TEMPERATURE,
-) # loads environment variables
+)  # loads environment variables
 from utils.prompts import CONDENSE_QUESTION_PROMPT, JUST_CHAT_PROMPT, QA_PROMPT_CHAT
 from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
 from utils.helpers import (
@@ -62,20 +62,28 @@ def get_bot_response(
                 "needs_print": True,
             }
         # Get response from iterative researcher
-        ws_data = get_iterative_researcher_response(ws_data)
-        return {"answer": ws_data.report, "ws_data": ws_data}
+        ws_data = get_iterative_researcher_response(ws_data, vectorstore)
+
+        # Load the new vectorstore if needed
+        partial_res = {}
+        if ws_data.collection_name != vectorstore.name:
+            vectorstore = load_vectorstore(ws_data.collection_name, vectorstore._client)
+            partial_res = {"vectorstore": vectorstore}
+
+        # Return response, including the new vectorstore if needed
+        return partial_res | {"answer": ws_data.report, "ws_data": ws_data}
     elif command_id == JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(JUST_CHAT_PROMPT, stream=True)
         answer = chat_chain.invoke({"message": message, "chat_history": chat_history})
         return {"answer": answer}
     elif command_id == SWITCH_DB_COMMAND_ID:  # /db command
-        stem = {"needs_print": True}
+        partial_res = {"needs_print": True}
         try:
             db_dir, collection_name = os.path.split(message)
         except Exception as e:
             db_dir = collection_name = ""
         if not collection_name:
-            return stem | {"answer": "A valid docs db name must be provided."}
+            return partial_res | {"answer": "A valid docs db name must be provided."}
         try:
             if db_dir:
                 chroma_client = initialize_client(db_dir)
@@ -83,10 +91,10 @@ def get_bot_response(
                 chroma_client = vectorstore._client
             vectorstore = load_vectorstore(collection_name, chroma_client)
         except Exception as e:
-            return stem | {
+            return partial_res | {
                 "answer": f"Error loading requested database: {e}",
             }
-        return stem | {
+        return partial_res | {
             "answer": f"Switching to vector database: {message}",
             "vectorstore": vectorstore,
         }

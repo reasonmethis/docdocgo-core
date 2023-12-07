@@ -1,12 +1,11 @@
 import os
 from typing import Any
-from chromadb import PersistentClient
+from chromadb import PersistentClient, ClientAPI
 
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma, _results_to_docs_and_scores
 from chromadb.api.types import Where, WhereDocument
-from chromadb import ClientAPI
 
 
 def get_embedding_function():

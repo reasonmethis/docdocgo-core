@@ -3,11 +3,16 @@ from datetime import datetime
 from enum import Enum
 import json
 
+from pydantic import BaseModel
+from chromadb import ClientAPI
+from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain.schema.output_parser import StrOutputParser
-from pydantic import BaseModel
+from components.chroma_ddg import ChromaDDG
+
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync, make_sync
+from utils.docgrab import ingest_docs_into_chroma_client
 from utils.helpers import DELIMITER, print_no_newline
 from utils.lang_utils import (
     get_max_token_allowance_for_texts,
@@ -169,6 +174,7 @@ class WebsearcherData(BaseModel):
     processed_links: list[str]
     link_data_dict: dict[str, LinkData]
     evaluation: str | None = None
+    collection_name: str | None = None
     max_tokens_final_context: int = 8000
 
     @classmethod
@@ -337,13 +343,55 @@ def get_websearcher_response_medium(
 NUM_NEW_LINKS_TO_ACQUIRE = 3
 NUM_NEW_LINKS_TO_PROCESS = 2
 
+SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
+
+
+def get_initial_iterative_researcher_response(
+    ws_data: WebsearcherData,
+    chroma_client: ClientAPI,
+) -> WebsearcherData:
+    ws_data = get_websearcher_response_medium(ws_data.query)["ws_data"]
+
+    # Decide on the collection name
+    query_words = ws_data.query.split()
+    words = [x.lower() for x in query_words if x not in SMALL_WORDS]
+    if len(words) < 2:
+        words = [x.lower() for x in query_words]
+    ws_data.collection_name = orig_name = "-".join(words[:3])[:60].rstrip("-")
+
+    # Check if collection exists, if so, add a number to the end
+    for i in range(1, 1000000000):
+        try:
+            chroma_client.get_collection(ws_data.collection_name)
+        except ValueError:
+            break  # collection does not exist
+        ws_data.collection_name = f"{orig_name}-{i}"
+
+    # Convert website content into documents for ingestion
+    print("Ingesting fetched content into ChromaDB...")
+    docs: list[Document] = []
+    for link, link_data in ws_data.link_data_dict.items():
+        if link_data.error:
+            continue
+        metadata = {"url": link}
+        if link_data.num_tokens is not None:
+            metadata["num_tokens"] = link_data.num_tokens
+        docs.append(Document(page_content=link_data.text, metadata=metadata))
+
+    # Ingest documents into ChromaDB
+    vectorstore = ingest_docs_into_chroma_client(
+        docs, ws_data.collection_name, chroma_client
+    )
+    return ws_data
+
 
 def get_iterative_researcher_response(
     ws_data: WebsearcherData,
+    vectorstore: ChromaDDG,
 ) -> WebsearcherData:
     # Special handling for first iteration
     if not ws_data.report:
-        return get_websearcher_response_medium(ws_data.query)["ws_data"]
+        return get_initial_iterative_researcher_response(ws_data, vectorstore._client)
 
     t_start = datetime.now()
     links_to_get = ws_data.unprocessed_links[:NUM_NEW_LINKS_TO_ACQUIRE]
@@ -353,7 +401,7 @@ def get_iterative_researcher_response(
         link for link in links_to_get if link not in ws_data.link_data_dict
     ]
 
-    # Get content from links, measuring time taken
+    # Get content from links
     print_no_newline(f"{len(links_to_fetch)} links to fetch content from")
     if links_to_fetch:
         print(f":\n- ", "\n- ".join(links_to_fetch), sep="")
@@ -427,12 +475,29 @@ def get_iterative_researcher_response(
         }
     )
 
+    # TODO update this
     if "NO_IMPROVEMENT" in answer:
         ws_data.evaluation = answer
     else:
         ws_data.report = answer
     ws_data.unprocessed_links = ws_data.unprocessed_links[NUM_NEW_LINKS_TO_PROCESS:]
     ws_data.processed_links += links_to_process
+
+    # Prepare new documents for ingestion
+    print("Ingesting new documents into ChromaDB...")
+    docs: list[Document] = []
+    for link in links_to_process:
+        link_data = ws_data.link_data_dict[link]
+        if link_data.error:
+            continue
+        metadata = {"url": link}
+        if link_data.num_tokens is not None:
+            metadata["num_tokens"] = link_data.num_tokens
+        docs.append(Document(page_content=link_data.text, metadata=metadata))
+
+    # Ingest documents into ChromaDB
+    ingest_docs_into_chroma_client(docs, ws_data.collection_name, vectorstore._client)
+
     return ws_data
 
 
