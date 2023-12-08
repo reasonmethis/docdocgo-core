@@ -6,6 +6,7 @@ from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 from langchain.chains import LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from agents.dbmanager import handle_db_command
 from utils.algo import remove_duplicates_keep_order
 
 from utils.prepare import (
@@ -77,27 +78,7 @@ def get_bot_response(
         answer = chat_chain.invoke({"message": message, "chat_history": chat_history})
         return {"answer": answer}
     elif command_id == SWITCH_DB_COMMAND_ID:  # /db command
-        partial_res = {"needs_print": True}
-        try:
-            db_dir, collection_name = os.path.split(message)
-        except Exception as e:
-            db_dir = collection_name = ""
-        if not collection_name:
-            return partial_res | {"answer": "A valid docs db name must be provided."}
-        try:
-            if db_dir:
-                chroma_client = initialize_client(db_dir)
-            else:
-                chroma_client = vectorstore._client
-            vectorstore = load_vectorstore(collection_name, chroma_client)
-        except Exception as e:
-            return partial_res | {
-                "answer": f"Error loading requested database: {e}",
-            }
-        return partial_res | {
-            "answer": f"Switching to vector database: {message}",
-            "vectorstore": vectorstore,
-        }
+        return handle_db_command(message, vectorstore)
     else:
         # Should never happen
         raise ValueError(f"Invalid command id: {command_id}")
@@ -241,8 +222,9 @@ if __name__ == "__main__":
             print(MAIN_BOT_PREFIX + answer)
         print("\n" + DELIMITER)
 
-        # Update chat history
-        chat_history.append((query, answer))
+        # Update chat history if needed
+        if answer:
+            chat_history.append((query, answer))
 
         # Update iterative research data
         if "ws_data" in response:

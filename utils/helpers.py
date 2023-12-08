@@ -42,7 +42,7 @@ HINT_MESSAGE = (
     f"/web: perform web searches and generate a report\n"
     f"/research: perform iterative research (no message = iterate on previous report)\n"
     f"/chat: regular chat with the bot, without retrieving docs or websites\n"
-    f"/db: select new document database\n"
+    f"/db: select new document database or manage databases (if no db given)\n"
     f'\nExample: "/web openai news"\n'
     f"{DELIMITER}"
 )
