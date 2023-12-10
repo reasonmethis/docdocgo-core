@@ -107,7 +107,7 @@ def handle_db_command(message: str, vectorstore: ChromaDDG) -> dict[str, Any]:
     # partial_res = {"needs_print": True}
     try:
         db_dir, collection_name = os.path.split(message)
-    except Exception as e:
+    except Exception:
         db_dir = collection_name = ""
     if not collection_name:
         print("A valid docs db name must be provided.")

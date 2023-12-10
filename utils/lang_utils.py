@@ -7,7 +7,7 @@ from utils.async_utils import execute_func_map_in_threads
 
 from utils.type_utils import PairwiseChatHistory
 
-load_dotenv()
+load_dotenv(override=True)
 
 default_llm_for_token_counting = ChatOpenAI()
 

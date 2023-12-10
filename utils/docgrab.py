@@ -1,10 +1,8 @@
 from typing import Iterable
 import json
-import os
 from dotenv import load_dotenv
 
 from langchain.vectorstores.chroma import Chroma
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
@@ -12,7 +10,7 @@ from langchain.schema import Document
 from components.chroma_ddg import ChromaDDG, get_embedding_function
 from utils.output import ConditionalLogger
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 class JSONLDocumentLoader:

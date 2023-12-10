@@ -1,15 +1,15 @@
-from typing import Any
+import json
 from datetime import datetime
 from enum import Enum
-import json
+from typing import Any
 
-from pydantic import BaseModel
 from chromadb import ClientAPI
 from langchain.schema import Document
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain.schema.output_parser import StrOutputParser
-from components.chroma_ddg import ChromaDDG
+from langchain.utilities.google_serper import GoogleSerperAPIWrapper
+from pydantic import BaseModel
 
+from components.llm import get_llm, get_prompt_llm_chain
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.docgrab import ingest_docs_into_chroma_client
@@ -21,24 +21,21 @@ from utils.lang_utils import (
     limit_tokens_in_text,
     limit_tokens_in_texts,
 )
-
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
-    SIMPLE_WEBSEARCHER_PROMPT,
     QUERY_GENERATOR_PROMPT,
+    SIMPLE_WEBSEARCHER_PROMPT,
     SUMMARIZER_PROMPT,
-    WEBSEARCHER_PROMPT_SIMPLE,
     WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
+    WEBSEARCHER_PROMPT_SIMPLE,
 )
+from utils.type_utils import ChatState
 from utils.web import (
+    afetch_urls_in_parallel_playwright,
     get_text_from_html,
     is_html_text_ok,
     remove_failed_fetches,
-    afetch_urls_in_parallel_html_loader,
-    afetch_urls_in_parallel_chromium_loader,
-    afetch_urls_in_parallel_playwright,
 )
-from components.llm import get_llm, get_prompt_llm_chain
 
 search = GoogleSerperAPIWrapper()
 
@@ -66,7 +63,7 @@ def extract_domain(url: str):
     try:
         full_domain = url.split("://")[-1].split("/")[0]  # blah.blah.domain.com
         return ".".join(full_domain.split(".")[-2:])  # domain.com
-    except:
+    except Exception:
         return ""
 
 
@@ -91,7 +88,7 @@ def get_links(search_results: list[dict[str, Any]]):
 
 
 def get_websearcher_response_quick(
-    message: str, max_queries: int = 3, max_total_links: int = 9
+    chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
 ):
     """
     Perform quick web research on a query, with only one call to the LLM.
@@ -102,6 +99,7 @@ def get_websearcher_response_quick(
     query. It then fetches the content from each link, shortens them to fit all
     texts into one context window, and then sends it to the LLM to generate a report.
     """
+    message = chat_state.message
     related_searches, people_also_ask = get_related_websearch_queries(message)
 
     # Get queries to search for
@@ -146,7 +144,9 @@ def get_websearcher_response_quick(
     print("Time taken to process sites:", t_end - t_fetch_end)
     print("Number of resulting tokens:", get_num_tokens(texts_str))
 
-    chain = WEBSEARCHER_PROMPT_SIMPLE | get_llm(stream=True) | StrOutputParser()
+    chain = get_prompt_llm_chain(
+        WEBSEARCHER_PROMPT_SIMPLE, callbacks=chat_state.callbacks, stream=True
+    )
     answer = chain.invoke({"texts_str": texts_str, "query": message})
     return {"answer": answer}
 
@@ -193,11 +193,12 @@ MAX_QUERY_GENERATOR_ATTEMPTS = 5
 
 
 def get_websearcher_response_medium(
-    query: str,
+    chat_state: ChatState,
     max_queries: int = 7,
     max_total_links: int = 7,  # small number to stuff into context window
     max_tokens_final_context: int = 8000,
 ):
+    query = chat_state.message
     # Get queries to search for using query generator prompt
     query_generator_chain = get_prompt_llm_chain(QUERY_GENERATOR_PROMPT)
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
@@ -330,7 +331,9 @@ def get_websearcher_response_medium(
     print("Number of resulting tokens:", get_num_tokens(final_context))
 
     print("Generating report...\n")
-    chain = get_prompt_llm_chain(WEBSEARCHER_PROMPT_DYNAMIC_REPORT, stream=True)
+    chain = get_prompt_llm_chain(
+        WEBSEARCHER_PROMPT_DYNAMIC_REPORT, callbacks=chat_state.callbacks, stream=True
+    )
     ws_data.report = chain.invoke(
         {"texts_str": final_context, "query": query, "report_type": report_type}
     )
@@ -347,10 +350,9 @@ SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or
 
 
 def get_initial_iterative_researcher_response(
-    ws_data: WebsearcherData,
-    chroma_client: ClientAPI,
+    chat_state: ChatState,
 ) -> WebsearcherData:
-    ws_data = get_websearcher_response_medium(ws_data.query)["ws_data"]
+    ws_data = get_websearcher_response_medium(chat_state)["ws_data"]
 
     # Decide on the collection name
     query_words = ws_data.query.split()
@@ -360,6 +362,7 @@ def get_initial_iterative_researcher_response(
     ws_data.collection_name = orig_name = "-".join(words[:3])[:60].rstrip("-")
 
     # Check if collection exists, if so, add a number to the end
+    chroma_client: ClientAPI = chat_state.vectorstore._client
     for i in range(1, 1000000000):
         try:
             chroma_client.get_collection(ws_data.collection_name)
@@ -379,19 +382,18 @@ def get_initial_iterative_researcher_response(
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    vectorstore = ingest_docs_into_chroma_client(
-        docs, ws_data.collection_name, chroma_client
-    )
+    ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
     return ws_data
 
 
 def get_iterative_researcher_response(
-    ws_data: WebsearcherData,
-    vectorstore: ChromaDDG,
+    chat_state: ChatState,
 ) -> WebsearcherData:
+    ws_data: WebsearcherData = chat_state.ws_data
+
     # Special handling for first iteration
     if not ws_data.report:
-        return get_initial_iterative_researcher_response(ws_data, vectorstore._client)
+        return get_initial_iterative_researcher_response(chat_state)
 
     t_start = datetime.now()
     links_to_get = ws_data.unprocessed_links[:NUM_NEW_LINKS_TO_ACQUIRE]
@@ -404,7 +406,7 @@ def get_iterative_researcher_response(
     # Get content from links
     print_no_newline(f"{len(links_to_fetch)} links to fetch content from")
     if links_to_fetch:
-        print(f":\n- ", "\n- ".join(links_to_fetch), sep="")
+        print(":\n- " + "\n- ".join(links_to_fetch))
         print_no_newline("Fetching content from links...")
         htmls = make_sync(afetch_urls_in_parallel_playwright)(
             links_to_fetch, callback=lambda url, html: print_no_newline(".")
@@ -466,7 +468,9 @@ def get_iterative_researcher_response(
     )
 
     print("Generating report...\n")
-    chain = get_prompt_llm_chain(ITERATIVE_REPORT_IMPROVER_PROMPT, stream=True)
+    chain = get_prompt_llm_chain(
+        ITERATIVE_REPORT_IMPROVER_PROMPT, callbacks=chat_state.callbacks, stream=True
+    )
     answer = chain.invoke(
         {
             "new_info": final_context,
@@ -496,7 +500,9 @@ def get_iterative_researcher_response(
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    ingest_docs_into_chroma_client(docs, ws_data.collection_name, vectorstore._client)
+    ingest_docs_into_chroma_client(
+        docs, ws_data.collection_name, chat_state.vectorstore._client
+    )
 
     return ws_data
 
@@ -504,12 +510,11 @@ def get_iterative_researcher_response(
 class WebsearcherMode(Enum):
     QUICK = 1
     MEDIUM = 2
-    ITERATIVE = 3
 
 
-def get_websearcher_response(message: str, mode=WebsearcherMode.MEDIUM):
+def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
     if mode == WebsearcherMode.QUICK:
-        return get_websearcher_response_quick(message)
+        return get_websearcher_response_quick(chat_state)
     elif mode == WebsearcherMode.MEDIUM:
-        return get_websearcher_response_medium(message)
+        return get_websearcher_response_medium(chat_state)
     raise ValueError(f"Invalid mode: {mode}")

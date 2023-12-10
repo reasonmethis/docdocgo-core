@@ -5,8 +5,6 @@ import inspect
 from pathlib import Path
 from typing import Any, Callable
 
-from pydantic import Extra
-
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForChainRun,
     CallbackManagerForChainRun,
@@ -17,10 +15,10 @@ from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chains.llm import LLMChain
 from langchain.schema import BaseRetriever, Document
 from langchain.schema.messages import BaseMessage
+from pydantic import Extra
 
-from utils.type_utils import JSONish, PairwiseChatHistory
-from utils.helpers import DELIMITER
 from utils import lang_utils
+from utils.type_utils import Callbacks, JSONish, PairwiseChatHistory
 
 
 class ChatWithDocsChain(Chain):
@@ -30,7 +28,7 @@ class ChatWithDocsChain(Chain):
     limits the number of tokens in both to stay within the specified limits. It
     dynamically adjusts the number of documents to keep based on their relevance
     scores, and then correspondingly adjusts the number of chat history messages
-    (shortening the first message pair if necessary). 
+    (shortening the first message pair if necessary).
 
     Attributes:
         combine_docs_chain (BaseCombineDocumentsChain): The chain used to
@@ -62,7 +60,9 @@ class ChatWithDocsChain(Chain):
     question_generator: LLMChain
     retriever: BaseRetriever
 
-    max_tokens_limit_rephrase: int = 2000
+    callbacks: Callbacks = None # TODO consider removing
+
+    max_tokens_limit_rephrase: int = 2000  # TODO update for 16k
     max_tokens_limit_qa: int = 3000  # docs + chat (no prompt); must leave room for ans
     max_tokens_limit_chat: int = 1000
     output_key: str = "answer"
@@ -121,15 +121,16 @@ class ChatWithDocsChain(Chain):
     def _call(
         self,
         inputs: JSONish,
-        run_manager: CallbackManagerForChainRun | None = None,
+        run_manager: CallbackManagerForChainRun | None = None,  # TODO consider removing
     ) -> JSONish:
         """Run the chain."""
 
-        _run_manager = run_manager or CallbackManagerForChainRun.get_noop_manager()
+        # _run_manager = run_manager or CallbackManagerForChainRun.get_noop_manager()
+        callbacks = run_manager.get_child() if run_manager else (self.callbacks or [])
+
         _get_chat_history_str = (
             self.get_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
         )
-        # _get_chat_history_str = self.get_chat_history or _get_chat_history
 
         # Get user's query and chat history from inputs
         user_query = inputs["question"]
@@ -175,13 +176,13 @@ class ChatWithDocsChain(Chain):
             standalone_query = self.question_generator.run(
                 question=user_query,
                 chat_history=_get_chat_history_str(chat_history_for_rephrasing),
-                callbacks=_run_manager.get_child(),
+                # callbacks=_run_manager.get_child(),
             )
 
         # Get relevant documents using the standalone query
         docs = self.retriever.get_relevant_documents(
             standalone_query,
-            callbacks=_run_manager.get_child(),
+            # callbacks=_run_manager.get_child(),
             **search_kwargs,
         )
 
@@ -221,7 +222,7 @@ class ChatWithDocsChain(Chain):
         new_inputs["chat_history"] = _get_chat_history_str(chat_history_for_qa)
 
         answer = self.combine_docs_chain.run(
-            input_documents=docs, callbacks=_run_manager.get_child(), **new_inputs
+            input_documents=docs, callbacks=callbacks, **new_inputs
         )
 
         # Format and return the answer
@@ -240,7 +241,9 @@ class ChatWithDocsChain(Chain):
         raise NotImplementedError("Async version (_acall) not implemented yet.")
         _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
         question = inputs["question"]
-        get_chat_history = self.get_chat_history or _get_chat_history
+        get_chat_history = (
+            self.get_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
+        )
         chat_history_str = get_chat_history(inputs["chat_history"])
         if chat_history_str:
             callbacks = _run_manager.get_child()

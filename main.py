@@ -1,12 +1,13 @@
 """ The flask server that enables API access to DocDocGo. """
-from collections import defaultdict
-import os
 import json
+import os
+from collections import defaultdict
+
 from flask import Flask, jsonify, request
 
-from utils.type_utils import JSONish, PairwiseChatHistory
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
 from utils.helpers import DELIMITER, RETRY_COMMAND_ID, parse_query
+from utils.type_utils import ChatState, JSONish, PairwiseChatHistory
 
 vectorstore = do_intro_tasks()
 
@@ -90,7 +91,8 @@ def chat():
 
         # Initialize the chain with the right settings and get the bot's response
         result = get_bot_response(
-            message, chat_history, search_params, command_id, vectorstore
+            # TODO: add ws_data and callbacks 
+            ChatState(command_id, message, chat_history, search_params, vectorstore) 
         )
 
         # Get the reply and sources from the bot's response

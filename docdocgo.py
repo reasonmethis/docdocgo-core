@@ -1,93 +1,112 @@
 import os
 from typing import Any
 
-from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
-
 from langchain.chains import LLMChain
-from langchain.chains.question_answering import load_qa_chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from agents.dbmanager import handle_db_command
-from utils.algo import remove_duplicates_keep_order
+from langchain.chains.question_answering import load_qa_chain
+from langchain.vectorstores.base import VectorStoreRetriever
 
-from utils.prepare import (
-    validate_settings,
-    DEFAULT_COLLECTION_NAME,
-    TEMPERATURE,
-)  # loads environment variables
-from utils.prompts import CONDENSE_QUESTION_PROMPT, JUST_CHAT_PROMPT, QA_PROMPT_CHAT
-from utils.prompts import QA_PROMPT_QUOTES, QA_PROMPT_SUMMARIZE_KB
+from agents.dbmanager import handle_db_command
+from agents.websearcher import (
+    WebsearcherData,
+    get_iterative_researcher_response,
+    get_websearcher_response,
+)
+from components.chat_with_docs_chain import ChatWithDocsChain
+from components.chroma_ddg import ChromaDDG, load_vectorstore
+from components.chroma_ddg_retriever import ChromaDDGRetriever
+from components.llm import get_llm, get_prompt_llm_chain
+from utils.algo import remove_duplicates_keep_order
 from utils.helpers import (
     CHAT_WITH_DOCS_COMMAND_ID,
     DEFAULT_MODE,
     DELIMITER,
-    INTRO_ASCII_ART,
+    DETAILS_COMMAND_ID,
     HINT_MESSAGE,
+    INTRO_ASCII_ART,
     ITERATIVE_RESEARCH_COMMAND_ID,
     JUST_CHAT_COMMAND_ID,
     MAIN_BOT_PREFIX,
+    QUOTES_COMMAND_ID,
     SWITCH_DB_COMMAND_ID,
+    WEB_COMMAND_ID,
+    extract_command_id_from_query,
+    parse_query,
     print_no_newline,
 )
-from utils.helpers import DETAILS_COMMAND_ID, QUOTES_COMMAND_ID, WEB_COMMAND_ID
-from utils.helpers import extract_command_id_from_query, parse_query
-from components.chat_with_docs_chain import ChatWithDocsChain
-from components.chroma_ddg import ChromaDDG, initialize_client, load_vectorstore
-from components.chroma_ddg_retriever import ChromaDDGRetriever
-from components.llm import get_llm, get_prompt_llm_chain
-from agents.websearcher import (
-    get_iterative_researcher_response,
-    get_websearcher_response,
-    WebsearcherData,
+
+# Load environment variables
+from utils.prepare import (
+    DEFAULT_COLLECTION_NAME,
+    TEMPERATURE,
+    validate_settings,
 )
+from utils.prompts import (
+    CONDENSE_QUESTION_PROMPT,
+    JUST_CHAT_PROMPT,
+    QA_PROMPT_CHAT,
+    QA_PROMPT_QUOTES,
+    QA_PROMPT_SUMMARIZE_KB,
+)
+from utils.type_utils import ChatState
 
 
-def get_bot_response(
-    message, chat_history, search_params, command_id, vectorstore, ws_data=None
-):
+def get_bot_response(chat_state: ChatState):
+    command_id = chat_state.command_id
     if command_id == CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
-        chat_chain = get_docs_chat_chain(vectorstore)
+        chat_chain = get_docs_chat_chain(chat_state)
     elif command_id == DETAILS_COMMAND_ID:  # /details command
-        chat_chain = get_docs_chat_chain(vectorstore, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
+        chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
-        chat_chain = get_docs_chat_chain(vectorstore, prompt_qa=QA_PROMPT_QUOTES)
+        chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif command_id == WEB_COMMAND_ID:  # /web command
-        return get_websearcher_response(message)
+        res = get_websearcher_response(chat_state)
+        return {"answer": res["answer"]}  # remove ws_data
     elif command_id == ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
-        if message:
+        if chat_state.message:
             # Start new research
-            ws_data = WebsearcherData.from_query(message)
-        elif not ws_data:
+            chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
+        elif not chat_state.ws_data:
             return {
                 "answer": "The /research prefix without a message is used to iterate "
                 "on the previous report. However, there is no previous report.",
                 "needs_print": True,
             }
         # Get response from iterative researcher
-        ws_data = get_iterative_researcher_response(ws_data, vectorstore)
+        ws_data = get_iterative_researcher_response(chat_state)
 
         # Load the new vectorstore if needed
         partial_res = {}
-        if ws_data.collection_name != vectorstore.name:
-            vectorstore = load_vectorstore(ws_data.collection_name, vectorstore._client)
-            partial_res = {"vectorstore": vectorstore}
+        if ws_data.collection_name != chat_state.vectorstore.name:
+            vectorstore = load_vectorstore(
+                ws_data.collection_name, chat_state.vectorstore._client
+            )
+            partial_res["vectorstore"] = vectorstore
 
         # Return response, including the new vectorstore if needed
-        return partial_res | {"answer": ws_data.report, "ws_data": ws_data}
+        return partial_res | {
+            "answer": ws_data.report,
+            "ws_data": ws_data,
+        }
     elif command_id == JUST_CHAT_COMMAND_ID:  # /chat command
-        chat_chain = get_prompt_llm_chain(JUST_CHAT_PROMPT, stream=True)
-        answer = chat_chain.invoke({"message": message, "chat_history": chat_history})
+        chat_chain = get_prompt_llm_chain(
+            JUST_CHAT_PROMPT, callbacks=chat_state.callbacks, stream=True
+        )
+        answer = chat_chain.invoke(
+            {"message": chat_state.message, "chat_history": chat_state.chat_history}
+        )
         return {"answer": answer}
     elif command_id == SWITCH_DB_COMMAND_ID:  # /db command
-        return handle_db_command(message, vectorstore)
+        return handle_db_command(chat_state.message, chat_state.vectorstore)
     else:
         # Should never happen
         raise ValueError(f"Invalid command id: {command_id}")
 
     return chat_chain.invoke(
         {
-            "question": message,
-            "chat_history": chat_history,
-            "search_params": search_params,
+            "question": chat_state.message,
+            "chat_history": chat_state.chat_history,
+            "search_params": chat_state.search_params,
         }
     )
 
@@ -108,7 +127,7 @@ def get_source_links(result_from_conv_retr_chain: dict[str, Any]) -> list[str]:
 
 
 def get_docs_chat_chain(
-    vectorstore: VectorStore,  # NOTE in our case, this is a ChromaDDG vectorstore
+    chat_state: ChatState,
     prompt_qa=QA_PROMPT_CHAT,
     temperature=None,
     use_sources=False,  # TODO consider removing this
@@ -118,7 +137,7 @@ def get_docs_chat_chain(
     """
     if temperature is None:
         temperature = TEMPERATURE
-    llm = get_llm(stream=True)  # main llm
+    llm = get_llm(callbacks=chat_state.callbacks, stream=True)  # main llm
     llm_condense = get_llm(temperature=0)  # condense query
 
     # Initialize chain for answering queries based on provided doc snippets
@@ -206,7 +225,9 @@ if __name__ == "__main__":
         # Get response from the bot
         try:
             response = get_bot_response(
-                query, chat_history, search_params, command_id, vectorstore, ws_data
+                ChatState(
+                    command_id, query, chat_history, search_params, vectorstore, ws_data
+                )
             )
         except Exception as e:
             print("<Apologies, an error has occurred>")
