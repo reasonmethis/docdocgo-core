@@ -24,3 +24,7 @@ class ChatState:
         self.vectorstore = vectorstore
         self.ws_data = ws_data
         self.callbacks = callbacks
+
+    def update(self, **kwargs: Any) -> None:
+        for k, v in kwargs.items():
+            setattr(self, k, v)

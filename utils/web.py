@@ -81,7 +81,7 @@ async def afetch_url_playwright(
                 if not html_content or html_content.startswith(
                     "<html><head></head><body></body></html>"
                 ):
-                    html_content = f"Error: timed out before any content was loaded"
+                    html_content = "Error: timed out before any content was loaded"
             finally:
                 await browser.close()
     except Exception as e:
@@ -124,6 +124,13 @@ async def afetch_urls_in_parallel_playwright(
     htmls = await asyncio.gather(*tasks)
     return htmls
 
+def fetch_urls_playwright(urls):
+    pass
+#     transport = await self._make_subprocess_transport(
+#                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   File "C:\Users\micro\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", 
+#   line 502, in _make_subprocess_transport
+#     raise NotImplementedError
 
 async def afetch_urls_in_parallel_chromium_loader(urls):
     """

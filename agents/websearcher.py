@@ -32,6 +32,7 @@ from utils.prompts import (
 from utils.type_utils import ChatState
 from utils.web import (
     afetch_urls_in_parallel_playwright,
+    afetch_urls_in_parallel_chromium_loader,
     get_text_from_html,
     is_html_text_ok,
     remove_failed_fetches,
@@ -195,7 +196,7 @@ MAX_QUERY_GENERATOR_ATTEMPTS = 5
 def get_websearcher_response_medium(
     chat_state: ChatState,
     max_queries: int = 7,
-    max_total_links: int = 7,  # small number to stuff into context window
+    max_total_links: int = 7, # TODO! # small number to stuff into context window
     max_tokens_final_context: int = 8000,
 ):
     query = chat_state.message

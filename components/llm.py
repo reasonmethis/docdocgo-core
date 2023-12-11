@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
@@ -6,7 +7,9 @@ from langchain.prompts.prompt import PromptTemplate
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.schema import StrOutputParser
+from langchain.schema.output import ChatGenerationChunk, GenerationChunk
 
+from streamlit.delta_generator import DeltaGenerator
 from utils.helpers import MAIN_BOT_PREFIX
 from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
@@ -18,7 +21,25 @@ from utils.prepare import (
 from utils.type_utils import Callbacks
 
 
-class CallbackHandlerDDG(BaseCallbackHandler):
+class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
+    def __init__(self, container: DeltaGenerator):
+        self.container = container
+        self.buffer = ""
+
+    def on_llm_new_token(
+        self,
+        token: str,
+        *,
+        chunk: GenerationChunk | ChatGenerationChunk | None = None,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self.buffer += token.replace("\n", "  \n")
+        self.container.markdown(self.buffer)
+
+
+class CallbackHandlerDDGConsole(BaseCallbackHandler):
     def __init__(self, init_str: str = MAIN_BOT_PREFIX):
         self.init_str = init_str
 
@@ -74,7 +95,7 @@ def get_llm(
     will be used with the passed init_str as the init_str.
     """
     if callbacks is None:
-        callbacks = [CallbackHandlerDDG(init_str)] if stream else []
+        callbacks = [CallbackHandlerDDGConsole(init_str)] if stream else []
     return get_llm_with_callbacks(temperature, callbacks)
 
 
@@ -88,4 +109,4 @@ def get_prompt_llm_chain(prompt: PromptTemplate, **kwargs):
 
 if __name__ == "__main__":
     # NOTE: Run this file as "python -m components.llm"
-    x = CallbackHandlerDDG("BOT: ")
+    x = CallbackHandlerDDGConsole("BOT: ")

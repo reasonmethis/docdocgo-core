@@ -9,10 +9,20 @@ def run_task_sync(task):
     Run an asyncio task (more precisely, a coroutine object, such as the result of
     calling an async function) synchronously.
     """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(task)  # no preexisting event loop, so run in the main thread
+    # print("-" * 100)
+    # try:
+    #     print("=" * 100)
+    #     asyncio.get_running_loop()
+    #     print("*-*" * 100)
+    # except RuntimeError as e:
+    #     print("?" * 100)
+    #     print(e)
+    #     print("?" * 100)
+        # res = asyncio.run(task)  # no preexisting event loop, so run in the main thread
+        # print("!" * 100)
+        # print(res)
+        # print("!" * 100)
+        # return res
         # TODO: consider a situation when there is a non-running loop
 
     with ThreadPoolExecutor(max_workers=1) as executor:

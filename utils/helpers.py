@@ -1,7 +1,9 @@
-import os
 import json
+import os
 import re
 from datetime import datetime
+
+from utils.prepare import DEFAULT_MODE
 
 DELIMITER = "-" * 90 + "\n"
 INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
@@ -30,7 +32,6 @@ command_ids = {
     "/db": SWITCH_DB_COMMAND_ID,
 }
 
-DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 DEFAULT_MODE_ID = command_ids[DEFAULT_MODE]
 
 HINT_MESSAGE = (

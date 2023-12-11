@@ -15,6 +15,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-1106")
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
+DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 
 def validate_settings():
     # Check that the necessary environment variables are set

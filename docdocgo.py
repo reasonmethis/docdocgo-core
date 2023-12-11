@@ -150,14 +150,14 @@ def get_docs_chat_chain(
     )
 
     # Initialize retriever from the provided vectorstore
-    if isinstance(vectorstore, ChromaDDG):
+    if isinstance(chat_state.vectorstore, ChromaDDG):
         retriever = ChromaDDGRetriever(
-            vectorstore=vectorstore,
+            vectorstore=chat_state.vectorstore,
             search_type="similarity_ddg",
             verbose=bool(os.getenv("PRINT_SIMILARITIES")),
         )
     else:
-        retriever = VectorStoreRetriever(vectorstore=vectorstore)
+        retriever = VectorStoreRetriever(vectorstore=chat_state.vectorstore)
         # search_kwargs={
         #     "k": num_docs_max,
         #     "score_threshold": relevance_threshold,
