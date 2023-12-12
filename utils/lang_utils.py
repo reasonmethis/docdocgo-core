@@ -1,10 +1,9 @@
 from dotenv import load_dotenv
-
-from langchain.schema.language_model import BaseLanguageModel
 from langchain.chat_models import ChatOpenAI
-from langchain.schema.messages import BaseMessage, HumanMessage, AIMessage
-from utils.async_utils import execute_func_map_in_threads
+from langchain.schema.language_model import BaseLanguageModel
+from langchain.schema.messages import AIMessage, BaseMessage, HumanMessage
 
+from utils.async_utils import execute_func_map_in_threads
 from utils.type_utils import PairwiseChatHistory
 
 load_dotenv(override=True)
@@ -14,9 +13,8 @@ default_llm_for_token_counting = ChatOpenAI()
 
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
-    if llm_for_token_counting is None:
-        llm_for_token_counting = default_llm_for_token_counting
-    return llm_for_token_counting.get_num_tokens(text)
+    llm = llm_for_token_counting or default_llm_for_token_counting
+    return llm.get_num_tokens(text)
 
 
 def pairwise_chat_history_to_msg_list(

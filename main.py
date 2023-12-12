@@ -1,4 +1,7 @@
-""" The flask server that enables API access to DocDocGo. """
+""" The flask server that enables API access to DocDocGo.
+NOTE: The logic below needs to be updated to catch up with the latest features in
+docdocgo.py. Specifically, we need to add support for the /db command and the
+/research command. """
 import json
 import os
 from collections import defaultdict
@@ -7,7 +10,7 @@ from flask import Flask, jsonify, request
 
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
 from utils.helpers import DELIMITER, RETRY_COMMAND_ID, parse_query
-from utils.type_utils import ChatState, JSONish, PairwiseChatHistory
+from utils.type_utils import ChatState, JSONish, OperationMode, PairwiseChatHistory
 
 vectorstore = do_intro_tasks()
 
@@ -91,8 +94,15 @@ def chat():
 
         # Initialize the chain with the right settings and get the bot's response
         result = get_bot_response(
-            # TODO: add ws_data and callbacks 
-            ChatState(command_id, message, chat_history, search_params, vectorstore) 
+            # TODO: add ws_data and callbacks
+            ChatState(
+                OperationMode.FLASK,
+                command_id,
+                message,
+                chat_history,
+                search_params,
+                vectorstore,
+            )
         )
 
         # Get the reply and sources from the bot's response

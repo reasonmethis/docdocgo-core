@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -32,7 +33,6 @@ from utils.prompts import (
 from utils.type_utils import ChatState
 from utils.web import (
     afetch_urls_in_parallel_playwright,
-    afetch_urls_in_parallel_chromium_loader,
     get_text_from_html,
     is_html_text_ok,
     remove_failed_fetches,
@@ -196,7 +196,7 @@ MAX_QUERY_GENERATOR_ATTEMPTS = 5
 def get_websearcher_response_medium(
     chat_state: ChatState,
     max_queries: int = 7,
-    max_total_links: int = 7, # TODO! # small number to stuff into context window
+    max_total_links: int = 7,  # TODO! # small number to stuff into context window
     max_tokens_final_context: int = 8000,
 ):
     query = chat_state.message
@@ -354,37 +354,57 @@ def get_initial_iterative_researcher_response(
     chat_state: ChatState,
 ) -> WebsearcherData:
     ws_data = get_websearcher_response_medium(chat_state)["ws_data"]
+    answer = ws_data.report  # TODO consider including report in the db
+
+    # Determine which links to include in the db
+    links_to_include = [
+        link for link, data in ws_data.link_data_dict.items() if not data.error
+    ]
+    if not links_to_include:
+        return ws_data
 
     # Decide on the collection name
     query_words = ws_data.query.split()
     words = [x.lower() for x in query_words if x not in SMALL_WORDS]
-    if len(words) < 2:
+    if len(words) < 3:
         words = [x.lower() for x in query_words]
-    ws_data.collection_name = orig_name = "-".join(words[:3])[:60].rstrip("-")
+    new_coll_name = "-".join(words[:4])
+    new_coll_name = "".join(x for x in new_coll_name if x.isalnum() or x == "-")
+    new_coll_name = new_coll_name.lstrip("-")[:55].rstrip("-")
+    if len(new_coll_name) < 3:
+        new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+    ws_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
     chroma_client: ClientAPI = chat_state.vectorstore._client
-    for i in range(1, 1000000000):
+    for i in range(2, 1000000000):
         try:
             chroma_client.get_collection(ws_data.collection_name)
         except ValueError:
             break  # collection does not exist
-        ws_data.collection_name = f"{orig_name}-{i}"
+        ws_data.collection_name = f"{new_coll_name}-{i}"
 
     # Convert website content into documents for ingestion
     print("Ingesting fetched content into ChromaDB...")
     docs: list[Document] = []
-    for link, link_data in ws_data.link_data_dict.items():
-        if link_data.error:
-            continue
+    for link in links_to_include:
+        link_data = ws_data.link_data_dict[link]
         metadata = {"url": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
-    return ws_data
+    try:
+        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
+    except ValueError:
+        # Catching ValueError: Expected collection name ...
+        # Create a random valid collection name and try again
+        ws_data.collection_name = "collection-" + "".join(
+            random.sample("abcdefghijklmnopqrstuvwxyz", 6)
+        )
+        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
+    return {"answer": answer, "ws_data": ws_data}
 
 
 def get_iterative_researcher_response(
@@ -425,13 +445,17 @@ def get_iterative_researcher_response(
     t_extract_texts_end = datetime.now()
 
     # Links to process (already fetched)
-    links_to_process = ws_data.unprocessed_links[:NUM_NEW_LINKS_TO_PROCESS]
-    texts_to_process = [ws_data.link_data_dict[link].text for link in links_to_process]
+    # TODO tmp = [link for link in links_to_get if not ws_data.link_data_dict[link].error]
+    links_to_process = links_to_get[:NUM_NEW_LINKS_TO_PROCESS]
+    links_to_include = [
+        x for x in links_to_process if not ws_data.link_data_dict[x].error
+    ]
+    texts_to_include = [ws_data.link_data_dict[x].text for x in links_to_include]
 
     # Count tokens in texts to be processed; throw in the report text too
     print("Counting tokens in texts and current report...")
     links_to_count_tokens_for = [
-        x for x in links_to_process if ws_data.link_data_dict[x].num_tokens is None
+        x for x in links_to_include if ws_data.link_data_dict[x].num_tokens is None
     ]
     texts_to_count_tokens_for = [
         ws_data.link_data_dict[x].text for x in links_to_count_tokens_for
@@ -445,15 +469,15 @@ def get_iterative_researcher_response(
     # Shorten texts that are too long and construct combined sources text
     print("Constructing final context...")
     final_texts, final_token_counts = limit_tokens_in_texts(
-        texts_to_process,
+        texts_to_include,
         ws_data.max_tokens_final_context - num_tokens_report,
         cached_token_counts=[
-            ws_data.link_data_dict[x].num_tokens for x in links_to_process
+            ws_data.link_data_dict[x].num_tokens for x in links_to_include
         ],
     )
     final_texts = [
         f"SOURCE: {link}\nCONTENT:\n{text}\n====="
-        for text, link in zip(final_texts, links_to_process)
+        for text, link in zip(final_texts, links_to_include)
     ]
     final_context = "\n\n".join(final_texts)
     t_construct_context_end = datetime.now()
@@ -480,32 +504,51 @@ def get_iterative_researcher_response(
         }
     )
 
-    # TODO update this
-    if "NO_IMPROVEMENT" in answer:
-        ws_data.evaluation = answer
+    # Extract and record treport and the LLM's assessment of the report
+    REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
+    NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
+    length_diff = len(NO_IMPROVEMENT_MSG) - len(REPORT_ASSESSMENT_MSG)
+
+    idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
+    if idx_assessment == -1:
+        # Something went wrong, keep the old report
+        pass
     else:
-        ws_data.report = answer
-    ws_data.unprocessed_links = ws_data.unprocessed_links[NUM_NEW_LINKS_TO_PROCESS:]
+        idx_no_improvement = idx_assessment - length_diff
+        if (
+            idx_no_improvement >= 0
+            and answer[
+                idx_no_improvement : idx_no_improvement + len(NO_IMPROVEMENT_MSG)
+            ]
+            == NO_IMPROVEMENT_MSG
+        ):
+            # No improvement, keep the old report, record the LLM's assessment
+            ws_data.evaluation = answer[idx_no_improvement:]
+        else:
+            # Improvement, record the new report and the LLM's assessment
+            ws_data.report = answer
+            ws_data.evaluation = answer[idx_assessment:]
+
     ws_data.processed_links += links_to_process
+    ws_data.unprocessed_links = ws_data.unprocessed_links[len(links_to_process) :]
 
-    # Prepare new documents for ingestion
-    print("Ingesting new documents into ChromaDB...")
-    docs: list[Document] = []
-    for link in links_to_process:
-        link_data = ws_data.link_data_dict[link]
-        if link_data.error:
-            continue
-        metadata = {"url": link}
-        if link_data.num_tokens is not None:
-            metadata["num_tokens"] = link_data.num_tokens
-        docs.append(Document(page_content=link_data.text, metadata=metadata))
+    if links_to_include:
+        # Prepare new documents for ingestion
+        print("Ingesting new documents into ChromaDB...")
+        docs: list[Document] = []
+        for link in links_to_include:
+            link_data = ws_data.link_data_dict[link]
+            metadata = {"url": link}
+            if link_data.num_tokens is not None:
+                metadata["num_tokens"] = link_data.num_tokens
+            docs.append(Document(page_content=link_data.text, metadata=metadata))
 
-    # Ingest documents into ChromaDB
-    ingest_docs_into_chroma_client(
-        docs, ws_data.collection_name, chat_state.vectorstore._client
-    )
+        # Ingest documents into ChromaDB
+        ingest_docs_into_chroma_client(
+            docs, ws_data.collection_name, chat_state.vectorstore._client
+        )
 
-    return ws_data
+    return {"answer": answer, "ws_data": ws_data}
 
 
 class WebsearcherMode(Enum):

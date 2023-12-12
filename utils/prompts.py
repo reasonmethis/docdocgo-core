@@ -223,23 +223,28 @@ timestamp: {timestamp}
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
 
-iterative_report_improver_template = """You are AIRIA, Advanced Iterative Report Improvement Assistant. 
+iterative_report_improver_template = """\
+You are AIRIA, Advanced Iterative Report Improvement Assistant. 
 
 USER's query: {query}
 
-MISSION: improve the report you generated on your previous iteration, with the help of additional information you retrieved. 
+MISSION: improve the report you generated on your previous iteration, with the help of the following additional information you retrieved:
 
-<new_info>{new_info}</new_info>
+{new_info}
+
+END OF NEW INFORMATION YOU RETRIEVED
 
 Your previous iteration's report: 
 
-<previous_report>{previous_report}</previous_report>
+{previous_report}
 
-If any new information is useful to improve the report to best serve USER's information need, please output the improved report. Otherwise, output "NO_IMPROVEMENT X%", where X is your estimate of how well the report serves USER's information need on a scale from 0% to 100%, based on their query: 
+END OF PREVIOUS ITERATION'S REPORT
+
+If the new information you retrieved is useful to improve the report to best serve USER's information need, please output the improved report, followed immediately by "REPORT ASSESSMENT: X%, where X is your estimate of how well the report serves USER's information need on a scale from 0% to 100%, based on their query: 
 
 {query}
 
-Your output MUST be just the improved report or "NO_IMPROVEMENT X%". Output: """
+If the new information isn't useful to improve previous report then don't output a report, simply output "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT: X%", where X is your estimate of how well the previous report serves USER's information need. Output: """
 
 ITERATIVE_REPORT_IMPROVER_PROMPT = PromptTemplate.from_template(
     iterative_report_improver_template
@@ -250,10 +255,9 @@ if __name__ == "__main__":
     # NOTE: Run this file as "python -m utils.prompts"
 
     from components.llm import get_llm_with_str_output_parser
-    from datetime import datetime
-    from eval.top_russian_desserts import *
-    from eval.openai_news import *
-    from eval.ai_news_1 import *
+    from eval.ai_news_1 import ai_news_1
+    from eval.openai_news import openai_news
+    from eval.top_russian_desserts import top_russian_desserts
 
     query_to_context = {
         "top Russian desserts": top_russian_desserts,

@@ -19,6 +19,7 @@ from components.llm import get_llm, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
 from utils.helpers import (
     CHAT_WITH_DOCS_COMMAND_ID,
+    DB_COMMAND_ID,
     DEFAULT_MODE,
     DELIMITER,
     DETAILS_COMMAND_ID,
@@ -28,7 +29,6 @@ from utils.helpers import (
     JUST_CHAT_COMMAND_ID,
     MAIN_BOT_PREFIX,
     QUOTES_COMMAND_ID,
-    SWITCH_DB_COMMAND_ID,
     WEB_COMMAND_ID,
     extract_command_id_from_query,
     parse_query,
@@ -48,7 +48,7 @@ from utils.prompts import (
     QA_PROMPT_QUOTES,
     QA_PROMPT_SUMMARIZE_KB,
 )
-from utils.type_utils import ChatState
+from utils.type_utils import ChatState, OperationMode
 
 
 def get_bot_response(chat_state: ChatState):
@@ -60,8 +60,8 @@ def get_bot_response(chat_state: ChatState):
     elif command_id == QUOTES_COMMAND_ID:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif command_id == WEB_COMMAND_ID:  # /web command
-        res = get_websearcher_response(chat_state)
-        return {"answer": res["answer"]}  # remove ws_data
+        res_from_bot = get_websearcher_response(chat_state)
+        return {"answer": res_from_bot["answer"]}  # remove ws_data
     elif command_id == ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if chat_state.message:
             # Start new research
@@ -73,7 +73,8 @@ def get_bot_response(chat_state: ChatState):
                 "needs_print": True,
             }
         # Get response from iterative researcher
-        ws_data = get_iterative_researcher_response(chat_state)
+        res_from_bot = get_iterative_researcher_response(chat_state)
+        ws_data = res_from_bot["ws_data"] # res_from_bot also contains "answer"
 
         # Load the new vectorstore if needed
         partial_res = {}
@@ -84,10 +85,7 @@ def get_bot_response(chat_state: ChatState):
             partial_res["vectorstore"] = vectorstore
 
         # Return response, including the new vectorstore if needed
-        return partial_res | {
-            "answer": ws_data.report,
-            "ws_data": ws_data,
-        }
+        return partial_res | res_from_bot
     elif command_id == JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT, callbacks=chat_state.callbacks, stream=True
@@ -96,8 +94,8 @@ def get_bot_response(chat_state: ChatState):
             {"message": chat_state.message, "chat_history": chat_state.chat_history}
         )
         return {"answer": answer}
-    elif command_id == SWITCH_DB_COMMAND_ID:  # /db command
-        return handle_db_command(chat_state.message, chat_state.vectorstore)
+    elif command_id == DB_COMMAND_ID:  # /db command
+        return handle_db_command(chat_state)
     else:
         # Should never happen
         raise ValueError(f"Invalid command id: {command_id}")
@@ -226,7 +224,13 @@ if __name__ == "__main__":
         try:
             response = get_bot_response(
                 ChatState(
-                    command_id, query, chat_history, search_params, vectorstore, ws_data
+                    OperationMode.CONSOLE,
+                    command_id,
+                    query,
+                    chat_history,
+                    search_params,
+                    vectorstore,
+                    ws_data,
                 )
             )
         except Exception as e:

@@ -6,7 +6,8 @@ from datetime import datetime
 from utils.prepare import DEFAULT_MODE
 
 DELIMITER = "-" * 90 + "\n"
-INTRO_ASCII_ART = """ ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
+INTRO_ASCII_ART = """\
+ ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
  /)__)   /)__)   /)__)               WELCOME TO DOC DOC GO             /)__)   /)__)   /)__)
 --"--"----"--"----"--"--------------------------------------------------"--"----"--"----"--"--"""
@@ -20,7 +21,7 @@ QUOTES_COMMAND_ID = 3
 WEB_COMMAND_ID = 4
 ITERATIVE_RESEARCH_COMMAND_ID = 5
 JUST_CHAT_COMMAND_ID = 6
-SWITCH_DB_COMMAND_ID = 7
+DB_COMMAND_ID = 7
 
 command_ids = {
     "/chat": JUST_CHAT_COMMAND_ID,
@@ -29,24 +30,34 @@ command_ids = {
     "/quotes": QUOTES_COMMAND_ID,
     "/web": WEB_COMMAND_ID,
     "/research": ITERATIVE_RESEARCH_COMMAND_ID,
-    "/db": SWITCH_DB_COMMAND_ID,
+    "/db": DB_COMMAND_ID,
 }
 
 DEFAULT_MODE_ID = command_ids[DEFAULT_MODE]
 
-HINT_MESSAGE = (
-    f"Hints: "
-    f'Type your query (or "exit"). You can also use the following prefixes:\n'
-    f"/docs: chat with the bot about your docs or anything else\n"
-    f"/details: get details about the retrieved documents\n"
-    f"/quotes: get quotes from the retrieved documents\n"
-    f"/web: perform web searches and generate a report\n"
-    f"/research: perform iterative research (no message = iterate on previous report)\n"
-    f"/chat: regular chat with the bot, without retrieving docs or websites\n"
-    f"/db: select new document database or manage databases (if no db given)\n"
-    f'\nExample: "/web openai news"\n'
-    f"{DELIMITER}"
-)
+HINT_MESSAGE = """\
+Hints: 
+- Type your query (or "exit"). You can also use the following prefixes:
+- /docs: chat with the bot about your docs or anything else
+- /details: get details about the retrieved documents
+- /quotes: get quotes from the retrieved documents
+- /web: perform web searches and generate a report
+- /research: perform iterative research (no message = iterate on previous report)
+- /chat: regular chat with the bot, without retrieving docs or websites
+- /db: manage your databases (select, rename, etc.)
+
+Example query: "/research openai news"\
+"""
+
+DB_COMMAND_HELP_TEMPLATE = """\
+Your current document database is: {current_db}
+
+You can use the following commands to manage your databases:
+- /db list: list all your databases
+- /db rename my-amazing-database: rename the current database to "my-amazing-database"
+- /db delete my-amazing-database: delete the database named "my-amazing-database"
+- /db use my-amazing-database: switch to the database named "my-amazing-database"\
+"""
 
 
 def print_no_newline(*args, **kwargs):
