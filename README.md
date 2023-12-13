@@ -8,17 +8,20 @@
 - [Ingesting Documents](#ingesting-documents)
 - [Running the Bot](#running-the-bot)
 - [Running the Containerized Application](#running-the-containerized-application)
-- [Advanced Usage](#advanced-usage)
+- [Response Modes](#response-modes)
+- [Querying based on substrings](#querying-based-on-substrings)
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. It can also do web research for you and synthesize collected information into a well-structured report. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents it can also ingest find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
 ## Features
 
-- Provides [several response modes](#advanced-usage) ("chat", "detailed report", "quotes", "web research")
-- Allows to [query](#advanced-usage) simultaneously based on semantics and on substrings in documents
+- Provides [several response modes](#response-modes) ("chat", "detailed report", "quotes", "web research", "iterative web research")
+- Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
 - Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
+- Allows to create and switch between multiple document collections
+- Automatically ingests content retrieved during web research into a new document collection
 - Provides links to source documents or websites
 - Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
 
@@ -60,12 +63,6 @@ Run:
 pip install -r requirements.txt
 ```
 
-If you want to try using the newest versions of the packages, you can instead run:
-
-```bash
-pip install langchain openai chromadb tiktoken unstructured flask waitress beautifulsoup4
-```
-
 It's possible you may get the error message:
 
 ```bash
@@ -84,22 +81,18 @@ At first, you can simply fill in your [OpenAI API key](https://platform.openai.c
 
 ## Ingesting Documents
 
-> You can skip this section if you just want to quickly try out the bot - the repo comes with a default database, obtained by ingesting this very README.
+> You can skip this section and still try out all of the bot's features. The repo comes with a default database, obtained by ingesting this very README. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
 
 To ingest your documents and use them when chatting with the bot, follow the steps below.
 
-### 1. Set the input and output directories
+### 1. Fill in the desired ingestion settings in the `.env` file
 
 Set the following values in the `.env` file:
 
 ```bash
-DOCS_TO_INGEST_DIR_OR_FILE="./docs-private/my-awesome-data"
-SAVE_VECTORDB_DIR="./dbs-private/my-awesome-data" 
-
-VECTORDB_DIR="./dbs-private/my-awesome-data" 
+DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
+COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
 ```
-
-Feel free to use your own directory names. The `VECTORDB_DIR` value is not used for ingestion, it's the directory where the bot will look for the database when it's started.
 
 ### 2. Run the ingestion script
 
@@ -113,13 +106,19 @@ The script will show you the ingestion settings and ask for confirmation before 
 
 ## Running the Bot
 
-To chat with the bot locally, run:
+The easiest way to interact with the bot is to run its web UI:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+If you prefer to chat with the bot in the console, you can instead run:
 
 ```bash
 python docdocgo.py
 ```
 
-Alternatively, DocDocGo also comes with a flask server, which can be run with:
+Finally, DocDocGo also comes with a flask server, which can be run with:
 
 ```bash
 waitress-serve --listen=0.0.0.0:8000 main:app
@@ -129,7 +128,7 @@ We won't cover the details of using the flask server in this README, but the nec
 
 ## Running the Containerized Application
 
-DocDocGo is also containerized with Docker. The following steps can be used to run the containerized application.
+DocDocGo is also containerized with Docker. The following steps can be used to run the containerized flask server.
 
 ### 1. Build the Docker image
 
@@ -159,41 +158,50 @@ Start the flask server inside the Docker container:
 waitress-serve --listen=0.0.0.0:8000 main:app
 ```
 
-If you need to restart and rebuild an existing Docker container (e.g. if there are changes to the code or database):
+If there are changes to the code or database, you will need to rebuild and rerun the container. Start by stopping and removing the container:
 
 ```bash
 docker stop docdocgo
 docker rm docdocgo
 ```
 
-or simply:
-
-```bash
-docker rm -f docdocgo
-```
-
 After that, follow the above steps to rebuild the container and restart the service.
 
-## Advanced Usage
-
-### Response Modes
+## Response Modes
 
 DocDocGo has several response modes:
 
-- Chat Mode - mode for a regular conversation about ingested documents or any other topic.
-- Detailed Report Mode - generate a detailed report that summarizes all of the information retrieved in response to the query.
+- Chat with Docs Mode - the main mode, used for chatting about your ingested documents or any other topic.
+- Regular Chat Mode - chat with DocDocGo without using your ingested documents.
+- Detailed Report Mode - a detailed report on all of the content from your documents retrieved in response to your query.
 - Quotes Mode - generate a list of quotes from the documents retrieved in response to the query.
-- Web Research Mode - perform web research about your query and generate a report
+- Iterative Web Research Mode - perform iterative web research about your query, ingest retrieved content, and generate a report (see [below](#iterative-web-research-mode) for details).
+- Basic Web Research Mode - perform web research about your query and generate a report without ingesting the retrieved content.
+- Database Management Mode - manage your document collections: switch between them, rename, delete, etc.
 
-To select a mode, start your message with the corresponding slash command: `/chat`, `/details`, `/quotes`, `/web`. For example:
+To select a mode, start your message with the corresponding slash command: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/db`. For example:
 
 ```markdown
 /details When is the conference?
 ```
 
-If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `/chat`).
+If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `/docs`). For the Database Management Mode, start by sending the `/db` command without any arguments. DocDocGo will then show you the available commands.
 
-### Querying based on substrings
+### Iterative Web Research Mode
+
+Iterative Web Research Mode is a powerful feature of DocDocGo that allows you to perform iterative web research about your query, ingest retrieved content, and generate a report, which the bot will try to improve with every iteration. Use this mode in three steps:
+
+**Step 1.** Start the research by sending a message starting with `/research` and your query. For example:
+
+```markdown
+/research What are the best ways to improve my memory?
+```
+
+**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply send the `/research` command without a query. DocDocGo will fetch more content from the web and use it to improve the report. You can continue this process as many times as you want.
+
+**Step 3.** All of the content retrieved during the research will be automatically ingested into a new document collection, which will become the current collection. You can then use it in the other response modes, e.g. by asking questions about the collected content.
+
+## Querying based on substrings
 
 DocDocGo allows you to query your documents simultaneously based on the meaning of your query and on keywords (or any substrings) in the documents. To do this, simply include the substrings in your query, enclosed in quotes. For example, if your message is:
 
