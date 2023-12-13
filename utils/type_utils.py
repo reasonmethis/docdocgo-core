@@ -36,7 +36,7 @@ class ChatState:
         callbacks: Callbacks = None,
     ) -> None:
         self.operation_mode = operation_mode
-        self.command_id = chat_mode
+        self.chat_mode = chat_mode
         self.message = message
         self.chat_history = chat_history or []
         self.chat_and_command_history = chat_and_command_history or []

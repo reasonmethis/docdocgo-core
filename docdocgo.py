@@ -45,17 +45,17 @@ from utils.type_utils import ChatMode, ChatState, OperationMode
 
 
 def get_bot_response(chat_state: ChatState):
-    command_id = chat_state.command_id
-    if command_id == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
+    chat_mode = chat_state.chat_mode
+    if chat_mode == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
-    elif command_id == ChatMode.DETAILS_COMMAND_ID:  # /details command
+    elif chat_mode == ChatMode.DETAILS_COMMAND_ID:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
-    elif command_id == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
+    elif chat_mode == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
-    elif command_id == ChatMode.WEB_COMMAND_ID:  # /web command
+    elif chat_mode == ChatMode.WEB_COMMAND_ID:  # /web command
         res_from_bot = get_websearcher_response(chat_state)
         return {"answer": res_from_bot["answer"]}  # remove ws_data
-    elif command_id == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
+    elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if chat_state.message:
             # Start new research
             chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
@@ -79,7 +79,7 @@ def get_bot_response(chat_state: ChatState):
 
         # Return response, including the new vectorstore if needed
         return partial_res | res_from_bot
-    elif command_id == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
+    elif chat_mode == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT, callbacks=chat_state.callbacks, stream=True
         )
@@ -87,11 +87,11 @@ def get_bot_response(chat_state: ChatState):
             {"message": chat_state.message, "chat_history": chat_state.chat_history}
         )
         return {"answer": answer}
-    elif command_id == ChatMode.DB_COMMAND_ID:  # /db command
+    elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
     else:
         # Should never happen
-        raise ValueError(f"Invalid command id: {command_id}")
+        raise ValueError(f"Invalid command id: {chat_mode}")
 
     return chat_chain.invoke(
         {
@@ -221,6 +221,7 @@ if __name__ == "__main__":
                     command_id,
                     query,
                     chat_history,
+                    chat_history, # chat_and_command_history is not used in console mode
                     search_params,
                     vectorstore,
                     ws_data,

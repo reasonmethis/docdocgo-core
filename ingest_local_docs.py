@@ -1,18 +1,19 @@
-# Print an intro message before loading imports, which can take a while
-print("-" * 70 + "\n" + " " * 20 + "Local Document Ingestion\n" + "-" * 70 + "\n")
-
 import os
 import sys
-from langchain.document_loaders import TextLoader, DirectoryLoader
+
+from langchain.document_loaders import DirectoryLoader, TextLoader
 from components.chroma_ddg import initialize_client
+
 from utils.docgrab import (
-    create_vectorstore_ram_or_disk,
     JSONLDocumentLoader,
+    create_vectorstore_ram_or_disk,
     ingest_docs_into_chroma_client,
 )
 from utils.helpers import clear_directory, is_directory_empty, print_no_newline
 
 if __name__ == "__main__":
+    print("-" * 70 + "\n" + " " * 20 + "Local Document Ingestion\n" + "-" * 70 + "\n")
+
     DOCS_TO_INGEST_DIR_OR_FILE = os.getenv("DOCS_TO_INGEST_DIR_OR_FILE")
     COLLECTON_NAME_FOR_INGESTED_DOCS = os.getenv("COLLECTON_NAME_FOR_INGESTED_DOCS")
     VECTORDB_DIR = os.getenv("VECTORDB_DIR")
@@ -53,20 +54,47 @@ if __name__ == "__main__":
     else:
         ans = input(
             f"{VECTORDB_DIR} is not empty. Please select an option:\n"
-            "1. Overwrite\n2. Append\n3. Cancel\n"
+            "1. Use it (select if it contains your existing db)\n"
+            "2. Delete all its content and create a new db\n"
+            "3. Cancel\nYour choice: "
         )
         if ans not in {"1", "2"}:
             sys.exit()
-        is_new_db = ans == "1"
+        is_new_db = ans == "2"
         if is_new_db:
+            ans = input("Type 'erase' to confirm deleting the directory's content: ")
+            if ans != "erase":
+                sys.exit()
             print_no_newline(f"Deleting files and folders in {VECTORDB_DIR}...")
             clear_directory(VECTORDB_DIR)
             print("Done!")
+        else:
+            chroma_client = initialize_client(VECTORDB_DIR)
+            collections = chroma_client.list_collections()
+            collection_names = [c.name for c in collections]
+            if COLLECTON_NAME_FOR_INGESTED_DOCS in collection_names:
+                ans = input(
+                    f"Collection {COLLECTON_NAME_FOR_INGESTED_DOCS} already exists. "
+                    "Please select an option:\n"
+                    "1. Append\n"
+                    "2. Overwrite\n"
+                    "3. Cancel\nYour choice: "
+                )
+                if ans not in {"1", "2"}:
+                    sys.exit()
+                if ans == "2":                  
+                    ans = input("Type 'erase' to confirm deleting the existing collection: ")
+                    if ans != "erase":
+                        sys.exit()
+                    print_no_newline(f"Deleting collection {COLLECTON_NAME_FOR_INGESTED_DOCS}...")
+                    chroma_client.delete_collection(COLLECTON_NAME_FOR_INGESTED_DOCS)
+                    print("Done!\n")
+
 
     # Confirm the ingestion
     print(f"You are about to ingest documents from: {DOCS_TO_INGEST_DIR_OR_FILE}")
-    print(f"The vector database will be saved to: {VECTORDB_DIR}")
-    print(f"The collection name will be: {COLLECTON_NAME_FOR_INGESTED_DOCS}")
+    print(f"The vector database directory: {VECTORDB_DIR}")
+    print(f"The collection name is: {COLLECTON_NAME_FOR_INGESTED_DOCS}")
     print(f"Is this a new database? {'Yes' if is_new_db else 'No'}\n")
 
     print("ATTENTION: This will incur some cost on your OpenAI account.")
@@ -97,7 +125,6 @@ if __name__ == "__main__":
             docs, COLLECTON_NAME_FOR_INGESTED_DOCS, save_dir=VECTORDB_DIR, verbose=True
         )
     else:
-        chroma_client = initialize_client(VECTORDB_DIR)
         ingest_docs_into_chroma_client(
             docs, COLLECTON_NAME_FOR_INGESTED_DOCS, chroma_client, verbose=True
         )
