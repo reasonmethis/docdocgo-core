@@ -10,11 +10,23 @@ Callbacks = list[BaseCallbackHandler] | None
 OperationMode = Enum("OperationMode", "CONSOLE STREAMLIT FLASK")
 
 
+class ChatMode(Enum):
+    NONE_COMMAND_ID = -1
+    RETRY_COMMAND_ID = 0
+    CHAT_WITH_DOCS_COMMAND_ID = 1
+    DETAILS_COMMAND_ID = 2
+    QUOTES_COMMAND_ID = 3
+    WEB_COMMAND_ID = 4
+    ITERATIVE_RESEARCH_COMMAND_ID = 5
+    JUST_CHAT_COMMAND_ID = 6
+    DB_COMMAND_ID = 7
+
+
 class ChatState:
     def __init__(
         self,
         operation_mode: OperationMode,
-        command_id: int = -1,
+        chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID,
         message: str = "",
         chat_history: PairwiseChatHistory | None = None,
         chat_and_command_history: PairwiseChatHistory | None = None,
@@ -24,7 +36,7 @@ class ChatState:
         callbacks: Callbacks = None,
     ) -> None:
         self.operation_mode = operation_mode
-        self.command_id = command_id
+        self.command_id = chat_mode
         self.message = message
         self.chat_history = chat_history or []
         self.chat_and_command_history = chat_and_command_history or []

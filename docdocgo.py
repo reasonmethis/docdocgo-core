@@ -18,19 +18,12 @@ from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
 from utils.helpers import (
-    CHAT_WITH_DOCS_COMMAND_ID,
-    DB_COMMAND_ID,
     DEFAULT_MODE,
     DELIMITER,
-    DETAILS_COMMAND_ID,
     HINT_MESSAGE,
     INTRO_ASCII_ART,
-    ITERATIVE_RESEARCH_COMMAND_ID,
-    JUST_CHAT_COMMAND_ID,
     MAIN_BOT_PREFIX,
-    QUOTES_COMMAND_ID,
-    WEB_COMMAND_ID,
-    extract_command_id_from_query,
+    extract_chat_mode_from_query,
     parse_query,
     print_no_newline,
 )
@@ -48,21 +41,21 @@ from utils.prompts import (
     QA_PROMPT_QUOTES,
     QA_PROMPT_SUMMARIZE_KB,
 )
-from utils.type_utils import ChatState, OperationMode
+from utils.type_utils import ChatMode, ChatState, OperationMode
 
 
 def get_bot_response(chat_state: ChatState):
     command_id = chat_state.command_id
-    if command_id == CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
+    if command_id == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
-    elif command_id == DETAILS_COMMAND_ID:  # /details command
+    elif command_id == ChatMode.DETAILS_COMMAND_ID:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
-    elif command_id == QUOTES_COMMAND_ID:  # /quotes command
+    elif command_id == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
-    elif command_id == WEB_COMMAND_ID:  # /web command
+    elif command_id == ChatMode.WEB_COMMAND_ID:  # /web command
         res_from_bot = get_websearcher_response(chat_state)
         return {"answer": res_from_bot["answer"]}  # remove ws_data
-    elif command_id == ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
+    elif command_id == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if chat_state.message:
             # Start new research
             chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
@@ -74,7 +67,7 @@ def get_bot_response(chat_state: ChatState):
             }
         # Get response from iterative researcher
         res_from_bot = get_iterative_researcher_response(chat_state)
-        ws_data = res_from_bot["ws_data"] # res_from_bot also contains "answer"
+        ws_data = res_from_bot["ws_data"]  # res_from_bot also contains "answer"
 
         # Load the new vectorstore if needed
         partial_res = {}
@@ -86,7 +79,7 @@ def get_bot_response(chat_state: ChatState):
 
         # Return response, including the new vectorstore if needed
         return partial_res | res_from_bot
-    elif command_id == JUST_CHAT_COMMAND_ID:  # /chat command
+    elif command_id == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT, callbacks=chat_state.callbacks, stream=True
         )
@@ -94,7 +87,7 @@ def get_bot_response(chat_state: ChatState):
             {"message": chat_state.message, "chat_history": chat_state.chat_history}
         )
         return {"answer": answer}
-    elif command_id == DB_COMMAND_ID:  # /db command
+    elif command_id == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
     else:
         # Should never happen
@@ -217,7 +210,7 @@ if __name__ == "__main__":
         print()
 
         # Parse the query to extract command id & search params, if any
-        query, command_id = extract_command_id_from_query(query)
+        query, command_id = extract_chat_mode_from_query(query)
         query, search_params = parse_query(query)
 
         # Get response from the bot

@@ -9,8 +9,10 @@ from collections import defaultdict
 from flask import Flask, jsonify, request
 
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
-from utils.helpers import DELIMITER, RETRY_COMMAND_ID, parse_query
-from utils.type_utils import ChatState, JSONish, OperationMode, PairwiseChatHistory
+from utils.helpers import DEFAULT_CHAT_MODE, DELIMITER, parse_query
+from utils.type_utils import ChatMode, ChatState, JSONish, OperationMode, PairwiseChatHistory
+
+RETRY_COMMAND_ID = 1000  # unique to the flask server
 
 vectorstore = do_intro_tasks()
 
@@ -53,10 +55,7 @@ def chat():
             print(f"Invalid API key: {api_key}")
             return jsonify({"content": "Invalid DocDocGo API key"})
 
-        # Parse the query to extract search params, if any
-        message, search_params = parse_query(message)
-
-        # Process commands that don't require a response from the bot
+        # Process special command, unique to the flask server
         if command_id == RETRY_COMMAND_ID:  # /retry command
             return jsonify(
                 {
@@ -71,6 +70,13 @@ def chat():
                     "sources": prev_outputs[username].get("sources", ""),
                 }
             )
+
+        # Parse the query to extract search params, if any
+        try:
+            chat_mode = ChatMode(command_id)
+        except ValueError:
+            chat_mode = DEFAULT_CHAT_MODE
+        message, search_params = parse_query(message)
 
         # Save the user's message (for the /retry command; will save response later)
         prev_input_by_user[username] = {
@@ -97,7 +103,7 @@ def chat():
             # TODO: add ws_data and callbacks
             ChatState(
                 OperationMode.FLASK,
-                command_id,
+                chat_mode,
                 message,
                 chat_history,
                 search_params,

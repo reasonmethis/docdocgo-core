@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 
 from utils.prepare import DEFAULT_MODE
+from utils.type_utils import ChatMode
 
 DELIMITER = "-" * 90 + "\n"
 INTRO_ASCII_ART = """\
@@ -14,26 +15,17 @@ INTRO_ASCII_ART = """\
 
 MAIN_BOT_PREFIX = "DocDocGo: "
 
-RETRY_COMMAND_ID = 0
-CHAT_WITH_DOCS_COMMAND_ID = 1
-DETAILS_COMMAND_ID = 2
-QUOTES_COMMAND_ID = 3
-WEB_COMMAND_ID = 4
-ITERATIVE_RESEARCH_COMMAND_ID = 5
-JUST_CHAT_COMMAND_ID = 6
-DB_COMMAND_ID = 7
-
 command_ids = {
-    "/chat": JUST_CHAT_COMMAND_ID,
-    "/docs": CHAT_WITH_DOCS_COMMAND_ID,
-    "/details": DETAILS_COMMAND_ID,
-    "/quotes": QUOTES_COMMAND_ID,
-    "/web": WEB_COMMAND_ID,
-    "/research": ITERATIVE_RESEARCH_COMMAND_ID,
-    "/db": DB_COMMAND_ID,
+    "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
+    "/docs": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
+    "/details": ChatMode.DETAILS_COMMAND_ID,
+    "/quotes": ChatMode.QUOTES_COMMAND_ID,
+    "/web": ChatMode.WEB_COMMAND_ID,
+    "/research": ChatMode.ITERATIVE_RESEARCH_COMMAND_ID,
+    "/db": ChatMode.DB_COMMAND_ID,
 }
 
-DEFAULT_MODE_ID = command_ids[DEFAULT_MODE]
+DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
 HINT_MESSAGE = """\
 Hints: 
@@ -103,7 +95,7 @@ def clamp(value, min_value, max_value):
     return max(min_value, min(value, max_value))
 
 
-def extract_command_id_from_query(query: str) -> tuple[str, int]:
+def extract_chat_mode_from_query(query: str) -> tuple[str, ChatMode]:
     """Extract the command ID from the query, if any"""
     try:
         return "", command_ids[query]
@@ -113,7 +105,7 @@ def extract_command_id_from_query(query: str) -> tuple[str, int]:
         command, actual_query = query.split(" ", maxsplit=1)
         return actual_query, command_ids[command]
     except (ValueError, KeyError):
-        return query, DEFAULT_MODE_ID
+        return query, DEFAULT_CHAT_MODE
 
 
 def parse_query(query: str, mode="normal"):

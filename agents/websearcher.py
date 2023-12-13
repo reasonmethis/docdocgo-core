@@ -363,21 +363,21 @@ def get_initial_iterative_researcher_response(
     if not links_to_include:
         return ws_data
 
-    # Decide on the collection name
+    # Decide on the collection name consistent with ChromaDB's naming rules
     query_words = ws_data.query.split()
     words = [x.lower() for x in query_words if x not in SMALL_WORDS]
     if len(words) < 3:
         words = [x.lower() for x in query_words]
-    new_coll_name = "-".join(words[:4])
+    new_coll_name = "-".join(words[:3])
     new_coll_name = "".join(x for x in new_coll_name if x.isalnum() or x == "-")
-    new_coll_name = new_coll_name.lstrip("-")[:55].rstrip("-")
+    new_coll_name = new_coll_name.lstrip("-")[:35].rstrip("-")
     if len(new_coll_name) < 3:
         new_coll_name = f"collection-{new_coll_name}".rstrip("-")
     ws_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
     chroma_client: ClientAPI = chat_state.vectorstore._client
-    for i in range(2, 1000000000):
+    for i in range(2, 1000000):
         try:
             chroma_client.get_collection(ws_data.collection_name)
         except ValueError:
