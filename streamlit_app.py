@@ -3,43 +3,56 @@ import random
 
 import streamlit as st
 
-from components.llm import CallbackHandlerDDGConsole, CallbackHandlerDDGStreamlit
-from docdocgo import do_intro_tasks, get_bot_response
+from components.llm import CallbackHandlerDDGStreamlit
+from docdocgo import get_bot_response
 from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
-from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.streamlit.helpers import status_config
-from utils.type_utils import ChatState, OperationMode
-
-remove_tornado_fix()
+from utils.streamlit.prepare import prepare_app
+from utils.type_utils import ChatState
 
 # Run just once
 if "chat_state" not in st.session_state:
-    st.session_state.vectorstore = do_intro_tasks()
-    st.session_state.chat_state = ChatState(
-        OperationMode.STREAMLIT,
-        vectorstore=st.session_state.vectorstore,
-        callbacks=[
-            CallbackHandlerDDGConsole(),
-            "placeholder for CallbackHandlerDDGStreamlit",
-        ],
-    )
+    prepare_app()
 
+# For convenience
 chat_state: ChatState = st.session_state.chat_state
 
-icons = "🤖🦉🦚🦜🦆🦢🦅🐧🐦🐤🐔🐓🕊️🦩🦋🐝🐞"
+# Page config
+icons = "🤖🦉🦜🦆🐦🕊️🦩"
 page_icon = random.choice(icons)
-
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
 st.title("DocDocGo")
 
+# Sidebar
+with st.sidebar:
+    # Set the env variable for the OpenAI API key.
+    # Init value of text field is determined by the init value of the env variable.
+    did_chat_succeed = not chat_state.chat_history
+    with st.expander("OpenAI API Key", expanded=did_chat_succeed):
+        os.environ["OPENAI_API_KEY"] = st.text_input(
+            "OpenAI API Key",
+            label_visibility="collapsed",
+            value=st.session_state.openai_api_key_field_init_value,
+            key="openai_api_key",
+            type="password",
+        )
+        
+        "To use this app, you'll need an OpenAI API key."
+        "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+    "[View the source code](https://github.com/reasonmethis/docdocgo-core/streamlit_app.py)"
+
+# Show previous exchanges
 for full_query, answer in chat_state.chat_and_command_history:
     with st.chat_message("user"):
         st.markdown(full_query)
     with st.chat_message("assistant"):
         st.markdown(answer)
 
+# Check if the user has entered a query
 if not (full_query := st.chat_input("What's on your mind?")):
     st.stop()
+
+#### The rest will only once the user has entered a query ####
 
 with st.chat_message("user"):
     st.markdown(full_query)
@@ -47,7 +60,7 @@ with st.chat_message("user"):
 # Parse the query to extract command id & search params, if any
 query, chat_mode = extract_chat_mode_from_query(full_query)
 query, search_params = parse_query(query)
-chat_state.update(command_id=chat_mode, message=query, search_params=search_params)
+chat_state.update(chat_mode=chat_mode, message=query, search_params=search_params)
 
 # Get and display response from the bot
 with st.chat_message("assistant"):
@@ -95,3 +108,7 @@ if "ws_data" in response:
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
+
+# If this was the first exchange, rerun to collapse the OpenAI API key field
+if len(chat_state.chat_history) == 1:
+    st.rerun()

@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
@@ -8,8 +9,22 @@ from utils.type_utils import PairwiseChatHistory
 
 load_dotenv(override=True)
 
-default_llm_for_token_counting = ChatOpenAI()
+def _get_default_llm_for_token_counting() -> BaseLanguageModel:
+    """Get the default language model for token counting."""
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        # To avoid error when instantiating ChatOpenAI
+        os.environ["OPENAI_API_KEY"] = "DUMMY NON-EMPTY VALUE"
+    llm = ChatOpenAI()
+    if not openai_api_key:
+        # Reset the env variable
+        if openai_api_key is None:
+            del os.environ["OPENAI_API_KEY"]
+        else:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
+    return llm
 
+default_llm_for_token_counting = _get_default_llm_for_token_counting()
 
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""

@@ -3,22 +3,10 @@ from typing import Any
 
 from chromadb import ClientAPI, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma, _results_to_docs_and_scores
 
-
-def get_embedding_function():
-    # Create the embedding function
-    # (as of Aug 8, 2023, max chunk size for Azure API is 16)
-    return (
-        OpenAIEmbeddings(
-            deployment=os.getenv("EMBEDDINGS_DEPLOYMENT_NAME"), chunk_size=16
-        )
-        if os.getenv("OPENAI_API_BASE")  # proxy for whether we're using Azure
-        else OpenAIEmbeddings()
-    )
-
+from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
 
 class ChromaDDG(Chroma):
     """
@@ -52,7 +40,7 @@ class ChromaDDG(Chroma):
             **kwargs: Additional keyword arguments. Only 'where_document' is used, if present.
 
         Returns:
-            list[tuple[Document, float]]: List of documents most similar to
+            list[tuple[Document, float]]: list of documents most similar to
             the query text and cosine distance in float for each.
         """
 
@@ -101,6 +89,6 @@ def load_vectorstore(collection_name: str, client: ClientAPI | None = None):
     vectorstore = ChromaDDG(
         client=client,
         collection_name=collection_name,
-        embedding_function=get_embedding_function(),
+        embedding_function=OpenAIEmbeddingsDDG(),
     )
     return vectorstore

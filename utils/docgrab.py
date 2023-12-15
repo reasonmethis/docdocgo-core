@@ -7,7 +7,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
 
-from components.chroma_ddg import ChromaDDG, get_embedding_function
+from components.chroma_ddg import ChromaDDG
+from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
 from utils.output import ConditionalLogger
 
 load_dotenv(override=True)
@@ -95,7 +96,7 @@ def ingest_docs_into_chroma_client(
     """
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
-        embedding=get_embedding_function(),
+        embedding=OpenAIEmbeddingsDDG(),
         client=chroma_client,
         collection_name=collection_name,
     )
@@ -115,7 +116,7 @@ def create_vectorstore_ram_or_disk(
     """
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
-        embedding=get_embedding_function(),
+        embedding=OpenAIEmbeddingsDDG(),
         persist_directory=save_dir,
         collection_name=collection_name,
     )

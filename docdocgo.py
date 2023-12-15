@@ -32,7 +32,7 @@ from utils.helpers import (
 from utils.prepare import (
     DEFAULT_COLLECTION_NAME,
     TEMPERATURE,
-    validate_settings,
+    # validate_settings,
 )
 from utils.prompts import (
     CONDENSE_QUESTION_PROMPT,
@@ -171,11 +171,15 @@ def get_docs_chat_chain(
 def do_intro_tasks():
     print(INTRO_ASCII_ART + "\n\n")
 
-    validate_settings()
+    # validate_settings()
 
     # Load the vector database
     print_no_newline("Loading the vector database of your documents... ")
-    vectorstore = load_vectorstore(DEFAULT_COLLECTION_NAME)
+    try:
+        vectorstore = load_vectorstore(DEFAULT_COLLECTION_NAME)
+    except Exception as e:
+        print(f"Failed to load the vector database. Please check the settings. Error: {e}")
+        raise ValueError("Could not load the vector database.")
     print("Done!")
     return vectorstore
 

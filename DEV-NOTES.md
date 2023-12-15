@@ -31,9 +31,9 @@
 10. DONE Use streaming to improve detecting true LLM stalls
 11. Send partial results to the user to avoid timeout
 12. Return retrieved documents in the response
-13. Add support for Jira
+13. Speed up limiting tokens - see tiktoken comment in OpenAIEmbeddings
 14. Add ability to (auto)update vector db
-15. Include current date/time in the prompt
+15. DONE Include current date/time in the prompt
 16. Use two different chunk sizes: search for small chunks, then small chunks point to larger chunks
 
 ## Evaluations
