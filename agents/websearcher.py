@@ -22,6 +22,7 @@ from utils.lang_utils import (
     limit_tokens_in_text,
     limit_tokens_in_texts,
 )
+from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
@@ -129,7 +130,9 @@ def get_websearcher_response_quick(
     texts = [get_text_from_html(html) for html in htmls]
     ok_texts, ok_links = remove_failed_fetches(texts, links)
 
-    processed_texts, token_counts = limit_tokens_in_texts(ok_texts, max_tot_tokens=8000)
+    processed_texts, token_counts = limit_tokens_in_texts(
+        ok_texts, max_tot_tokens=int(CONTEXT_LENGTH * 0.5)
+    )
     processed_texts = [
         f"SOURCE: {link}\nCONTENT:\n{text}\n====="
         for text, link in zip(processed_texts, ok_links)
@@ -176,7 +179,7 @@ class WebsearcherData(BaseModel):
     link_data_dict: dict[str, LinkData]
     evaluation: str | None = None
     collection_name: str | None = None
-    max_tokens_final_context: int = 8000
+    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7)
 
     @classmethod
     def from_query(cls, query: str):
@@ -197,7 +200,7 @@ def get_websearcher_response_medium(
     chat_state: ChatState,
     max_queries: int = 7,
     max_total_links: int = 7,  # TODO! # small number to stuff into context window
-    max_tokens_final_context: int = 8000,
+    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7),
 ):
     query = chat_state.message
     # Get queries to search for using query generator prompt
@@ -348,6 +351,8 @@ NUM_NEW_LINKS_TO_ACQUIRE = 3
 NUM_NEW_LINKS_TO_PROCESS = 2
 
 SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
+SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
+SMALL_WORDS |= {"which", "who", "whom", "whose", "where", "when", "how", "why"}
 
 
 def get_initial_iterative_researcher_response(

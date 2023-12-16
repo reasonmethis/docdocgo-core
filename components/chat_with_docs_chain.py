@@ -18,6 +18,7 @@ from langchain.schema.messages import BaseMessage
 from pydantic import Extra
 
 from utils import lang_utils
+from utils.prepare import CONTEXT_LENGTH
 from utils.type_utils import Callbacks, JSONish, PairwiseChatHistory
 
 
@@ -62,9 +63,15 @@ class ChatWithDocsChain(Chain):
 
     callbacks: Callbacks = None # TODO consider removing
 
-    max_tokens_limit_rephrase: int = 2000  # TODO update for 16k
-    max_tokens_limit_qa: int = 3000  # docs + chat (no prompt); must leave room for ans
-    max_tokens_limit_chat: int = 1000
+    # Limit for docs + chat (no prompt); must leave room for answer
+    max_tokens_limit_qa: int = int(CONTEXT_LENGTH * 0.75)
+
+    # Limit for chat history; can be exceeded if there are few docs
+    max_tokens_limit_chat: int = int(CONTEXT_LENGTH * 0.25)
+
+    # Limit for chat history, for standalone query generation
+    max_tokens_limit_rephrase: int = int(CONTEXT_LENGTH * 0.5)
+
     output_key: str = "answer"
     return_source_documents: bool = False
     return_generated_question: bool = False

@@ -37,7 +37,7 @@ def pairwise_chat_history_to_msg_list(
 ) -> list[BaseMessage]:
     """Convert a pairwise chat history to a list of messages."""
 
-    msg_list: list[BaseMessage] = []
+    msg_list = []
     for human_msg, ai_msg in chat_history:
         msg_list.append(HumanMessage(content=human_msg))
         msg_list.append(AIMessage(content=ai_msg))

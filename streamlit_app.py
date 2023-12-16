@@ -58,7 +58,6 @@ if not chat_state.chat_and_command_history:
         st.caption(
             ":red[⮟]:grey[ Tip: See your current **doc collection** in the chat box]"
         )
-        # st.subheader("🠋🛈⬇️↘️↙️⏬⤵️⤴️🚦⚓↪️👇🔽"[:2])
 
 # Show previous exchanges
 for full_query, answer in chat_state.chat_and_command_history:
@@ -75,8 +74,10 @@ if not (full_query):
 
 #### The rest will only run once the user has entered a query ####
 
+# Display the user's query
 with st.chat_message("user"):
     st.markdown(full_query)
+    # Remove the intro message if this is the first query
     if not chat_state.chat_and_command_history:
         welcome_placeholder.empty()
 

@@ -13,6 +13,7 @@ DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documen
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-1106")
+CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
