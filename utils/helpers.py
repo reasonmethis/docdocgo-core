@@ -23,32 +23,44 @@ command_ids = {
     "/web": ChatMode.WEB_COMMAND_ID,
     "/research": ChatMode.ITERATIVE_RESEARCH_COMMAND_ID,
     "/db": ChatMode.DB_COMMAND_ID,
+    "/help": ChatMode.HELP_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
-HINT_MESSAGE = """\
-Hints: 
-- Type your query (or "exit"). You can also use the following prefixes:
-- /docs: chat with the bot about your docs or anything else
-- /details: get details about the retrieved documents
-- /quotes: get quotes from the retrieved documents
-- /web: perform web searches and generate a report
-- /research: perform iterative research (no message = iterate on previous report)
-- /chat: regular chat with the bot, without retrieving docs or websites
-- /db: manage your databases (select, rename, etc.)
+HELP_MESSAGE = f"""\
+You can enter your messages with or without a prefix. Different prefixes activate my different \
+response modes. Think of them like different subagents, each with a different job. \
+The default mode is `{DEFAULT_MODE}`.
 
-Example query: "/research openai news"\
+Here's what each prefix does:
+- `/docs`: chat with me about your currently selected docs collection (or a general topic)
+- `/details`: get details about the retrieved documents
+- `/quotes`: get quotes from the retrieved documents
+- `/web`: perform web searches and generate a report
+- `/research`: perform iterative research (no message = iterate on previous report)
+- `/chat`: regular chat, without retrieving docs or websites
+- `/db`: manage your docs collections (select, rename, etc.)
+- `/help`: show this help message
+
+Example query: `/research openai news`.
+
+If you're in a reading mood, here's a [link to my full docs]\
+(https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
+
+Or simply ask me for help! By default, I'm set up to use the `docdocgo-documentation` \
+collection, which contains my full docs. As long as this collection is selected, I should be \
+able to answer most of your questions about how to use me.\
 """
 
 DB_COMMAND_HELP_TEMPLATE = """\
-Your current document database is: {current_db}
+Your current document collection is: `{current_db}`
 
-You can use the following commands to manage your databases:
-- /db list: list all your databases
-- /db rename my-amazing-database: rename the current database to "my-amazing-database"
-- /db delete my-amazing-database: delete the database named "my-amazing-database"
-- /db use my-amazing-database: switch to the database named "my-amazing-database"\
+You can use the following commands to manage your collections:
+- `/db list`: list all your collections
+- `/db rename my-amazing-collection`: rename the current collection to "my-amazing-collection"
+- `/db delete my-amazing-collection`: delete the collection named "my-amazing-collection"
+- `/db use my-amazing-collection`: switch to the collection named "my-amazing-collection"\
 """
 
 

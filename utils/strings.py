@@ -64,3 +64,16 @@ def limit_number_of_words(text: str, max_words: int) -> tuple[str, int]:
         + parts[num_words - 1]
     )
     return text, num_words
+
+
+def limit_number_of_characters(text: str, max_characters: int) -> str:
+    """
+    Limit the number of characters in a string to a given number. If the string
+    is longer than the given number of characters, truncate it and append an
+    ellipsis
+    """
+    if len(text) <= max_characters:
+        return text
+    if max_characters > 0:
+        return text[: max_characters - 1] + "…"
+    return ""

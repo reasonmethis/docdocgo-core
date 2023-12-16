@@ -20,6 +20,17 @@ class ChatMode(Enum):
     ITERATIVE_RESEARCH_COMMAND_ID = 5
     JUST_CHAT_COMMAND_ID = 6
     DB_COMMAND_ID = 7
+    HELP_COMMAND_ID = 8
+
+
+chat_modes_needing_llm = {
+    ChatMode.WEB_COMMAND_ID,
+    ChatMode.ITERATIVE_RESEARCH_COMMAND_ID,
+    ChatMode.JUST_CHAT_COMMAND_ID,
+    ChatMode.DETAILS_COMMAND_ID,
+    ChatMode.QUOTES_COMMAND_ID,
+    ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
+}
 
 
 class ChatState:

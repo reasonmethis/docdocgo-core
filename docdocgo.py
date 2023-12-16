@@ -20,7 +20,7 @@ from utils.algo import remove_duplicates_keep_order
 from utils.helpers import (
     DEFAULT_MODE,
     DELIMITER,
-    HINT_MESSAGE,
+    HELP_MESSAGE,
     INTRO_ASCII_ART,
     MAIN_BOT_PREFIX,
     extract_chat_mode_from_query,
@@ -32,8 +32,9 @@ from utils.helpers import (
 from utils.prepare import (
     DEFAULT_COLLECTION_NAME,
     TEMPERATURE,
-    # validate_settings,
 )
+
+# validate_settings,
 from utils.prompts import (
     CONDENSE_QUESTION_PROMPT,
     JUST_CHAT_PROMPT,
@@ -89,6 +90,8 @@ def get_bot_response(chat_state: ChatState):
         return {"answer": answer}
     elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
+    elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
+        return {"answer": HELP_MESSAGE}
     else:
         # Should never happen
         raise ValueError(f"Invalid command id: {chat_mode}")
@@ -178,8 +181,12 @@ def do_intro_tasks():
     try:
         vectorstore = load_vectorstore(DEFAULT_COLLECTION_NAME)
     except Exception as e:
-        print(f"Failed to load the vector database. Please check the settings. Error: {e}")
-        raise ValueError("Could not load the vector database.")
+        print(
+            f"Failed to load the vector database. Please check the settings. Error: {e}"
+        )
+        raise ValueError(
+            f"Could not load the default document collection {DEFAULT_COLLECTION_NAME}."
+        )
     print("Done!")
     return vectorstore
 
@@ -199,7 +206,7 @@ if __name__ == "__main__":
     while True:
         # Print hints and other info
         if os.getenv("SHOW_HINTS", True):
-            print(HINT_MESSAGE)
+            print(HELP_MESSAGE)
         print(f"Vector database: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
 
         # Get query from user
@@ -225,7 +232,7 @@ if __name__ == "__main__":
                     command_id,
                     query,
                     chat_history,
-                    chat_history, # chat_and_command_history is not used in console mode
+                    chat_history,  # chat_and_command_history is not used in console mode
                     search_params,
                     vectorstore,
                     ws_data,

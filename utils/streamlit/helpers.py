@@ -1,3 +1,5 @@
+import time
+
 from utils.type_utils import ChatMode
 
 default_status_config = {
@@ -16,7 +18,7 @@ just_chat_status_config = default_status_config | {
 research_status_config = default_status_config | {
     "thinking.header": "Doing Internet research (takes 10-30s)...",
     "thinking.body": "Retrieving content from websites and composing report...",
-    "complete.body": "Report composed and sources added to the database.",
+    "complete.body": "Report composed and sources added to the document collection.",
 }
 
 status_config = {
@@ -28,3 +30,9 @@ status_config = {
     ChatMode.ITERATIVE_RESEARCH_COMMAND_ID: research_status_config,
 }
 
+
+def write_slowly(message_placeholder, answer):
+    """Write a message to the message placeholder slowly, like a typewriter."""
+    for i in range(1, len(answer) + 1):
+        message_placeholder.markdown(answer[:i])
+        time.sleep(0.005)
