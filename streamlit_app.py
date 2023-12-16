@@ -1,5 +1,4 @@
 import os
-import random
 
 import streamlit as st
 
@@ -19,8 +18,7 @@ if "chat_state" not in st.session_state:
 chat_state: ChatState = st.session_state.chat_state
 
 # Page config
-icons = "🤖🦉🦜🦆🐦"
-page_icon = random.choice(icons)
+page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
 st.title("DocDocGo")
 
@@ -50,13 +48,16 @@ with st.sidebar:
 if not chat_state.chat_and_command_history:
     welcome_placeholder = st.empty()
     with welcome_placeholder.container():
-        for i in range(6):
+        for i in range(3):
             st.write("")
         st.write("Welcome! To see what I can do, type")
         st.subheader("/help")
-        for i in range(9):
-            st.write("")
-        st.caption(":red[⮟]:grey[ See your current **doc collection** in the chat box]")
+        # for i in range(9):
+        #     st.write("")
+        st.write("")
+        st.caption(
+            ":red[⮟]:grey[ Tip: See your current **doc collection** in the chat box]"
+        )
         # st.subheader("🠋🛈⬇️↘️↙️⏬⤵️⤴️🚦⚓↪️👇🔽"[:2])
 
 # Show previous exchanges
@@ -68,11 +69,8 @@ for full_query, answer in chat_state.chat_and_command_history:
 
 # Check if the user has entered a query
 collection_name = chat_state.vectorstore.name
-if 1 or chat_state.chat_and_command_history:
-    tmp = f"{limit_number_of_characters(collection_name, 35)}/"
-else:
-    tmp = f"[{collection_name}] ⬅️ Here you'll see your current document collection."
-if not (full_query := st.chat_input(tmp)):
+full_query = st.chat_input(f"{limit_number_of_characters(collection_name, 35)}/")
+if not (full_query):
     st.stop()
 
 #### The rest will only run once the user has entered a query ####
@@ -116,7 +114,7 @@ with st.chat_message("assistant"):
         # Display non-streaming responses slowly (in particular avoids chat prompt flicker)
         if chat_mode not in chat_modes_needing_llm:
             write_slowly(message_placeholder, answer)
-            
+
         # Display the "complete" status
         if status:
             status.update(
@@ -139,12 +137,16 @@ with st.chat_message("assistant"):
 
         if callback_handler.buffer:
             answer = f"{callback_handler.buffer}\n\n{answer}"
+
+        # Display the response with the error message
+        message_placeholder.markdown(answer)
+
+        # Stop this run
         if os.getenv("RERAISE_EXCEPTIONS"):
             raise e
         st.stop()
     finally:
-        # Display the response and update the full chat history
-        message_placeholder.markdown(answer)
+        # Update the full chat history
         chat_state.chat_and_command_history.append((full_query, answer))
 
 # Update iterative research data

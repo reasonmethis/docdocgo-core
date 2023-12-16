@@ -29,28 +29,39 @@ command_ids = {
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
 HELP_MESSAGE = f"""\
+### What I can do
+
+- **Answer questions** about documents you provide.
+    - Documents are organized into **collections**
+    - The chat box shows which collection is currently used for my answers
+- **Research a topic** on the web and generate a report
+    - I can keep researching more and more sources and improving my report iteratively.
+    - I **save sources** in a new doc collection, so you can ask me questions about them.
+
+### How to use me
+
 You can enter your messages with or without a prefix. Different prefixes activate my different \
 response modes. Think of them like different subagents, each with a different job. \
 The default mode is `{DEFAULT_MODE}`.
 
 Here's what each prefix does:
-- `/docs`: chat with me about your currently selected docs collection (or a general topic)
+- `/docs`: chat with me about your currently selected doc collection (or a general topic)
 - `/details`: get details about the retrieved documents
 - `/quotes`: get quotes from the retrieved documents
 - `/web`: perform web searches and generate a report
 - `/research`: perform iterative research (no message = iterate on previous report)
 - `/chat`: regular chat, without retrieving docs or websites
-- `/db`: manage your docs collections (select, rename, etc.)
+- `/db`: manage your doc collections (select, rename, etc.)
 - `/help`: show this help message
 
-Example query: `/research openai news`.
+Example query: `/research What are the best places for a beach vacation this month?`.
 
 If you're in a reading mood, here's a [link to my full docs]\
 (https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
 
 Or simply ask me for help! By default, I'm set up to use the `docdocgo-documentation` \
-collection, which contains my full docs. As long as this collection is selected, I should be \
-able to answer most of your questions about how to use me.\
+collection. As long as this collection is selected (as shown in \
+the chat box), I can answer your questions about how to use me.\
 """
 
 DB_COMMAND_HELP_TEMPLATE = """\
@@ -58,9 +69,9 @@ Your current document collection is: `{current_db}`
 
 You can use the following commands to manage your collections:
 - `/db list`: list all your collections
-- `/db rename my-amazing-collection`: rename the current collection to "my-amazing-collection"
-- `/db delete my-amazing-collection`: delete the collection named "my-amazing-collection"
-- `/db use my-amazing-collection`: switch to the collection named "my-amazing-collection"\
+- `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
+- `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
+- `/db use my-cool-collection`: switch to the collection named "my-cool-collection"\
 """
 
 

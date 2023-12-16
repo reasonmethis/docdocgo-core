@@ -58,6 +58,7 @@ if __name__ == "__main__":
             "2. Delete all its content and create a new db\n"
             "3. Cancel\nYour choice: "
         )
+        print()
         if ans not in {"1", "2"}:
             sys.exit()
         is_new_db = ans == "2"
@@ -80,6 +81,7 @@ if __name__ == "__main__":
                     "2. Overwrite\n"
                     "3. Cancel\nYour choice: "
                 )
+                print()
                 if ans not in {"1", "2"}:
                     sys.exit()
                 if ans == "2":                  

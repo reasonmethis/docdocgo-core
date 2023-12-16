@@ -101,7 +101,7 @@ def ingest_docs_into_chroma_client(
         collection_name=collection_name,
     )
     if verbose:
-        print(f"Created collection {collection_name}")
+        print(f"Ingested documents into collection {collection_name}")
     return vectorstore
 
 # TODO: consider removing this
