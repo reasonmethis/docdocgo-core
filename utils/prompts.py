@@ -1,4 +1,4 @@
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 
@@ -16,27 +16,26 @@ Last Query from Human: {question}
 Standalone version of Last Query: """
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(condense_question_template)
 
-just_chat_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base and the ability to do Internet research. For this particular reply you won't be retrieving any information from your knowledge base or the Internet. Instead, you will just chat with the user, keeping in mind that you may have used your knowledge base and/or the Internet earlier in the conversation.
+just_chat_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base and the ability to do Internet research. For this part of the conversation you won't be retrieving any information from your knowledge base or the Internet. Instead, you will just chat with the user, keeping in mind that you may have used your knowledge base and/or the Internet earlier in the conversation."""
+JUST_CHAT_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", just_chat_system_template),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("user", "{message}"),
+    ]
+)
 
-CURRENT CHAT HISTORY:
-{chat_history}
-Human: {message}
-AI: """
-JUST_CHAT_PROMPT = PromptTemplate.from_template(just_chat_template)
-
-qa_template_chat = """You are DocDocGo, a helpful Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
+chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
 
 {context}
 
 END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
-Use them for your response ONLY if relevant.
+Use them for your response ONLY if relevant."""
 
-CURRENT CHAT HISTORY:
-{chat_history}
-Human: {question}
-AI: """
-
-QA_PROMPT_CHAT = PromptTemplate.from_template(qa_template_chat)
+CHAT_WITH_DOCS_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", chat_with_docs_system_template),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("user", "{question}"),])
 
 qa_template_summarize_kb = """You are a helpful Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
 

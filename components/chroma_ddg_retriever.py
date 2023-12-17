@@ -1,16 +1,15 @@
 from typing import Any, ClassVar
 
-from pydantic import Field
-
+from chromadb.api.types import Where, WhereDocument
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForRetrieverRun,
     CallbackManagerForRetrieverRun,
 )
 from langchain.docstore.document import Document
 from langchain.vectorstores.base import VectorStoreRetriever
-from chromadb.api.types import Where, WhereDocument
+from pydantic import Field
 
-from utils.helpers import lin_interpolate, DELIMITER
+from utils.helpers import DELIMITER, lin_interpolate
 
 
 class ChromaDDGRetriever(VectorStoreRetriever):
@@ -40,7 +39,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
 
     allowed_search_types: ClassVar[tuple[str]] = (
         "similarity",
-        "similarity_score_threshold",
+        # "similarity_score_threshold", # NOTE can add at some point
         "mmr",
         "similarity_ddg",
     )
@@ -68,9 +67,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
             docs = self.vectorstore.max_marginal_relevance_search(
                 query, **search_kwargs
             )
-        elif (
-            self.search_type == "similarity_ddg"
-        ):  # TODO add usual simi with score threshold
+        elif self.search_type == "similarity_ddg":
             # Main method used by DocDocGo
 
             # First, get more docs than we need, then we'll pare them down
@@ -126,8 +123,6 @@ class ChromaDDGRetriever(VectorStoreRetriever):
                 # Otherwise, add the doc to the list and keep going
                 docs.append(doc)
                 self.similarities.append(sim)
-
-            # docs = [doc for doc, _ in docs_and_similarities]
         else:
             raise ValueError(f"search_type of {self.search_type} not allowed.")
 

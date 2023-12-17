@@ -61,7 +61,7 @@ class ChatWithDocsChain(Chain):
     question_generator: LLMChain
     retriever: BaseRetriever
 
-    callbacks: Callbacks = None # TODO consider removing
+    callbacks: Callbacks = None  # TODO consider removing
 
     # Limit for docs + chat (no prompt); must leave room for answer
     max_tokens_limit_qa: int = int(CONTEXT_LENGTH * 0.75)
@@ -75,7 +75,7 @@ class ChatWithDocsChain(Chain):
     output_key: str = "answer"
     return_source_documents: bool = False
     return_generated_question: bool = False
-    get_chat_history: Callable[[PairwiseChatHistory], str] | None = None
+    format_chat_history: Callable[[PairwiseChatHistory], Any] | None = None
 
     class Config:
         """Configuration for this pydantic object."""
@@ -135,8 +135,8 @@ class ChatWithDocsChain(Chain):
         # _run_manager = run_manager or CallbackManagerForChainRun.get_noop_manager()
         callbacks = run_manager.get_child() if run_manager else (self.callbacks or [])
 
-        _get_chat_history_str = (
-            self.get_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
+        _format_chat_history = (
+            self.format_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
         )
 
         # Get user's query and chat history from inputs
@@ -182,7 +182,7 @@ class ChatWithDocsChain(Chain):
 
             standalone_query = self.question_generator.run(
                 question=user_query,
-                chat_history=_get_chat_history_str(chat_history_for_rephrasing),
+                chat_history=_format_chat_history(chat_history_for_rephrasing),
                 # callbacks=_run_manager.get_child(),
             )
 
@@ -226,7 +226,7 @@ class ChatWithDocsChain(Chain):
 
         # Submit limited docs and chat history to the chat/qa chain
         new_inputs = inputs.copy()
-        new_inputs["chat_history"] = _get_chat_history_str(chat_history_for_qa)
+        new_inputs["chat_history"] = _format_chat_history(chat_history_for_qa)
 
         answer = self.combine_docs_chain.run(
             input_documents=docs, callbacks=callbacks, **new_inputs
@@ -249,7 +249,7 @@ class ChatWithDocsChain(Chain):
         _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
         question = inputs["question"]
         get_chat_history = (
-            self.get_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
+            self.format_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
         )
         chat_history_str = get_chat_history(inputs["chat_history"])
         if chat_history_str:
@@ -282,6 +282,6 @@ class ChatWithDocsChain(Chain):
         return output
 
     def save(self, file_path: Path | str) -> None:
-        if self.get_chat_history:
+        if self.format_chat_history:
             raise ValueError("Chain not saveable when `get_chat_history` is not None.")
         super().save(file_path)

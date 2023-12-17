@@ -517,7 +517,7 @@ def get_iterative_researcher_response(
     idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
     if idx_assessment == -1:
         # Something went wrong, keep the old report
-        pass
+        print("Something went wrong, keeping the old report") # NOTE: can remove
     else:
         idx_no_improvement = idx_assessment - length_diff
         if (
@@ -528,6 +528,7 @@ def get_iterative_researcher_response(
             == NO_IMPROVEMENT_MSG
         ):
             # No improvement, keep the old report, record the LLM's assessment
+            print("No improvement, keeping the old report") # NOTE: can remove
             ws_data.evaluation = answer[idx_no_improvement:]
         else:
             # Improvement, record the new report and the LLM's assessment

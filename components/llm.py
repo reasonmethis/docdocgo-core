@@ -3,13 +3,14 @@ from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain.chat_models.base import BaseChatModel
 from langchain.prompts.prompt import PromptTemplate
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.schema import StrOutputParser
 from langchain.schema.output import ChatGenerationChunk, GenerationChunk
-
 from streamlit.delta_generator import DeltaGenerator
+
 from utils.helpers import MAIN_BOT_PREFIX
 from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
@@ -58,7 +59,9 @@ class CallbackHandlerDDGConsole(BaseCallbackHandler):
         print(f"ON_RETRY: \nargs = {args}\nkwargs = {kwargs}")
 
 
-def get_llm_with_callbacks(temperature=None, callbacks: Callbacks = None):
+def get_llm_with_callbacks(
+    temperature=None, callbacks: Callbacks = None
+) -> BaseChatModel:
     """Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
     on the value of IS_AZURE)"""
     if temperature is None:
@@ -78,6 +81,7 @@ def get_llm_with_callbacks(temperature=None, callbacks: Callbacks = None):
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,
             callbacks=callbacks,
+            verbose=True,  # tmp
         )
     return llm
 
@@ -87,7 +91,7 @@ def get_llm(
     callbacks: Callbacks = None,
     stream=False,
     init_str=MAIN_BOT_PREFIX,
-):
+) -> BaseChatModel:
     """
     Return a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
     on the value of IS_AZURE). If callbacks is passed, it will be used as the
@@ -103,8 +107,15 @@ def get_llm_with_str_output_parser(**kwargs):
     return get_llm(**kwargs) | StrOutputParser()
 
 
-def get_prompt_llm_chain(prompt: PromptTemplate, **kwargs):
-    return prompt | get_llm(**kwargs) | StrOutputParser()
+def get_prompt_llm_chain(prompt: PromptTemplate, print_prompt=False, **kwargs):
+    if not print_prompt:
+        return prompt | get_llm(**kwargs) | StrOutputParser()
+
+    def print_and_return(thing):
+        print(f"PROMPT:\n{thing}")
+        return thing
+
+    return prompt | print_and_return | get_llm(**kwargs) | StrOutputParser()
 
 
 if __name__ == "__main__":

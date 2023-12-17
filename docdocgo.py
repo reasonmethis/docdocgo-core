@@ -2,7 +2,6 @@ import os
 from typing import Any
 
 from langchain.chains import LLMChain
-from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.vectorstores.base import VectorStoreRetriever
 
@@ -27,6 +26,7 @@ from utils.helpers import (
     parse_query,
     print_no_newline,
 )
+from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
 from utils.prepare import (
@@ -36,9 +36,9 @@ from utils.prepare import (
 
 # validate_settings,
 from utils.prompts import (
+    CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
     JUST_CHAT_PROMPT,
-    QA_PROMPT_CHAT,
     QA_PROMPT_QUOTES,
     QA_PROMPT_SUMMARIZE_KB,
 )
@@ -82,10 +82,17 @@ def get_bot_response(chat_state: ChatState):
         return partial_res | res_from_bot
     elif chat_mode == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
-            JUST_CHAT_PROMPT, callbacks=chat_state.callbacks, stream=True
+            JUST_CHAT_PROMPT,
+            callbacks=chat_state.callbacks,
+            stream=True,  # , verbose=True
         )
         answer = chat_chain.invoke(
-            {"message": chat_state.message, "chat_history": chat_state.chat_history}
+            {
+                "message": chat_state.message,
+                "chat_history": pairwise_chat_history_to_msg_list(
+                    chat_state.chat_history
+                ),
+            }
         )
         return {"answer": answer}
     elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
@@ -122,9 +129,8 @@ def get_source_links(result_from_conv_retr_chain: dict[str, Any]) -> list[str]:
 
 def get_docs_chat_chain(
     chat_state: ChatState,
-    prompt_qa=QA_PROMPT_CHAT,
+    prompt_qa=CHAT_WITH_DOCS_PROMPT,
     temperature=None,
-    use_sources=False,  # TODO consider removing this
 ):
     """
     Create a chain to respond to queries using a vectorstore of documents.
@@ -135,12 +141,11 @@ def get_docs_chat_chain(
     llm_condense = get_llm(temperature=0)  # condense query
 
     # Initialize chain for answering queries based on provided doc snippets
-    load_chain = load_qa_with_sources_chain if use_sources else load_qa_chain
     PRINT_QA_PROMPT = bool(os.getenv("PRINT_QA_PROMPT"))
     combine_docs_chain = (
-        load_chain(llm, prompt=prompt_qa, verbose=PRINT_QA_PROMPT)
+        load_qa_chain(llm, prompt=prompt_qa, verbose=PRINT_QA_PROMPT)
         if prompt_qa
-        else load_chain(llm, verbose=PRINT_QA_PROMPT)
+        else load_qa_chain(llm, verbose=PRINT_QA_PROMPT)
     )
 
     # Initialize retriever from the provided vectorstore
