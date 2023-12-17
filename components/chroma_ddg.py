@@ -9,6 +9,7 @@ from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma, _results_to_docs_and_scores
 
 from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
+from utils.prepare import VECTORDB_DIR
 
 
 class ChromaDDG(Chroma):
@@ -78,7 +79,8 @@ def initialize_client(path: str) -> API:
     """
     Initialize a chroma client from a given path.
     """
-    if not os.path.isdir(path):
+    if not isinstance(path, str) or not os.path.isdir(path):
+        # NOTE: interestingly, isdir(None) returns True, hence the additional check
         raise ValueError(f"Invalid chromadb path: {path}")
     return Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=path))
     # return PersistentClient(path)
@@ -89,7 +91,7 @@ def load_vectorstore(collection_name: str, client: API | None = None):
     Load a ChromaDDG vectorstore from a given collection name.
     """
     if client is None:
-        client = initialize_client(os.getenv("VECTORDB_DIR"))
+        client = initialize_client(VECTORDB_DIR)
     vectorstore = ChromaDDG(
         client=client,
         collection_name=collection_name,
