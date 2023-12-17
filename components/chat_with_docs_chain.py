@@ -10,8 +10,6 @@ from langchain.callbacks.manager import (
     CallbackManagerForChainRun,
 )
 from langchain.chains.base import Chain
-from langchain.chains.combine_documents.base import BaseCombineDocumentsChain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chains.llm import LLMChain
 from langchain.schema import BaseRetriever, Document
 from langchain.schema.messages import BaseMessage
@@ -57,8 +55,8 @@ class ChatWithDocsChain(Chain):
             function to get a string of the chat history. Default is None.
     """
 
-    combine_docs_chain: BaseCombineDocumentsChain
-    question_generator: LLMChain
+    qa_from_docs_chain: Any  # NOTE Chain results in a pydantic error
+    query_generator_chain: LLMChain
     retriever: BaseRetriever
 
     callbacks: Callbacks = None  # TODO consider removing
@@ -107,14 +105,11 @@ class ChatWithDocsChain(Chain):
     ) -> tuple[list[Document], int]:
         """Reduce the number of tokens in the documents below the limit."""
 
-        if not isinstance(self.combine_docs_chain, StuffDocumentsChain):
-            raise NotImplementedError("Not implemented for non-stuff chains.")
-
         # Get the number of tokens in each document
-        token_counts = [
-            self.combine_docs_chain.llm_chain.llm.get_num_tokens(doc.page_content)
-            for doc in docs
-        ]
+        # TODO rethink llm for token counting
+        token_counts = lang_utils.get_num_tokens_in_texts(
+            [doc.page_content for doc in docs], self.query_generator_chain.llm
+        )
 
         # Reduce the number of documents until we're below the limit
         token_count = sum(token_counts)
@@ -136,7 +131,8 @@ class ChatWithDocsChain(Chain):
         callbacks = run_manager.get_child() if run_manager else (self.callbacks or [])
 
         _format_chat_history = (
-            self.format_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
+            self.format_chat_history
+            or lang_utils.pairwise_chat_history_to_buffer_string
         )
 
         # Get user's query and chat history from inputs
@@ -157,11 +153,7 @@ class ChatWithDocsChain(Chain):
         chat_history_token_limit = max(
             self.max_tokens_limit_rephrase, self.max_tokens_limit_qa
         )
-        if isinstance(self.combine_docs_chain, StuffDocumentsChain):
-            llm_for_token_counting = self.combine_docs_chain.llm_chain.llm
-        else:
-            # Above LLM does not exist so use the question generator's LLM
-            llm_for_token_counting = self.question_generator.llm
+        llm_for_token_counting = self.query_generator_chain.llm
 
         chat_history, chat_history_token_counts = lang_utils.limit_chat_history(
             chat_history,
@@ -180,11 +172,13 @@ class ChatWithDocsChain(Chain):
                 llm_for_token_counting=llm_for_token_counting,
             )
 
-            standalone_query = self.question_generator.run(
-                question=user_query,
-                chat_history=_format_chat_history(chat_history_for_rephrasing),
+            standalone_query = self.query_generator_chain.invoke(
+                {
+                    "question": user_query,
+                    "chat_history": _format_chat_history(chat_history_for_rephrasing),
+                }
                 # callbacks=_run_manager.get_child(),
-            )
+            )["text"]
 
         # Get relevant documents using the standalone query
         docs = self.retriever.get_relevant_documents(
@@ -224,13 +218,25 @@ class ChatWithDocsChain(Chain):
             cached_token_counts=chat_history_token_counts,
         )
 
-        # Submit limited docs and chat history to the chat/qa chain
-        new_inputs = inputs.copy()
-        new_inputs["chat_history"] = _format_chat_history(chat_history_for_qa)
+        # Prepare inputs for the chat_with_docs prompt
+        qa_inputs = {
+            "question": user_query,
+            "chat_history": lang_utils.pairwise_chat_history_to_msg_list(
+                chat_history_for_qa
+            ),
+        }
+        context = ""
+        for i, doc in enumerate(docs):
+            context += f"Document excerpt {i + 1}"
+            try:
+                context += f" (source: {doc.metadata['source']}):"
+            except KeyError:
+                context += ":"
+            context += f"\n\n{doc.page_content}\n-------------\n\n"
+        qa_inputs["context"] = context
 
-        answer = self.combine_docs_chain.run(
-            input_documents=docs, callbacks=callbacks, **new_inputs
-        )
+        # Submit limited docs and chat history to the chat/qa chain
+        answer = self.qa_from_docs_chain.invoke(qa_inputs, {"callbacks": callbacks})
 
         # Format and return the answer
         output = {self.output_key: answer}
@@ -249,12 +255,13 @@ class ChatWithDocsChain(Chain):
         _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
         question = inputs["question"]
         get_chat_history = (
-            self.format_chat_history or lang_utils.pairwise_chat_history_to_buffer_string
+            self.format_chat_history
+            or lang_utils.pairwise_chat_history_to_buffer_string
         )
         chat_history_str = get_chat_history(inputs["chat_history"])
         if chat_history_str:
             callbacks = _run_manager.get_child()
-            new_question = await self.question_generator.arun(
+            new_question = await self.query_generator_chain.arun(
                 question=question, chat_history=chat_history_str, callbacks=callbacks
             )
         else:
@@ -271,7 +278,7 @@ class ChatWithDocsChain(Chain):
         if self.rephrase_question:
             new_inputs["question"] = new_question
         new_inputs["chat_history"] = chat_history_str
-        answer = await self.combine_docs_chain.arun(
+        answer = await self.qa_from_docs_chain.arun(
             input_documents=docs, callbacks=_run_manager.get_child(), **new_inputs
         )
         output: dict[str, Any] = {self.output_key: answer}

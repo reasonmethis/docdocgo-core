@@ -31,6 +31,18 @@ def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None =
     llm = llm_for_token_counting or default_llm_for_token_counting
     return llm.get_num_tokens(text)
 
+def get_num_tokens_in_texts(
+    texts: list[str], llm_for_token_counting: BaseLanguageModel | None = None
+) -> list[int]:
+    """
+    Get the number of tokens in a list of texts using multiple threads.
+    """
+
+    def _get_num_tokens(text):
+        return get_num_tokens(text, llm_for_token_counting)
+
+    token_counts = execute_func_map_in_threads(_get_num_tokens, texts)
+    return token_counts
 
 def pairwise_chat_history_to_msg_list(
     chat_history: PairwiseChatHistory,
@@ -255,21 +267,6 @@ def limit_tokens_in_text(
             / (1 + slow_down_factor)
         )
         # print(at_most_words)
-
-
-def get_num_tokens_in_texts(
-    texts: list[str], llm_for_token_counting: BaseLanguageModel | None = None
-) -> list[int]:
-    """
-    Get the number of tokens in a list of texts using multiple threads.
-    """
-
-    def _get_num_tokens(text):
-        return get_num_tokens(text, llm_for_token_counting)
-
-    token_counts = execute_func_map_in_threads(_get_num_tokens, texts)
-    return token_counts
-
 
 def get_max_token_allowance_for_texts(
     texts: list[str], max_tot_tokens: int, cached_token_counts: list[int] | None = None

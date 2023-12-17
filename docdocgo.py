@@ -2,7 +2,6 @@ import os
 from typing import Any
 
 from langchain.chains import LLMChain
-from langchain.chains.question_answering import load_qa_chain
 from langchain.vectorstores.base import VectorStoreRetriever
 
 from agents.dbmanager import handle_db_command
@@ -137,16 +136,13 @@ def get_docs_chat_chain(
     """
     if temperature is None:
         temperature = TEMPERATURE
-    llm = get_llm(callbacks=chat_state.callbacks, stream=True)  # main llm
-    llm_condense = get_llm(temperature=0)  # condense query
 
-    # Initialize chain for answering queries based on provided doc snippets
-    PRINT_QA_PROMPT = bool(os.getenv("PRINT_QA_PROMPT"))
-    combine_docs_chain = (
-        load_qa_chain(llm, prompt=prompt_qa, verbose=PRINT_QA_PROMPT)
-        if prompt_qa
-        else load_qa_chain(llm, verbose=PRINT_QA_PROMPT)
-    )
+    # Initialize chain for query generation from chat history
+    query_generator_chain = LLMChain(
+        llm=get_llm(temperature=0),
+        prompt=CONDENSE_QUESTION_PROMPT,
+        verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
+    ) # need it to be an object that exposes easy access to the underlying llm
 
     # Initialize retriever from the provided vectorstore
     if isinstance(chat_state.vectorstore, ChromaDDG):
@@ -162,15 +158,19 @@ def get_docs_chat_chain(
         #     "score_threshold": relevance_threshold,
         # },
 
+    # Initialize chain for answering queries based on provided doc snippets
+    qa_from_docs_chain = get_prompt_llm_chain(
+        prompt_qa,
+        print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
+        callbacks=chat_state.callbacks,
+        stream=True,
+    )
+
     # Get and return full chain: question generation + doc retrieval + answer generation
     return ChatWithDocsChain(
-        question_generator=LLMChain(
-            llm=llm_condense,
-            prompt=CONDENSE_QUESTION_PROMPT,
-            verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
-        ),
+        query_generator_chain=query_generator_chain,
         retriever=retriever,
-        combine_docs_chain=combine_docs_chain,
+        qa_from_docs_chain=qa_from_docs_chain,
         return_source_documents=True,
         return_generated_question=True,
     )

@@ -32,10 +32,13 @@ chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI wh
 END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
 Use them for your response ONLY if relevant."""
 
-CHAT_WITH_DOCS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", chat_with_docs_system_template),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("user", "{question}"),])
+CHAT_WITH_DOCS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", chat_with_docs_system_template),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("user", "{question}"),
+    ]
+)
 
 qa_template_summarize_kb = """You are a helpful Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
 
@@ -46,8 +49,8 @@ END OF RETRIEVED PARTS OF YOUR KNOWLEDGE BASE.
 USER'S QUERY: {question}
 
 YOUR TASK: present the retrieved parts in a digestible way:
-1. Start with "<b>TLDR</b>" followed by a quick summary of only the retrieved parts directly relevant to the user's query, if there are any.
-2. The full presentation must have section headings in bold. For this part, completely ignore user's query.
+1. Start with the TLDR section heading (use Markdown) followed by a quick summary of only the retrieved parts directly relevant to the user's query, if there are any.
+2. Continue the rest of your report in Markdown, with section headings. For this part, completely ignore user's query.
 
 YOUR RESPONSE: """
 QA_PROMPT_SUMMARIZE_KB = PromptTemplate.from_template(qa_template_summarize_kb)
