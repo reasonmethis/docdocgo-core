@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from chromadb import ClientAPI
+from chromadb import API
 from langchain.schema import Document
 from langchain.schema.output_parser import StrOutputParser
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
@@ -381,7 +381,7 @@ def get_initial_iterative_researcher_response(
     ws_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
-    chroma_client: ClientAPI = chat_state.vectorstore._client
+    chroma_client: API = chat_state.vectorstore._client
     for i in range(2, 1000000):
         try:
             chroma_client.get_collection(ws_data.collection_name)
@@ -517,7 +517,7 @@ def get_iterative_researcher_response(
     idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
     if idx_assessment == -1:
         # Something went wrong, keep the old report
-        print("Something went wrong, keeping the old report") # NOTE: can remove
+        print("Something went wrong, keeping the old report")  # NOTE: can remove
     else:
         idx_no_improvement = idx_assessment - length_diff
         if (
@@ -528,7 +528,7 @@ def get_iterative_researcher_response(
             == NO_IMPROVEMENT_MSG
         ):
             # No improvement, keep the old report, record the LLM's assessment
-            print("No improvement, keeping the old report") # NOTE: can remove
+            print("No improvement, keeping the old report")  # NOTE: can remove
             ws_data.evaluation = answer[idx_no_improvement:]
         else:
             # Improvement, record the new report and the LLM's assessment

@@ -1,12 +1,15 @@
 import os
 from typing import Any
 
-from chromadb import ClientAPI, PersistentClient
+# from chromadb import ClientAPI, PersistentClient
+from chromadb import Client, API
 from chromadb.api.types import Where  # , WhereDocument
+from chromadb.config import Settings
 from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma, _results_to_docs_and_scores
 
 from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
+
 
 class ChromaDDG(Chroma):
     """
@@ -71,16 +74,17 @@ class ChromaDDG(Chroma):
         return _results_to_docs_and_scores(results)
 
 
-def initialize_client(path: str) -> ClientAPI:
+def initialize_client(path: str) -> API:
     """
     Initialize a chroma client from a given path.
     """
     if not os.path.isdir(path):
         raise ValueError(f"Invalid chromadb path: {path}")
-    return PersistentClient(path)
+    return Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=path))
+    # return PersistentClient(path)
 
 
-def load_vectorstore(collection_name: str, client: ClientAPI | None = None):
+def load_vectorstore(collection_name: str, client: API | None = None):
     """
     Load a ChromaDDG vectorstore from a given collection name.
     """
