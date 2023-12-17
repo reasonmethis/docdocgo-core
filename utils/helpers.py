@@ -79,7 +79,9 @@ def print_no_newline(*args, **kwargs):
     """
     Print without adding a newline at the end
     """
-    print(*args, **kwargs, end="", flush=True)
+    if os.getenv("SUPPORT_PRINT_NO_NEWLINE"):
+        print(*args, **kwargs, end="", flush=True)
+    print(*args, **kwargs)
 
 
 def is_directory_empty(directory):
