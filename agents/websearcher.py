@@ -185,7 +185,8 @@ class WebsearcherData(BaseModel):
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
 
 
-def get_web_test_response(    chat_state: ChatState,
+def get_websearcher_response_medium(    
+    chat_state: ChatState,
     max_queries: int = 7,
     max_total_links: int = 7,  # TODO! # small number to stuff into context window
     max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7),
@@ -220,36 +221,35 @@ def get_web_test_response(    chat_state: ChatState,
     print("Report type will be:", repr(report_type))
 
     try:
-        try:
-            # Do a Google search for each query
-            print("Fetching search result links for each query...")
-            links = []
-            search_tasks = [search.aresults(query) for query in queries]
-            search_results = gather_tasks_sync(search_tasks)
+        # Do a Google search for each query
+        print("Fetching search result links for each query...")
+        links = []
+        search_tasks = [search.aresults(query) for query in queries]
+        search_results = gather_tasks_sync(search_tasks)
 
-            # Get links from search results
-            all_links = get_links(search_results)
-            links = all_links[:max_total_links]  # links we will process in this run
-            print(f"Got {len(links)} links to research:\n- ", "\n- ".join(links), sep="")
-            t_get_links_end = datetime.now()
-        except Exception as e:
-            raise ValueError(f"Failed to get links: {e}")
+        # Get links from search results
+        all_links = get_links(search_results)
+        links = all_links[:max_total_links]  # links we will process in this run
+        print(f"Got {len(links)} links to research:\n- ", "\n- ".join(links), sep="")
+        t_get_links_end = datetime.now()
+    except Exception as e:
+        raise ValueError(f"Failed to get links: {e}")
 
-        try:
-            # Get content from links
-            print_no_newline("Fetching content from links...")
-            import os
-            htmls = make_sync(afetch_urls_in_parallel_playwright)(
-                links, callback=lambda url, html: print_no_newline(".")
-            ) if os.getenv("USE_PLAYWRIGHT") or True else make_sync(afetch_urls_in_parallel_aiohttp)(
-                links
-            )
-            print()
-            t_fetch_end = datetime.now()
-        except Exception as e:
-            raise ValueError(f"Failed to get htmls: {e}, links: {links}")
-        return {"answer": "\n\n".join(htmls)}
+    try:
+        # Get content from links
+        print_no_newline("Fetching content from links...")
+        import os
+        htmls = make_sync(afetch_urls_in_parallel_playwright)(
+            links, callback=lambda url, html: print_no_newline(".")
+        ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
+            links
+        )
+        print()
+        t_fetch_end = datetime.now()
+    except Exception as e:
+        raise ValueError(f"Failed to get htmls: {e}, links: {links}")
 
+    try:
         # Initialize data object
         ws_data = WebsearcherData.from_query(query)
         ws_data.report_type = report_type
@@ -270,7 +270,9 @@ def get_web_test_response(    chat_state: ChatState,
 
         token_counts = None  # to make limit_tokens_in_texts() work either way
     except Exception as e:
-        raise ValueError(f"Failed to get texts: {e}")
+        htmls_str = '\n\n'.join(x[:200] for x in htmls)
+        raise ValueError(f"Failed to get texts: {e}, htmls:\n{htmls_str}")
+
     try:
         print("Constructing final context...")
         final_texts, final_token_counts = limit_tokens_in_texts(
@@ -308,162 +310,53 @@ def get_web_test_response(    chat_state: ChatState,
             "ws_data": ws_data,
         }
     except Exception as e:
-        raise ValueError(f"Failed to get report: {e}")
+        final_texts_str = '\n\n'.join(x[:200] for x in final_texts)
+        raise ValueError(f"Failed to get report: {e}, final_texts: {final_texts_str}")
 
 
-def get_websearcher_response_medium(
-    chat_state: ChatState,
-    max_queries: int = 7,
-    max_total_links: int = 7,  # TODO! # small number to stuff into context window
-    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7),
-):
-    query = chat_state.message
-    # Get queries to search for using query generator prompt
-    query_generator_chain = get_prompt_llm_chain(QUERY_GENERATOR_PROMPT)
-    for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
-        try:
-            query_generator_output = query_generator_chain.invoke(
-                {
-                    "query": query,
-                    "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
-                    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                }
-            )
-            print("query_generator_output:", query_generator_output)
-            query_generator_output = json.loads(query_generator_output.strip())
-            queries = query_generator_output["queries"][:max_queries]
-            report_type = query_generator_output["report_type"]
-            break
-        except Exception as err_local:
-            print(
-                f"Failed to generate queries on attempt {i+1}/{MAX_QUERY_GENERATOR_ATTEMPTS}. "
-                f"Error: \n{err_local}"
-            )
-            e = err_local
-    else:
-        raise Exception(f'Failed to generate queries for query: "{query}".\nError: {e}')
+    # Snippet for contextual compression
 
-    print("Generated queries:", repr(queries).strip("[]"))
-    print("Report type will be:", repr(report_type))
+    # if False:  # skip contextual compression (loses info, at least with GPT-3.5)
+    #     print("Counting tokens in texts...")
+    #     max_tokens_per_text, token_counts = get_max_token_allowance_for_texts(
+    #         texts, max_tokens_final_context
+    #     )  # final context will include extra tokens for separators, links, etc.
 
-    # Do a Google search for each query
-    print("Fetching search result links for each query...")
-    links = []
-    search_tasks = [search.aresults(query) for query in queries]
-    search_results = gather_tasks_sync(search_tasks)
-
-    # Get links from search results
-    all_links = get_links(search_results)
-    links = all_links[:max_total_links]  # links we will process in this run
-    print(f"Got {len(links)} links to research:\n- ", "\n- ".join(links), sep="")
-    t_get_links_end = datetime.now()
-
-    # Get content from links
-    print_no_newline("Fetching content from links...")
-    import os
-    htmls = make_sync(afetch_urls_in_parallel_playwright)(
-        links, callback=lambda url, html: print_no_newline(".")
-    ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
-        links
-    )
-    print()
-    t_fetch_end = datetime.now()
-
-    # Initialize data object
-    ws_data = WebsearcherData.from_query(query)
-    ws_data.report_type = report_type
-    ws_data.processed_links = links  # we will process these links in this function
-    ws_data.unprocessed_links = all_links[max_total_links:]
-
-    # Get text from html
-    print_no_newline("Extracting main text from fetched content...")
-    for link, html in zip(links, htmls):
-        ws_data.link_data_dict[link] = LinkData.from_html(html)
-        print_no_newline(".")
-    print()
-
-    # Get a list of acceptably fetched links and their texts
-    links = [link for link in links if ws_data.link_data_dict[link].error is None]
-    texts = [ws_data.link_data_dict[link].text for link in links]
-    t_process_texts_end = datetime.now()
-
-    if False:  # skip contextual compression (loses info, at least with GPT-3.5)
-        print("Counting tokens in texts...")
-        max_tokens_per_text, token_counts = get_max_token_allowance_for_texts(
-            texts, max_tokens_final_context
-        )  # final context will include extra tokens for separators, links, etc.
-
-        print(
-            f"Removing irrelevant parts from texts that have over {max_tokens_per_text} tokens..."
-        )
-        new_texts = []
-        new_token_counts = []
-        for text, link, num_tokens in zip(texts, links, token_counts):
-            if num_tokens <= max_tokens_per_text:
-                # Don't summarize short texts
-                print("KEEPING:", link, "(", num_tokens, "tokens )")
-                new_texts.append(text)
-                new_token_counts.append(num_tokens)
-                continue
-            # If it's way too long, first just shorten it mechanically
-            # NOTE: can instead chunk it
-            if num_tokens > max_tokens_final_context:
-                text = limit_tokens_in_text(
-                    text, max_tokens_final_context, slow_down_factor=0
-                )
-            print("SHORTENING:", link)
-            print("CONTENT:", text)
-            print(DELIMITER)
-            chain = get_prompt_llm_chain(
-                SUMMARIZER_PROMPT, init_str=f"SHORTENED TEXT FROM {link}: ", stream=True
-            )
-            try:
-                new_text = chain.invoke({"text": text, "query": query})
-            except Exception as e:
-                new_text = "<ERROR WHILE GENERATING CONTENT>"
-            num_tokens = get_num_tokens(new_text)
-            new_texts.append(new_text)
-            new_token_counts.append(num_tokens)
-            print(DELIMITER)
-        texts, token_counts = new_texts, new_token_counts
-    else:
-        token_counts = None  # to make limit_tokens_in_texts() work either way
-
-    print("Constructing final context...")
-    final_texts, final_token_counts = limit_tokens_in_texts(
-        texts, max_tokens_final_context, cached_token_counts=token_counts
-    )
-    final_texts = [
-        f"SOURCE: {link}\nCONTENT:\n{text}\n====="
-        for text, link in zip(final_texts, links)
-    ]
-    final_context = "\n\n".join(final_texts)
-    t_summarize_end = datetime.now()
-
-    print(
-        "Number of obtained links:",
-        len(ws_data.processed_links) + len(ws_data.unprocessed_links),
-    )
-    print("Number of processed links:", len(ws_data.processed_links))
-    print("Number of links after removing unsuccessfully fetched ones:", len(links))
-    print("Time taken to fetch sites:", t_fetch_end - t_get_links_end)
-    print("Time taken to process html from sites:", t_process_texts_end - t_fetch_end)
-    print(
-        "Time taken to summarize/shorten texts:", t_summarize_end - t_process_texts_end
-    )
-    print("Number of resulting tokens:", get_num_tokens(final_context))
-
-    print("Generating report...\n")
-    chain = get_prompt_llm_chain(
-        WEBSEARCHER_PROMPT_DYNAMIC_REPORT, callbacks=chat_state.callbacks, stream=True
-    )
-    ws_data.report = chain.invoke(
-        {"texts_str": final_context, "query": query, "report_type": report_type}
-    )
-    return {
-        "answer": ws_data.report,
-        "ws_data": ws_data,
-    }
+    #     print(
+    #         f"Removing irrelevant parts from texts that have over {max_tokens_per_text} tokens..."
+    #     )
+    #     new_texts = []
+    #     new_token_counts = []
+    #     for text, link, num_tokens in zip(texts, links, token_counts):
+    #         if num_tokens <= max_tokens_per_text:
+    #             # Don't summarize short texts
+    #             print("KEEPING:", link, "(", num_tokens, "tokens )")
+    #             new_texts.append(text)
+    #             new_token_counts.append(num_tokens)
+    #             continue
+    #         # If it's way too long, first just shorten it mechanically
+    #         # NOTE: can instead chunk it
+    #         if num_tokens > max_tokens_final_context:
+    #             text = limit_tokens_in_text(
+    #                 text, max_tokens_final_context, slow_down_factor=0
+    #             )
+    #         print("SHORTENING:", link)
+    #         print("CONTENT:", text)
+    #         print(DELIMITER)
+    #         chain = get_prompt_llm_chain(
+    #             SUMMARIZER_PROMPT, init_str=f"SHORTENED TEXT FROM {link}: ", stream=True
+    #         )
+    #         try:
+    #             new_text = chain.invoke({"text": text, "query": query})
+    #         except Exception as e:
+    #             new_text = "<ERROR WHILE GENERATING CONTENT>"
+    #         num_tokens = get_num_tokens(new_text)
+    #         new_texts.append(new_text)
+    #         new_token_counts.append(num_tokens)
+    #         print(DELIMITER)
+    #     texts, token_counts = new_texts, new_token_counts
+    # else:
+    #     token_counts = None  # to make limit_tokens_in_texts() work either way
 
 
 NUM_NEW_LINKS_TO_ACQUIRE = 3
@@ -681,11 +574,12 @@ class WebsearcherMode(Enum):
     MEDIUM = 2
     TEST=3
 
-def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.TEST):
+def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
     if mode == WebsearcherMode.QUICK:
         return get_websearcher_response_quick(chat_state)
     elif mode == WebsearcherMode.MEDIUM:
         return get_websearcher_response_medium(chat_state)
     elif mode == WebsearcherMode.TEST:
-        return get_web_test_response(chat_state)
+        return get_websearcher_response_medium(chat_state)
+        # return get_web_test_response(chat_state)
     raise ValueError(f"Invalid mode: {mode}")

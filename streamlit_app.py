@@ -70,8 +70,8 @@ collection_name = chat_state.vectorstore.name
 full_query = st.chat_input(f"{limit_number_of_characters(collection_name, 35)}/")
 if not (full_query):
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_and_command_history and os.getenv("INITIAL_TEST_QUERY"):
-        full_query = os.getenv("INITIAL_TEST_QUERY")
+    if not chat_state.chat_and_command_history and os.getenv("INITIAL_TEST_QUERY_STREAMLIT"):
+        full_query = os.getenv("INITIAL_TEST_QUERY_STREAMLIT")
     else:
         st.stop()
 
