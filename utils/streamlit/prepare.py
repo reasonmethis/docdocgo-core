@@ -9,7 +9,7 @@ from utils.type_utils import ChatState, OperationMode
 
 
 def prepare_app():
-    st.session_state.openai_api_key_field_init_value = os.getenv("OPENAI_API_KEY", "")
+    st.session_state.openai_api_key_init_value = os.getenv("OPENAI_API_KEY", "")
     st.session_state.llm_api_key_ok_status = False
     try:
         remove_tornado_fix()  # used to be run on every rerun

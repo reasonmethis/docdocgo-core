@@ -28,13 +28,13 @@ with st.sidebar:
     with st.expander(
         "OpenAI API Key", expanded=not st.session_state.llm_api_key_ok_status
     ):
-        os.environ["OPENAI_API_KEY"] = st.text_input(
+        user_openai_api_key = st.text_input(
             "OpenAI API Key",
             label_visibility="collapsed",
-            value=st.session_state.openai_api_key_field_init_value,
             key="openai_api_key",
             type="password",
         )
+        os.environ["OPENAI_API_KEY"] = user_openai_api_key or st.session_state.openai_api_key_init_value
 
         "To use this app, you'll need an OpenAI API key."
         "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
