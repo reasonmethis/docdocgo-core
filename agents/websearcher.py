@@ -89,6 +89,15 @@ def get_links(search_results: list[dict[str, Any]]):
         if extract_domain(link) not in domain_blacklist
     ]
 
+def get_web_test_response(chat_state: ChatState):
+    message = chat_state.message
+    search_results = search.results(message)
+    json_results = json.dumps(search_results, indent=4)
+    return {"answer": json_results[:1000]}
+
+    chain = SIMPLE_WEBSEARCHER_PROMPT | get_llm(stream=True) | StrOutputParser()
+    answer = chain.invoke({"results": json_results, "query": message})
+    return {"answer": answer}
 
 def get_websearcher_response_quick(
     chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
@@ -215,7 +224,8 @@ def get_websearcher_response_medium(
                     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 }
             )
-            query_generator_output = json.loads(query_generator_output)
+            print("query_generator_output:", query_generator_output)
+            query_generator_output = json.loads(query_generator_output.strip())
             queries = query_generator_output["queries"][:max_queries]
             report_type = query_generator_output["report_type"]
             break
@@ -564,11 +574,13 @@ def get_iterative_researcher_response(
 class WebsearcherMode(Enum):
     QUICK = 1
     MEDIUM = 2
+    TEST=3
 
-
-def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
+def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.TEST):
     if mode == WebsearcherMode.QUICK:
         return get_websearcher_response_quick(chat_state)
     elif mode == WebsearcherMode.MEDIUM:
         return get_websearcher_response_medium(chat_state)
+    elif mode == WebsearcherMode.TEST:
+        return get_web_test_response(chat_state)
     raise ValueError(f"Invalid mode: {mode}")
