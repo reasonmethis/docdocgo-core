@@ -241,13 +241,14 @@ def get_web_test_response(    chat_state: ChatState,
             import os
             htmls = make_sync(afetch_urls_in_parallel_playwright)(
                 links, callback=lambda url, html: print_no_newline(".")
-            ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
+            ) if os.getenv("USE_PLAYWRIGHT") or True else make_sync(afetch_urls_in_parallel_aiohttp)(
                 links
             )
             print()
             t_fetch_end = datetime.now()
         except Exception as e:
             raise ValueError(f"Failed to get htmls: {e}, links: {links}")
+        return {"answer": "\n\n".join(htmls)}
 
         # Initialize data object
         ws_data = WebsearcherData.from_query(query)
