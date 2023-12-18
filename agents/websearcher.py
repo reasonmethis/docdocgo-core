@@ -78,17 +78,6 @@ def get_links(search_results: list[dict[str, Any]]):
         if extract_domain(link) not in domain_blacklist
     ]
 
-def get_web_test_response(chat_state: ChatState):
-    message = chat_state.message
-    search_results = search.results(message)
-    links = get_links([search_results])[:5]
-    try:
-        htmls = make_sync(afetch_urls_in_parallel_aiohttp)(links)
-    except Exception as e:
-        raise ValueError(f"Failed to fetch links: {e}")
-    return {"answer": "".join([get_text_from_html(html)[:200] for html in htmls])}
-    
-
 def get_websearcher_response_quick(
     chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
 ):
@@ -194,6 +183,131 @@ class WebsearcherData(BaseModel):
 
 
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
+
+
+def get_web_test_response(    chat_state: ChatState,
+    max_queries: int = 7,
+    max_total_links: int = 7,  # TODO! # small number to stuff into context window
+    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7),
+):
+    query = chat_state.message
+    # Get queries to search for using query generator prompt
+    query_generator_chain = get_prompt_llm_chain(QUERY_GENERATOR_PROMPT)
+    for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
+        try:
+            query_generator_output = query_generator_chain.invoke(
+                {
+                    "query": query,
+                    "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
+                    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                }
+            )
+            print("query_generator_output:", query_generator_output)
+            query_generator_output = json.loads(query_generator_output.strip())
+            queries = query_generator_output["queries"][:max_queries]
+            report_type = query_generator_output["report_type"]
+            break
+        except Exception as err_local:
+            print(
+                f"Failed to generate queries on attempt {i+1}/{MAX_QUERY_GENERATOR_ATTEMPTS}. "
+                f"Error: \n{err_local}"
+            )
+            e = err_local
+    else:
+        raise Exception(f'Failed to generate queries for query: "{query}".\nError: {e}')
+
+    print("Generated queries:", repr(queries).strip("[]"))
+    print("Report type will be:", repr(report_type))
+
+    try:
+        try:
+            # Do a Google search for each query
+            print("Fetching search result links for each query...")
+            links = []
+            search_tasks = [search.aresults(query) for query in queries]
+            search_results = gather_tasks_sync(search_tasks)
+
+            # Get links from search results
+            all_links = get_links(search_results)
+            links = all_links[:max_total_links]  # links we will process in this run
+            print(f"Got {len(links)} links to research:\n- ", "\n- ".join(links), sep="")
+            t_get_links_end = datetime.now()
+        except Exception as e:
+            raise ValueError(f"Failed to get links: {e}")
+
+        try:
+            # Get content from links
+            print_no_newline("Fetching content from links...")
+            import os
+            htmls = make_sync(afetch_urls_in_parallel_playwright)(
+                links, callback=lambda url, html: print_no_newline(".")
+            ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
+                links
+            )
+            print()
+            t_fetch_end = datetime.now()
+        except Exception as e:
+            raise ValueError(f"Failed to get htmls: {e}, links: {links}")
+
+        # Initialize data object
+        ws_data = WebsearcherData.from_query(query)
+        ws_data.report_type = report_type
+        ws_data.processed_links = links  # we will process these links in this function
+        ws_data.unprocessed_links = all_links[max_total_links:]
+
+        # Get text from html
+        print_no_newline("Extracting main text from fetched content...")
+        for link, html in zip(links, htmls):
+            ws_data.link_data_dict[link] = LinkData.from_html(html)
+            print_no_newline(".")
+        print()
+
+        # Get a list of acceptably fetched links and their texts
+        links = [link for link in links if ws_data.link_data_dict[link].error is None]
+        texts = [ws_data.link_data_dict[link].text for link in links]
+        t_process_texts_end = datetime.now()
+
+        token_counts = None  # to make limit_tokens_in_texts() work either way
+    except Exception as e:
+        raise ValueError(f"Failed to get texts: {e}")
+    try:
+        print("Constructing final context...")
+        final_texts, final_token_counts = limit_tokens_in_texts(
+            texts, max_tokens_final_context, cached_token_counts=token_counts
+        )
+        final_texts = [
+            f"SOURCE: {link}\nCONTENT:\n{text}\n====="
+            for text, link in zip(final_texts, links)
+        ]
+        final_context = "\n\n".join(final_texts)
+        t_summarize_end = datetime.now()
+
+        print(
+            "Number of obtained links:",
+            len(ws_data.processed_links) + len(ws_data.unprocessed_links),
+        )
+        print("Number of processed links:", len(ws_data.processed_links))
+        print("Number of links after removing unsuccessfully fetched ones:", len(links))
+        print("Time taken to fetch sites:", t_fetch_end - t_get_links_end)
+        print("Time taken to process html from sites:", t_process_texts_end - t_fetch_end)
+        print(
+            "Time taken to summarize/shorten texts:", t_summarize_end - t_process_texts_end
+        )
+        print("Number of resulting tokens:", get_num_tokens(final_context))
+
+        print("Generating report...\n")
+        chain = get_prompt_llm_chain(
+            WEBSEARCHER_PROMPT_DYNAMIC_REPORT, callbacks=chat_state.callbacks, stream=True
+        )
+        ws_data.report = chain.invoke(
+            {"texts_str": final_context, "query": query, "report_type": report_type}
+        )
+        return {
+            "answer": ws_data.report,
+            "ws_data": ws_data,
+        }
+    except Exception as e:
+        raise ValueError(f"Failed to get report: {e}")
 
 
 def get_websearcher_response_medium(
