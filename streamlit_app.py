@@ -36,8 +36,13 @@ with st.sidebar:
         )
         os.environ["OPENAI_API_KEY"] = user_openai_api_key or st.session_state.openai_api_key_init_value
 
-        "To use this app, you'll need an OpenAI API key."
-        "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+        if not user_openai_api_key:
+            if st.session_state.openai_api_key_init_value:
+                "Using the default OpenAI API key."
+                "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
+            else:
+                "To use this app, you'll need an OpenAI API key."
+                "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
 
     with st.expander("Resources", expanded=True):
         "[Command Cheatsheet](https://github.com/reasonmethis/docdocgo-core/blob/main/docs/command-cheatsheet.md)"
