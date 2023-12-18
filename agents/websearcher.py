@@ -42,17 +42,6 @@ from utils.web import (
 
 search = GoogleSerperAPIWrapper()
 
-
-def get_simple_websearcher_response(message: str):
-    search_results = search.results(message)
-    json_results = json.dumps(search_results, indent=4)
-    # print(json_results)
-
-    chain = SIMPLE_WEBSEARCHER_PROMPT | get_llm(stream=True) | StrOutputParser()
-    answer = chain.invoke({"results": json_results, "query": message})
-    return {"answer": answer}
-
-
 def get_related_websearch_queries(message: str):
     search_results = search.results(message)
     # print("search results:", json.dumps(search_results, indent=4))
@@ -92,12 +81,13 @@ def get_links(search_results: list[dict[str, Any]]):
 def get_web_test_response(chat_state: ChatState):
     message = chat_state.message
     search_results = search.results(message)
-    json_results = json.dumps(search_results, indent=4)
-    return {"answer": json_results[:1000]}
-
-    chain = SIMPLE_WEBSEARCHER_PROMPT | get_llm(stream=True) | StrOutputParser()
-    answer = chain.invoke({"results": json_results, "query": message})
-    return {"answer": answer}
+    links = get_links([search_results])[:5]
+    try:
+        htmls = make_sync(afetch_urls_in_parallel_aiohttp)(links)
+    except Exception as e:
+        raise ValueError(f"Failed to fetch links: {e}")
+    return {"answer": "".join([get_text_from_html(html)[:200] for html in htmls])}
+    
 
 def get_websearcher_response_quick(
     chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
