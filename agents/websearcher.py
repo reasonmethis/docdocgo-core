@@ -33,6 +33,7 @@ from utils.prompts import (
 )
 from utils.type_utils import ChatState
 from utils.web import (
+    afetch_urls_in_parallel_aiohttp,
     afetch_urls_in_parallel_playwright,
     get_text_from_html,
     is_html_text_ok,
@@ -244,8 +245,11 @@ def get_websearcher_response_medium(
 
     # Get content from links
     print_no_newline("Fetching content from links...")
+    import os
     htmls = make_sync(afetch_urls_in_parallel_playwright)(
         links, callback=lambda url, html: print_no_newline(".")
+    ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
+        links
     )
     print()
     t_fetch_end = datetime.now()
