@@ -30,7 +30,6 @@ from utils.lang_utils import pairwise_chat_history_to_msg_list
 # Load environment variables
 from utils.prepare import (
     DEFAULT_COLLECTION_NAME,
-    TEMPERATURE,
 )
 
 # validate_settings,
@@ -82,8 +81,9 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
+            llm_settings=chat_state.bot_settings,
             callbacks=chat_state.callbacks,
-            stream=True,  # , verbose=True
+            stream=True,
         )
         answer = chat_chain.invoke(
             {
@@ -129,20 +129,16 @@ def get_source_links(result_from_conv_retr_chain: dict[str, Any]) -> list[str]:
 def get_docs_chat_chain(
     chat_state: ChatState,
     prompt_qa=CHAT_WITH_DOCS_PROMPT,
-    temperature=None,
 ):
     """
     Create a chain to respond to queries using a vectorstore of documents.
     """
-    if temperature is None:
-        temperature = TEMPERATURE
-
     # Initialize chain for query generation from chat history
     query_generator_chain = LLMChain(
-        llm=get_llm(temperature=0),
+        llm=get_llm(chat_state.bot_settings.copy(update={"temperature": 0})),
         prompt=CONDENSE_QUESTION_PROMPT,
         verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
-    ) # need it to be an object that exposes easy access to the underlying llm
+    )  # need it to be an object that exposes easy access to the underlying llm
 
     # Initialize retriever from the provided vectorstore
     if isinstance(chat_state.vectorstore, ChromaDDG):
@@ -161,6 +157,7 @@ def get_docs_chat_chain(
     # Initialize chain for answering queries based on provided doc snippets
     qa_from_docs_chain = get_prompt_llm_chain(
         prompt_qa,
+        llm_settings=chat_state.bot_settings,
         print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
@@ -201,21 +198,16 @@ if __name__ == "__main__":
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
-    print()
-    print("Keep in mind:")
-    print("- Replies may take several seconds.")
-    print('- To exit, type "exit" or "quit", or just enter an empty message twice.')
-    print(DELIMITER)
     chat_history = []
     ws_data = None
     while True:
         # Print hints and other info
-        if os.getenv("SHOW_HINTS", True):
-            print(HELP_MESSAGE)
+        print('"/help" for help, "exit" to exit (or just press Enter twice)')
         print(f"Vector database: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
+        print(DELIMITER)
 
         # Get query from user
-        query = input("YOU: ")
+        query = input("\nYOU: ")
         if query == "exit" or query == "quit":
             break
         if query == "":
@@ -240,7 +232,7 @@ if __name__ == "__main__":
                     chat_history,  # chat_and_command_history is not used in console mode
                     search_params,
                     vectorstore,
-                    ws_data,
+                    ws_data,  # callbacks and bot_settings can be default here
                 )
             )
         except Exception as e:

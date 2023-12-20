@@ -63,7 +63,9 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
                 print("You cannot rename the default collection.")
                 continue
             print(f"The current collection name is: {vectorstore.name}")
-            new_name = input("Enter the new name for this collection (Enter = Cancel): ")
+            new_name = input(
+                "Enter the new name for this collection (Enter = Cancel): "
+            )
             if not new_name:
                 continue
             try:
@@ -105,10 +107,10 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
 
 
 def format_answer(answer):
-    return {"skip_history": True, "answer": answer}
+    return {"skip_history": True, "answer": answer, "needs_print": True}
 
 
-def manage_dbs_non_console(
+def handle_db_command_with_subcommand(
     vectorstore: ChromaDDG, choice: DBCommand, value: str
 ) -> JSONish:
     collections = vectorstore._client.list_collections()
@@ -244,4 +246,4 @@ def handle_db_command(chat_state: ChatState) -> JSONish:
     value = words[1] if len(words) > 1 else ""
 
     # Handle the command
-    return manage_dbs_non_console(vectorstore, choice, value)
+    return handle_db_command_with_subcommand(vectorstore, choice, value)

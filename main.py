@@ -100,7 +100,7 @@ def chat():
 
         # Initialize the chain with the right settings and get the bot's response
         result = get_bot_response(
-            # TODO: add ws_data and callbacks
+            # TODO: add ws_data and callbacks and bot_settings (if needed)
             ChatState(
                 OperationMode.FLASK,
                 chat_mode,
