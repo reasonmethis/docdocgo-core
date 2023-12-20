@@ -210,6 +210,11 @@ def get_content_from_urls_with_top_up(
     Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
     urls are fetched successfully.
     """
+    print(
+        f"Fetching content from {len(urls)} urls:\n"
+        f" - {min_ok_urls} successfully obtained URLs needed\n"
+        f" - {init_batch_size} is the initial batch size\n"
+    )
 
     link_data_dict = {}
     num_urls = len(urls)
@@ -225,10 +230,9 @@ def get_content_from_urls_with_top_up(
             num_urls - num_processed_urls,
             min_ok_urls - num_ok_urls + num_extras,
         )
-        print(f"Fetching {batch_size} urls...")
-        print(f"Total urls processed: {num_processed_urls} ({num_urls} total)")
-        print(f"Total ok urls: {num_ok_urls} ({min_ok_urls} needed)")
+        print(f"Fetching {batch_size} urls:")
         batch_urls = urls[num_processed_urls : num_processed_urls + batch_size]
+        print("- " + "\n- ".join(batch_urls))
 
         # Fetch content from urls in batch
         batch_htmls = batch_fetcher(batch_urls)
@@ -240,6 +244,10 @@ def get_content_from_urls_with_top_up(
                 num_ok_urls += 1
             link_data_dict[url] = link_data
         num_processed_urls += batch_size
+
+        print(f"Total URLs processed: {num_processed_urls} ({num_urls} total)")
+        print(f"Total successful URLs: {num_ok_urls} ({min_ok_urls} needed)\n")
+
     return link_data_dict
 
 
@@ -314,7 +322,7 @@ def get_websearcher_response_medium(
         raise ValueError(f"Failed to get links: {e}")
 
     try:
-        print_no_newline("Fetching content from links and extracting main content...")
+        print("Fetching content from links and extracting main content...")
 
         # Get content from links
         link_data_dict = get_content_from_urls_with_top_up(
@@ -381,7 +389,8 @@ def get_websearcher_response_medium(
 SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
 SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
 SMALL_WORDS |= {"which", "who", "whom", "whose", "where", "when", "how"}
-SMALL_WORDS |= {"this", "that", "these", "those", "there", "here"}
+SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could"}
+SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
 
 
 def get_initial_iterative_researcher_response(
@@ -483,7 +492,6 @@ def get_iterative_researcher_response(
         NUM_NEW_OK_LINKS_TO_PROCESS - ws_data.num_obtained_unprocessed_ok_links
     )
     if num_ok_new_links_to_fetch > 0:
-        print_no_newline(f"Need to fetch {num_ok_new_links_to_fetch} new good links...")
         link_data_dict = get_content_from_urls_with_top_up(
             ws_data.unprocessed_links[ws_data.num_obtained_unprocessed_links :],
             batch_fetcher=get_batch_fetcher(),
@@ -537,9 +545,9 @@ def get_iterative_researcher_response(
         return {
             "answer": "There are no more usable sources to incorporate into the report",
             "ws_data": ws_data,
-            "needs_print": True, # NOTE: this won't be streamed
-        } 
-    
+            "needs_print": True,  # NOTE: this won't be streamed
+        }
+
     # Count tokens in texts to be processed; throw in the report text too
     print("Counting tokens in texts and current report...")
     texts_to_count_tokens_for = [
@@ -619,7 +627,7 @@ def get_iterative_researcher_response(
             ws_data.report = answer
             ws_data.evaluation = answer[idx_assessment:]
 
-    # Prepare new documents for ingestion 
+    # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
     print("Ingesting new documents into ChromaDB...")
     docs: list[Document] = []
