@@ -10,7 +10,15 @@ from utils.type_utils import ChatState, OperationMode
 
 def prepare_app():
     st.session_state.openai_api_key_init_value = os.getenv("OPENAI_API_KEY", "")
+
+    # Usually start with settings restrictions, user can unlock by entering pwd or OpenAI key
+    st.session_state.allow_all_settings_for_default_key = bool(
+        os.getenv("BYPASS_SETTINGS_RESTRICTIONS")
+    )
+
+    # Whether or not the OpenAI API key has succeeded at least once
     st.session_state.llm_api_key_ok_status = False
+
     try:
         remove_tornado_fix()  # used to be run on every rerun
         st.session_state.vectorstore = do_intro_tasks()

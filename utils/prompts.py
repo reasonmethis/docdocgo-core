@@ -1,5 +1,7 @@
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 
+from utils.type_utils import BotSettings
+
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 
 2. Then, add "[For context: <condensed summary to yourself of the relevant parts of the chat history: if Human asks a question and the answer is clear from the chat history, include it in the summary>]"
@@ -256,7 +258,7 @@ if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"
 
-    from components.llm import get_llm_with_str_output_parser
+    from components.llm import get_prompt_llm_chain
     from eval.ai_news_1 import ai_news_1
     from eval.openai_news import openai_news
     from eval.top_russian_desserts import top_russian_desserts
@@ -277,8 +279,8 @@ if __name__ == "__main__":
         print("-" * 50)
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
-            chain = prompt | get_llm_with_str_output_parser(
-                temperature=0.2, stream=True
+            chain = get_prompt_llm_chain(
+                prompt, BotSettings(), stream=True
             )
             print("Prompt", i)
             try:

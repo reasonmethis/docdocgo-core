@@ -2,8 +2,11 @@ from enum import Enum
 from typing import Any
 
 from langchain.callbacks.base import BaseCallbackHandler
+from pydantic import BaseModel
 
-JSONish = dict[str, Any]
+from utils.prepare import MODEL_NAME, TEMPERATURE
+
+JSONish = dict[str, Any] | list
 PairwiseChatHistory = list[tuple[str, str]]
 Callbacks = list[BaseCallbackHandler] | None
 
@@ -32,6 +35,9 @@ chat_modes_needing_llm = {
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
 }
 
+class BotSettings(BaseModel):
+    model_name: str = MODEL_NAME
+    temperature: float = TEMPERATURE
 
 class ChatState:
     def __init__(
@@ -45,6 +51,7 @@ class ChatState:
         vectorstore: Any = None,
         ws_data: Any = None,
         callbacks: Callbacks = None,
+        bot_settings: BotSettings | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.chat_mode = chat_mode
@@ -55,6 +62,7 @@ class ChatState:
         self.vectorstore = vectorstore
         self.ws_data = ws_data
         self.callbacks = callbacks
+        self.bot_settings = bot_settings or BotSettings()
 
     def update(self, **kwargs: Any) -> None:
         for k, v in kwargs.items():

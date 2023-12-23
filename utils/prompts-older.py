@@ -249,37 +249,3 @@ If the new information isn't useful to improve previous report then don't output
 ITERATIVE_REPORT_IMPROVER_PROMPT = PromptTemplate.from_template(
     iterative_report_improver_template
 )
-
-if __name__ == "__main__":
-    # Here we can test the prompts
-    # NOTE: Run this file as "python -m utils.prompts"
-
-    from components.llm import get_llm_with_str_output_parser
-    from eval.ai_news_1 import ai_news_1
-    from eval.openai_news import openai_news
-    from eval.top_russian_desserts import top_russian_desserts
-
-    query_to_context = {
-        "top Russian desserts": top_russian_desserts,
-        "openai news": openai_news,
-        "ai news": ai_news_1,
-    }
-
-    prompts_templates_to_test = [summarizer_template]
-
-    query = "ai news"
-    NUM_ITERATIONS = 2
-    for iteration in range(NUM_ITERATIONS):
-        print("\n" + "-" * 50)
-        print("Iteration", iteration)
-        print("-" * 50)
-        for i, t in enumerate(prompts_templates_to_test):
-            prompt = PromptTemplate.from_template(t)
-            chain = prompt | get_llm_with_str_output_parser(
-                temperature=0.2, stream=True
-            )
-            print("Prompt", i)
-            try:
-                chain.invoke({"query": query, "text": query_to_context[query]})
-            except Exception as e:
-                print("ERROR:", e)

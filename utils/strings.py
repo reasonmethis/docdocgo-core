@@ -1,4 +1,7 @@
+import json
 import re
+
+from utils.type_utils import JSONish
 
 
 def split_preserving_whitespace(text: str) -> tuple[list[str], list[str]]:
@@ -77,3 +80,38 @@ def limit_number_of_characters(text: str, max_characters: int) -> str:
     if max_characters > 0:
         return text[: max_characters - 1] + "…"
     return ""
+
+
+def extract_json(text: str) -> JSONish:
+    """
+    Extract a single JSON object or array from a string. Determines the first
+    occurrence of '{' or '[', and the last occurrence of '}' or ']', then
+    extracts the JSON structure accordingly. Returns a dictionary or list on
+    success, throws on parse errors, including a bracket mismatch.
+    """
+    length = len(text)
+    first_curly_brace = text.find("{")
+    last_curly_brace = text.rfind("}")
+    first_square_brace = text.find("[")
+    last_square_brace = text.rfind("]")
+
+    assert (
+        first_curly_brace + first_square_brace > -2
+    ), "No opening curly or square bracket found"
+
+    if first_curly_brace == -1:
+        first_curly_brace = length
+    elif first_square_brace == -1:
+        first_square_brace = length
+
+    assert (first_curly_brace < first_square_brace) == (
+        last_curly_brace > last_square_brace
+    ), "Mismatched curly and square brackets"
+
+    first = min(first_curly_brace, first_square_brace)
+    last = max(last_curly_brace, last_square_brace)
+
+    assert first < last, "No closing bracket found"
+
+    return json.loads(text[first : last + 1])
+

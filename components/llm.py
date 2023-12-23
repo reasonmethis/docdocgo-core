@@ -16,10 +16,8 @@ from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
-    MODEL_NAME,
-    TEMPERATURE,
 )
-from utils.type_utils import Callbacks
+from utils.type_utils import BotSettings, Callbacks
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
@@ -60,24 +58,26 @@ class CallbackHandlerDDGConsole(BaseCallbackHandler):
 
 
 def get_llm_with_callbacks(
-    temperature=None, callbacks: Callbacks = None
+    settings: BotSettings, callbacks: Callbacks = None
 ) -> BaseChatModel:
-    """Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
-    on the value of IS_AZURE)"""
-    if temperature is None:
-        temperature = TEMPERATURE
+    """
+    Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
+    on the value of IS_AZURE). In the case of AzureChatOpenAI, the model is
+    determined by CHAT_DEPLOYMENT_NAME (and other Azure-specific environment variables),
+    not by settings.model_name.
+    """
     if IS_AZURE:
         llm = AzureChatOpenAI(
             deployment_name=CHAT_DEPLOYMENT_NAME,
-            temperature=temperature,
+            temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,  # seems to help with timeouts
             callbacks=callbacks,
         )
     else:
         llm = ChatOpenAI(
-            model=MODEL_NAME,
-            temperature=temperature,
+            model=settings.model_name,
+            temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,
             callbacks=callbacks,
@@ -87,7 +87,7 @@ def get_llm_with_callbacks(
 
 
 def get_llm(
-    temperature=None,
+    settings: BotSettings,
     callbacks: Callbacks = None,
     stream=False,
     init_str=MAIN_BOT_PREFIX,
@@ -100,22 +100,22 @@ def get_llm(
     """
     if callbacks is None:
         callbacks = [CallbackHandlerDDGConsole(init_str)] if stream else []
-    return get_llm_with_callbacks(temperature, callbacks)
+    return get_llm_with_callbacks(settings, callbacks)
 
 
-def get_llm_with_str_output_parser(**kwargs):
-    return get_llm(**kwargs) | StrOutputParser()
-
-
-def get_prompt_llm_chain(prompt: PromptTemplate, print_prompt=False, **kwargs):
+def get_prompt_llm_chain(
+    prompt: PromptTemplate, llm_settings: BotSettings, print_prompt=False, **kwargs
+):
     if not print_prompt:
-        return prompt | get_llm(**kwargs) | StrOutputParser()
+        return prompt | get_llm(llm_settings, **kwargs) | StrOutputParser()
 
     def print_and_return(thing):
         print(f"PROMPT:\n{thing}")
         return thing
 
-    return prompt | print_and_return | get_llm(**kwargs) | StrOutputParser()
+    return (
+        prompt | print_and_return | get_llm(llm_settings, **kwargs) | StrOutputParser()
+    )
 
 
 if __name__ == "__main__":

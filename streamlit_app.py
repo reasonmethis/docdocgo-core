@@ -1,9 +1,11 @@
 import os
+
 import streamlit as st
 
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response
 from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
+from utils.prepare import TEMPERATURE
 from utils.streamlit.helpers import status_config, write_slowly
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
@@ -34,16 +36,64 @@ with st.sidebar:
             key="openai_api_key",
             type="password",
         )
-        os.environ["OPENAI_API_KEY"] = user_openai_api_key or st.session_state.openai_api_key_init_value
 
-        if not user_openai_api_key:
-            if st.session_state.openai_api_key_init_value:
-                "Using the default OpenAI API key."
-                "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
+        # If the user has entered a non-empty OpenAI API key, use it
+        if user_openai_api_key:
+            # If a non-empty correct unlock pwd was entered, keep using the
+            # default key but unlock the full settings
+            if user_openai_api_key == os.getenv(
+                "BYPASS_SETTINGS_RESTRICTIONS_PASSWORD"
+            ):
+                user_openai_api_key = ""
+                if not st.session_state.allow_all_settings_for_default_key:
+                    st.session_state.allow_all_settings_for_default_key = True
+                    st.session_state.llm_api_key_ok_status = True # collapse the key field
+                    st.rerun() # otherwise won't collapse until next interaction
             else:
-                "To use this app, you'll need an OpenAI API key."
-                "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+                # Otherwise, use the key entered by the user as the OpenAI API key
+                os.environ["OPENAI_API_KEY"] = user_openai_api_key
 
+        # If the user has not entered a key (or entered the unlock pwd) use the default
+        if not user_openai_api_key:
+            os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key_init_value
+
+        is_community_key = (
+            st.session_state.openai_api_key_init_value
+            and not user_openai_api_key
+            and not st.session_state.allow_all_settings_for_default_key
+        )
+        if is_community_key:
+            "Using the default OpenAI API key (some settings are restricted)"
+            "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
+        elif not os.getenv("OPENAI_API_KEY"):
+            "To use this app, you'll need an OpenAI API key."
+            "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+
+    # Settings
+    with st.expander("Settings", expanded=False):
+        model_options = ["gpt-3.5-turbo-1106", "gpt-4-1106-preview"]
+        if is_community_key:
+            model_options = model_options[:1]
+        # TODO: adjust context length (for now assume 16k)
+        chat_state.bot_settings.model_name = st.selectbox(
+            "Language model", model_options, disabled=is_community_key
+        )
+
+        # Temperature
+        chat_state.bot_settings.temperature = st.slider(
+            "Temperature",
+            min_value=0.0,
+            max_value=2.0,
+            value=TEMPERATURE,
+            step=0.1,
+            format="%f",
+        )
+        if chat_state.bot_settings.temperature >= 1.5:
+            st.caption(":red[Very high temperatures can lead to **jibberish**]")
+        elif chat_state.bot_settings.temperature >= 1.0:
+            st.caption(":orange[Consider a lower temperature if precision is needed]")
+
+    # Resources
     with st.expander("Resources", expanded=True):
         "[Command Cheatsheet](https://github.com/reasonmethis/docdocgo-core/blob/main/docs/command-cheatsheet.md)"
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
@@ -56,8 +106,6 @@ if not chat_state.chat_and_command_history:
             st.write("")
         st.write("Welcome! To see what I can do, type")
         st.subheader("/help")
-        # for i in range(9):
-        #     st.write("")
         st.write("")
         st.caption(
             ":red[⮟]:grey[ Tip: See your current **doc collection** in the chat box]"
@@ -75,7 +123,9 @@ collection_name = chat_state.vectorstore.name
 full_query = st.chat_input(f"{limit_number_of_characters(collection_name, 35)}/")
 if not (full_query):
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_and_command_history and os.getenv("INITIAL_TEST_QUERY_STREAMLIT"):
+    if not chat_state.chat_and_command_history and os.getenv(
+        "INITIAL_TEST_QUERY_STREAMLIT"
+    ):
         full_query = os.getenv("INITIAL_TEST_QUERY_STREAMLIT")
     else:
         st.stop()

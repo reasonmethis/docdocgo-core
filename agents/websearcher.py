@@ -1,36 +1,33 @@
 import json
+import os
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from chromadb import API
 from langchain.schema import Document
-from langchain.schema.output_parser import StrOutputParser
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from pydantic import BaseModel
 
-from components.llm import get_llm, get_prompt_llm_chain
+from components.llm import get_prompt_llm_chain
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.docgrab import ingest_docs_into_chroma_client
-from utils.helpers import DELIMITER, print_no_newline
+from utils.helpers import print_no_newline
 from utils.lang_utils import (
-    get_max_token_allowance_for_texts,
     get_num_tokens,
     get_num_tokens_in_texts,
-    limit_tokens_in_text,
     limit_tokens_in_texts,
 )
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
-    SIMPLE_WEBSEARCHER_PROMPT,
-    SUMMARIZER_PROMPT,
     WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
     WEBSEARCHER_PROMPT_SIMPLE,
 )
-from utils.type_utils import ChatState
+from utils.strings import extract_json
+from utils.type_utils import ChatMode, ChatState, OperationMode
 from utils.web import (
     afetch_urls_in_parallel_aiohttp,
     afetch_urls_in_parallel_playwright,
@@ -40,9 +37,9 @@ from utils.web import (
 )
 import secrets
 
-search = GoogleSerperAPIWrapper()
 
 def get_related_websearch_queries(message: str):
+    search = GoogleSerperAPIWrapper()
     search_results = search.results(message)
     # print("search results:", json.dumps(search_results, indent=4))
     related_searches = [x["query"] for x in search_results.get("relatedSearches", [])]
@@ -78,6 +75,7 @@ def get_links(search_results: list[dict[str, Any]]):
         if extract_domain(link) not in domain_blacklist
     ]
 
+
 def get_websearcher_response_quick(
     chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
 ):
@@ -101,6 +99,7 @@ def get_websearcher_response_quick(
     print("queries:", queries)
 
     # Get links
+    search = GoogleSerperAPIWrapper()
     search_tasks = [search.aresults(query) for query in queries]
     search_results = gather_tasks_sync(search_tasks)
     links = get_links(search_results)[:max_total_links]
@@ -138,7 +137,10 @@ def get_websearcher_response_quick(
     print("Number of resulting tokens:", get_num_tokens(texts_str))
 
     chain = get_prompt_llm_chain(
-        WEBSEARCHER_PROMPT_SIMPLE, callbacks=chat_state.callbacks, stream=True
+        WEBSEARCHER_PROMPT_SIMPLE,
+        llm_settings=chat_state.bot_settings,
+        callbacks=chat_state.callbacks,
+        stream=True,
     )
     answer = chain.invoke({"texts_str": texts_str, "query": message})
     return {"answer": answer}
@@ -166,6 +168,8 @@ class WebsearcherData(BaseModel):
     unprocessed_links: list[str]
     processed_links: list[str]
     link_data_dict: dict[str, LinkData]
+    num_obtained_unprocessed_links: int = 0
+    num_obtained_unprocessed_ok_links: int = 0
     evaluation: str | None = None
     collection_name: str | None = None
     max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7)
@@ -182,20 +186,92 @@ class WebsearcherData(BaseModel):
         )
 
 
+def get_batch_fetcher():
+    """Decide which fetcher to use for the links."""
+    if not os.getenv("USE_PLAYWRIGHT"):
+        return make_sync(afetch_urls_in_parallel_aiohttp)
+
+    def link_fetcher(links):
+        return make_sync(afetch_urls_in_parallel_playwright)(
+            links, callback=lambda url, html: print_no_newline(".")
+        )
+
+    return link_fetcher
+
+
+def get_content_from_urls_with_top_up(
+    urls: list[str],
+    batch_fetcher: Callable[[list[str]], list[str]],
+    min_ok_urls: int,
+    init_batch_size: int,
+) -> dict[str, LinkData]:
+    """
+    Fetch content from a list of urls using a batch fetcher. If at least
+    min_ok_urls urls are fetched successfully, return the fetched content.
+    Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
+    urls are fetched successfully.
+    """
+    print(
+        f"Fetching content from {len(urls)} urls:\n"
+        f" - {min_ok_urls} successfully obtained URLs needed\n"
+        f" - {init_batch_size} is the initial batch size\n"
+    )
+
+    link_data_dict = {}
+    num_urls = len(urls)
+    num_processed_urls = 0
+    num_ok_urls = 0
+
+    # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra
+    num_extras = max(2, init_batch_size - min_ok_urls)
+
+    while num_processed_urls < num_urls and num_ok_urls < min_ok_urls:
+        batch_size = min(
+            init_batch_size,
+            num_urls - num_processed_urls,
+            min_ok_urls - num_ok_urls + num_extras,
+        )
+        print(f"Fetching {batch_size} urls:")
+        batch_urls = urls[num_processed_urls : num_processed_urls + batch_size]
+        print("- " + "\n- ".join(batch_urls))
+
+        # Fetch content from urls in batch
+        batch_htmls = batch_fetcher(batch_urls)
+
+        # Process fetched content
+        for url, html in zip(batch_urls, batch_htmls):
+            link_data = LinkData.from_html(html)
+            if not link_data.error:
+                num_ok_urls += 1
+            link_data_dict[url] = link_data
+        num_processed_urls += batch_size
+
+        print(f"Total URLs processed: {num_processed_urls} ({num_urls} total)")
+        print(f"Total successful URLs: {num_ok_urls} ({min_ok_urls} needed)\n")
+
+    return link_data_dict
+
+
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
+DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
+DEFAULT_MAX_TOTAL_LINKS = round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600)
 
 
-def get_websearcher_response_medium(    
+def get_websearcher_response_medium(
     chat_state: ChatState,
     max_queries: int = 7,
-    max_total_links: int = 7,  # TODO! # small number to stuff into context window
-    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7),
+    max_total_links: int = DEFAULT_MAX_TOTAL_LINKS,
+    max_tokens_final_context: int = DEFAULT_MAX_TOKENS_FINAL_CONTEXT,
 ):
     query = chat_state.message
     # Get queries to search for using query generator prompt
-    query_generator_chain = get_prompt_llm_chain(QUERY_GENERATOR_PROMPT)
+    query_generator_chain = get_prompt_llm_chain(
+        QUERY_GENERATOR_PROMPT,
+        llm_settings=chat_state.bot_settings,
+    )
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
         try:
+            query_generator_output = "OUTPUT_FAILED"
             query_generator_output = query_generator_chain.invoke(
                 {
                     "query": query,
@@ -203,19 +279,22 @@ def get_websearcher_response_medium(
                     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 }
             )
-            print("query_generator_output:", query_generator_output)
-            query_generator_output = json.loads(query_generator_output.strip())
-            queries = query_generator_output["queries"][:max_queries]
-            report_type = query_generator_output["report_type"]
+            print(f"Attempt {i + 1}: {query_generator_output = }")
+            query_generator_dict = extract_json(query_generator_output)
+            queries = query_generator_dict["queries"][:max_queries]
+            report_type = query_generator_dict["report_type"]
             break
-        except Exception as err_local:
+        except Exception as e:
             print(
-                f"Failed to generate queries on attempt {i+1}/{MAX_QUERY_GENERATOR_ATTEMPTS}. "
-                f"Error: \n{err_local}"
+                f"Failed to generate queries on attempt {i + 1}/"
+                f"{MAX_QUERY_GENERATOR_ATTEMPTS}. Error: \n{e}"
             )
-            e = err_local
+            err_msg = (
+                "Failed to generate queries. Query generator output:\n\n"
+                f"{query_generator_output}\n\nError: {e}"
+            )
     else:
-        raise Exception(f'Failed to generate queries for query: "{query}".\nError: {e}')
+        raise Exception(err_msg)
 
     print("Generated queries:", repr(queries).strip("[]"))
     print("Report type will be:", repr(report_type))
@@ -223,84 +302,78 @@ def get_websearcher_response_medium(
     try:
         # Do a Google search for each query
         print("Fetching search result links for each query...")
-        links = []
+        num_search_results = (
+            100
+            if chat_state.chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID
+            else 10
+        )  # default is 10; 20-100 costs 2 credits per query
+        search = GoogleSerperAPIWrapper(k=num_search_results)
         search_tasks = [search.aresults(query) for query in queries]
-        search_results = gather_tasks_sync(search_tasks)
+        search_results = gather_tasks_sync(search_tasks)  # TODO serper has batching
 
         # Get links from search results
         all_links = get_links(search_results)
-        links = all_links[:max_total_links]  # links we will process in this run
-        print(f"Got {len(links)} links to research:\n- ", "\n- ".join(links), sep="")
+        print(
+            f"Got {len(all_links)} links in total, "
+            f"will fetch *at least* {min(max_total_links, len(all_links))}:\n-",
+            "\n- ".join(all_links[:max_total_links]),
+        )
         t_get_links_end = datetime.now()
     except Exception as e:
         raise ValueError(f"Failed to get links: {e}")
 
     try:
+        print("Fetching content from links and extracting main content...")
+
         # Get content from links
-        print_no_newline("Fetching content from links...")
-        import os
-        htmls = make_sync(afetch_urls_in_parallel_playwright)(
-            links, callback=lambda url, html: print_no_newline(".")
-        ) if os.getenv("USE_PLAYWRIGHT") else make_sync(afetch_urls_in_parallel_aiohttp)(
-            links
+        link_data_dict = get_content_from_urls_with_top_up(
+            all_links,
+            batch_fetcher=get_batch_fetcher(),
+            min_ok_urls=round(max_total_links * 0.75),
+            init_batch_size=max_total_links,
         )
         print()
-        t_fetch_end = datetime.now()
     except Exception as e:
-        raise ValueError(f"Failed to get htmls: {e}, links: {links}")
+        raise ValueError(f"Failed to fetch content from URLs: {e}")
 
-    try:
-        # Initialize data object
-        ws_data = WebsearcherData.from_query(query)
-        ws_data.report_type = report_type
-        ws_data.processed_links = links  # we will process these links in this function
-        ws_data.unprocessed_links = all_links[max_total_links:]
+    # Initialize data object
+    ws_data = WebsearcherData.from_query(query)
+    ws_data.report_type = report_type
+    ws_data.processed_links = list(link_data_dict.keys())
+    ws_data.unprocessed_links = all_links[len(ws_data.processed_links) :]
+    ws_data.link_data_dict = link_data_dict
 
-        # Get text from html
-        print_no_newline("Extracting main text from fetched content...")
-        for link, html in zip(links, htmls):
-            ws_data.link_data_dict[link] = LinkData.from_html(html)
-            print_no_newline(".")
-        print()
-
-        # Get a list of acceptably fetched links and their texts
-        links = [link for link in links if ws_data.link_data_dict[link].error is None]
-        texts = [ws_data.link_data_dict[link].text for link in links]
-        t_process_texts_end = datetime.now()
-
-        token_counts = None  # to make limit_tokens_in_texts() work either way
-    except Exception as e:
-        htmls_str = '\n\n'.join(x[:200] for x in htmls)
-        raise ValueError(f"Failed to get texts: {e}, htmls:\n{htmls_str}")
+    # Get a list of acceptably fetched links and their texts
+    links = [link for link, data in link_data_dict.items() if not data.error]
+    texts = [link_data_dict[link].text for link in links]
+    t_process_texts_end = datetime.now()
 
     try:
         print("Constructing final context...")
         final_texts, final_token_counts = limit_tokens_in_texts(
-            texts, max_tokens_final_context, cached_token_counts=token_counts
+            texts,
+            max_tokens_final_context,
         )
         final_texts = [
             f"SOURCE: {link}\nCONTENT:\n{text}\n====="
             for text, link in zip(final_texts, links)
         ]
         final_context = "\n\n".join(final_texts)
-        t_summarize_end = datetime.now()
+        t_final_context = datetime.now()
 
-        print(
-            "Number of obtained links:",
-            len(ws_data.processed_links) + len(ws_data.unprocessed_links),
-        )
+        print("Number of obtained links:", len(all_links))
         print("Number of processed links:", len(ws_data.processed_links))
         print("Number of links after removing unsuccessfully fetched ones:", len(links))
-        print("Time taken to fetch sites:", t_fetch_end - t_get_links_end)
-        print("Time taken to process html from sites:", t_process_texts_end - t_fetch_end)
-        print(
-            "Time taken to summarize/shorten texts:", t_summarize_end - t_process_texts_end
-        )
-        print("Number of resulting tokens:", get_num_tokens(final_context))
+        print("Time taken to process links:", t_process_texts_end - t_get_links_end)
+        print("Time taken to shorten texts:", t_final_context - t_process_texts_end)
+        print("Number of tokens in final context:", get_num_tokens(final_context))
 
-        print("Generating report...\n")
+        print("\nGenerating report...\n")
         chain = get_prompt_llm_chain(
-            WEBSEARCHER_PROMPT_DYNAMIC_REPORT, callbacks=chat_state.callbacks, stream=True
+            WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
+            llm_settings=chat_state.bot_settings,
+            callbacks=chat_state.callbacks,
+            stream=True,
         )
         ws_data.report = chain.invoke(
             {"texts_str": final_context, "query": query, "report_type": report_type}
@@ -310,9 +383,285 @@ def get_websearcher_response_medium(
             "ws_data": ws_data,
         }
     except Exception as e:
-        final_texts_str = '\n\n'.join(x[:200] for x in final_texts)
-        raise ValueError(f"Failed to get report: {e}, final_texts: {final_texts_str}")
+        texts_str = "\n\n".join(x[:200] for x in texts)
+        raise ValueError(f"Failed to get report: {e}, texts:\n\n{texts_str}")
 
+
+SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
+SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
+SMALL_WORDS |= {"which", "who", "whom", "whose", "where", "when", "how"}
+SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could"}
+SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
+
+
+def get_initial_iterative_researcher_response(
+    chat_state: ChatState,
+) -> WebsearcherData:
+    ws_data = get_websearcher_response_medium(chat_state)["ws_data"]
+    answer = ws_data.report  # TODO consider including report in the db
+
+    # Determine which links to include in the db
+    links_to_include = [
+        link for link, data in ws_data.link_data_dict.items() if not data.error
+    ]
+    if not links_to_include:
+        return ws_data
+
+    # Decide on the collection name consistent with ChromaDB's naming rules
+    query_words = [x.lower() for x in ws_data.query.split()]
+    words = []
+    words_excluding_small = []
+    for word in query_words:
+        word_just_alnum = "".join(x for x in word if x.isalnum())
+        if not word_just_alnum:
+            break
+        words.append(word_just_alnum)
+        if word not in SMALL_WORDS:
+            words_excluding_small.append(word_just_alnum)
+
+    words = words_excluding_small if len(words_excluding_small) > 2 else words
+
+    new_coll_name = "-".join(words[:3])[:35].rstrip("-")
+
+    if len(new_coll_name) < 3:
+        new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+
+    ws_data.collection_name = new_coll_name
+
+    # Check if collection exists, if so, add a number to the end
+    chroma_client: API = chat_state.vectorstore._client
+    for i in range(2, 1000000):
+        try:
+            chroma_client.get_collection(ws_data.collection_name)
+        except ValueError:
+            break  # collection does not exist
+        ws_data.collection_name = f"{new_coll_name}-{i}"
+
+    # Convert website content into documents for ingestion
+    print("Ingesting fetched content into ChromaDB...")
+    docs: list[Document] = []
+    for link in links_to_include:
+        link_data = ws_data.link_data_dict[link]
+        metadata = {"url": link}
+        if link_data.num_tokens is not None:
+            metadata["num_tokens"] = link_data.num_tokens
+        docs.append(Document(page_content=link_data.text, metadata=metadata))
+
+    # Ingest documents into ChromaDB
+    try:
+        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
+    except ValueError:
+        # Catching ValueError: Expected collection name ...
+        # Create a random valid collection name and try again
+        ws_data.collection_name = "collection-" + "".join(
+            secrets.SystemRandom().sample("abcdefghijklmnopqrstuvwxyz", 6)
+        )
+        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
+    return {"answer": answer, "ws_data": ws_data}
+
+
+NUM_NEW_OK_LINKS_TO_PROCESS = 2
+INIT_BATCH_SIZE = 4
+
+
+def get_iterative_researcher_response(
+    chat_state: ChatState,
+) -> WebsearcherData:
+    ws_data: WebsearcherData = chat_state.ws_data
+
+    # Special handling for first iteration
+    if not ws_data.report:
+        return get_initial_iterative_researcher_response(chat_state)
+
+    t_start = datetime.now()
+
+    # Sanity check
+    if (
+        sum(
+            1
+            for link in ws_data.unprocessed_links[
+                : ws_data.num_obtained_unprocessed_links
+            ]
+            if not ws_data.link_data_dict[link].error
+        )
+        != ws_data.num_obtained_unprocessed_ok_links
+    ):
+        raise ValueError("Mismatch in the number of obtained unprocessed good links")
+
+    # Get content from more links if needed
+    num_ok_new_links_to_fetch = (
+        NUM_NEW_OK_LINKS_TO_PROCESS - ws_data.num_obtained_unprocessed_ok_links
+    )
+    if num_ok_new_links_to_fetch > 0:
+        link_data_dict = get_content_from_urls_with_top_up(
+            ws_data.unprocessed_links[ws_data.num_obtained_unprocessed_links :],
+            batch_fetcher=get_batch_fetcher(),
+            min_ok_urls=num_ok_new_links_to_fetch,
+            init_batch_size=INIT_BATCH_SIZE,
+        )
+
+        # Update ws_data
+        ws_data.link_data_dict.update(link_data_dict)
+        ws_data.num_obtained_unprocessed_links += len(link_data_dict)
+
+        tmp = sum(1 for data in link_data_dict.values() if not data.error)
+        ws_data.num_obtained_unprocessed_ok_links += tmp
+        print()
+    t_fetch_end = datetime.now()
+
+    # Prepare links to include in the context (only good links)
+    links_to_include = []
+    links_to_count_tokens_for = []
+    num_links_to_include = 0
+    num_new_processed_links = 0
+    for link in ws_data.unprocessed_links:
+        # Stop if have enough links; consider only *obtained* links
+        if (
+            num_links_to_include == NUM_NEW_OK_LINKS_TO_PROCESS
+            or num_new_processed_links == ws_data.num_obtained_unprocessed_links
+        ):
+            break
+        num_new_processed_links += 1
+
+        # Include link if it's good
+        if ws_data.link_data_dict[link].error:
+            continue
+        links_to_include.append(link)
+        num_links_to_include += 1
+
+        # Check if we need to count tokens for this link
+        if ws_data.link_data_dict[link].num_tokens is None:
+            links_to_count_tokens_for.append(link)
+
+    texts_to_include = [ws_data.link_data_dict[x].text for x in links_to_include]
+
+    # Update ws_data once again to reflect the links about to be processed
+    ws_data.processed_links += ws_data.unprocessed_links[:num_new_processed_links]
+    ws_data.unprocessed_links = ws_data.unprocessed_links[num_new_processed_links:]
+    ws_data.num_obtained_unprocessed_links -= num_new_processed_links
+    ws_data.num_obtained_unprocessed_ok_links -= num_links_to_include
+
+    # If no links to include, don't submit to LLM
+    if not links_to_include:
+        return {
+            "answer": "There are no more usable sources to incorporate into the report",
+            "ws_data": ws_data,
+            "needs_print": True,  # NOTE: this won't be streamed
+        }
+
+    # Count tokens in texts to be processed; throw in the report text too
+    print("Counting tokens in texts and current report...")
+    texts_to_count_tokens_for = [
+        ws_data.link_data_dict[x].text for x in links_to_count_tokens_for
+    ] + [ws_data.report]
+    token_counts = get_num_tokens_in_texts(texts_to_count_tokens_for)
+
+    num_tokens_report = token_counts[-1]
+    for link, num_tokens in zip(links_to_count_tokens_for, token_counts):
+        ws_data.link_data_dict[link].num_tokens = num_tokens
+
+    # Shorten texts that are too long and construct combined sources text
+    # TODO consider chunking and/or reducing num of included links instead
+    print("Constructing final context...")
+    final_texts, final_token_counts = limit_tokens_in_texts(
+        texts_to_include,
+        ws_data.max_tokens_final_context - num_tokens_report,
+        cached_token_counts=[
+            ws_data.link_data_dict[x].num_tokens for x in links_to_include
+        ],
+    )
+    final_texts = [
+        f"SOURCE: {link}\nCONTENT:\n{text}\n====="
+        for text, link in zip(final_texts, links_to_include)
+    ]  # NOTE: this adds a bit of extra tokens to the final context but it's ok
+    final_context = "\n\n".join(final_texts)
+    t_construct_context_end = datetime.now()
+
+    print("Time taken to fetch sites:", t_fetch_end - t_start)
+    print("Time taken to process texts:", t_construct_context_end - t_fetch_end)
+    if chat_state.operation_mode == OperationMode.CONSOLE:
+        num_tokens_final_context = get_num_tokens(final_context)  # NOTE rm to save time
+        print("Number of resulting tokens in the context:", num_tokens_final_context)
+        print(
+            "Number of resulting tokens in the context + report:",
+            num_tokens_report + num_tokens_final_context,
+        )
+
+    print("Generating report...\n")
+    chain = get_prompt_llm_chain(
+        ITERATIVE_REPORT_IMPROVER_PROMPT,
+        llm_settings=chat_state.bot_settings,
+        callbacks=chat_state.callbacks,
+        stream=True,
+    )
+    answer = chain.invoke(
+        {
+            "new_info": final_context,
+            "query": ws_data.query,
+            "previous_report": ws_data.report,
+        }
+    )
+
+    # Extract and record treport and the LLM's assessment of the report
+    REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
+    NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
+    length_diff = len(NO_IMPROVEMENT_MSG) - len(REPORT_ASSESSMENT_MSG)
+
+    idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
+    if idx_assessment == -1:
+        # Something went wrong, keep the old report
+        print("Something went wrong, keeping the old report")  # NOTE: can remove
+    else:
+        idx_no_improvement = idx_assessment - length_diff
+        if (
+            idx_no_improvement >= 0
+            and answer[
+                idx_no_improvement : idx_no_improvement + len(NO_IMPROVEMENT_MSG)
+            ]
+            == NO_IMPROVEMENT_MSG
+        ):
+            # No improvement, keep the old report, record the LLM's assessment
+            print("No improvement, keeping the old report")  # NOTE: can remove
+            ws_data.evaluation = answer[idx_no_improvement:]
+        else:
+            # Improvement, record the new report and the LLM's assessment
+            ws_data.report = answer
+            ws_data.evaluation = answer[idx_assessment:]
+
+    # Prepare new documents for ingestion
+    # NOTE: links_to_include is non-empty if we got here
+    print("Ingesting new documents into ChromaDB...")
+    docs: list[Document] = []
+    for link in links_to_include:
+        link_data = ws_data.link_data_dict[link]
+        metadata = {"url": link}
+        if link_data.num_tokens is not None:
+            metadata["num_tokens"] = link_data.num_tokens
+        docs.append(Document(page_content=link_data.text, metadata=metadata))
+
+    # Ingest documents into ChromaDB
+    ingest_docs_into_chroma_client(
+        docs, ws_data.collection_name, chat_state.vectorstore._client
+    )
+
+    return {"answer": answer, "ws_data": ws_data}
+
+
+class WebsearcherMode(Enum):
+    QUICK = 1
+    MEDIUM = 2
+    TEST = 3
+
+
+def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
+    if mode == WebsearcherMode.QUICK:
+        return get_websearcher_response_quick(chat_state)
+    elif mode == WebsearcherMode.MEDIUM:
+        return get_websearcher_response_medium(chat_state)
+    elif mode == WebsearcherMode.TEST:
+        return get_websearcher_response_medium(chat_state)
+        # return get_web_test_response(chat_state)
+    raise ValueError(f"Invalid mode: {mode}")
 
     # Snippet for contextual compression
 
@@ -357,229 +706,3 @@ def get_websearcher_response_medium(
     #     texts, token_counts = new_texts, new_token_counts
     # else:
     #     token_counts = None  # to make limit_tokens_in_texts() work either way
-
-
-NUM_NEW_LINKS_TO_ACQUIRE = 3
-NUM_NEW_LINKS_TO_PROCESS = 2
-
-SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
-SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
-SMALL_WORDS |= {"which", "who", "whom", "whose", "where", "when", "how", "why"}
-
-
-def get_initial_iterative_researcher_response(
-    chat_state: ChatState,
-) -> WebsearcherData:
-    ws_data = get_websearcher_response_medium(chat_state)["ws_data"]
-    answer = ws_data.report  # TODO consider including report in the db
-
-    # Determine which links to include in the db
-    links_to_include = [
-        link for link, data in ws_data.link_data_dict.items() if not data.error
-    ]
-    if not links_to_include:
-        return ws_data
-
-    # Decide on the collection name consistent with ChromaDB's naming rules
-    query_words = ws_data.query.split()
-    words = [x.lower() for x in query_words if x not in SMALL_WORDS]
-    if len(words) < 3:
-        words = [x.lower() for x in query_words]
-    new_coll_name = "-".join(words[:3])
-    new_coll_name = "".join(x for x in new_coll_name if x.isalnum() or x == "-")
-    new_coll_name = new_coll_name.lstrip("-")[:35].rstrip("-")
-    if len(new_coll_name) < 3:
-        new_coll_name = f"collection-{new_coll_name}".rstrip("-")
-    ws_data.collection_name = new_coll_name
-
-    # Check if collection exists, if so, add a number to the end
-    chroma_client: API = chat_state.vectorstore._client
-    for i in range(2, 1000000):
-        try:
-            chroma_client.get_collection(ws_data.collection_name)
-        except ValueError:
-            break  # collection does not exist
-        ws_data.collection_name = f"{new_coll_name}-{i}"
-
-    # Convert website content into documents for ingestion
-    print("Ingesting fetched content into ChromaDB...")
-    docs: list[Document] = []
-    for link in links_to_include:
-        link_data = ws_data.link_data_dict[link]
-        metadata = {"url": link}
-        if link_data.num_tokens is not None:
-            metadata["num_tokens"] = link_data.num_tokens
-        docs.append(Document(page_content=link_data.text, metadata=metadata))
-
-    # Ingest documents into ChromaDB
-    try:
-        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
-    except ValueError:
-        # Catching ValueError: Expected collection name ...
-        # Create a random valid collection name and try again
-        ws_data.collection_name = "collection-" + "".join(
-            secrets.SystemRandom().sample("abcdefghijklmnopqrstuvwxyz", 6)
-        )
-        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
-    return {"answer": answer, "ws_data": ws_data}
-
-
-def get_iterative_researcher_response(
-    chat_state: ChatState,
-) -> WebsearcherData:
-    ws_data: WebsearcherData = chat_state.ws_data
-
-    # Special handling for first iteration
-    if not ws_data.report:
-        return get_initial_iterative_researcher_response(chat_state)
-
-    t_start = datetime.now()
-    links_to_get = ws_data.unprocessed_links[:NUM_NEW_LINKS_TO_ACQUIRE]
-
-    # Some links may have already been fetched (but not processed)
-    links_to_fetch = [
-        link for link in links_to_get if link not in ws_data.link_data_dict
-    ]
-
-    # Get content from links
-    print_no_newline(f"{len(links_to_fetch)} links to fetch content from")
-    if links_to_fetch:
-        print(":\n- " + "\n- ".join(links_to_fetch))
-        print_no_newline("Fetching content from links...")
-        htmls = make_sync(afetch_urls_in_parallel_playwright)(
-            links_to_fetch, callback=lambda url, html: print_no_newline(".")
-        )
-        print()
-    t_fetch_end = datetime.now()
-
-    # Get text from html
-    if links_to_fetch:
-        print_no_newline("Extracting main text from fetched content...")
-        for link, html in zip(links_to_fetch, htmls):
-            ws_data.link_data_dict[link] = LinkData.from_html(html)
-            print_no_newline(".")
-        print()
-    t_extract_texts_end = datetime.now()
-
-    # Links to process (already fetched)
-    # TODO tmp = [link for link in links_to_get if not ws_data.link_data_dict[link].error]
-    links_to_process = links_to_get[:NUM_NEW_LINKS_TO_PROCESS]
-    links_to_include = [
-        x for x in links_to_process if not ws_data.link_data_dict[x].error
-    ]
-    texts_to_include = [ws_data.link_data_dict[x].text for x in links_to_include]
-
-    # Count tokens in texts to be processed; throw in the report text too
-    print("Counting tokens in texts and current report...")
-    links_to_count_tokens_for = [
-        x for x in links_to_include if ws_data.link_data_dict[x].num_tokens is None
-    ]
-    texts_to_count_tokens_for = [
-        ws_data.link_data_dict[x].text for x in links_to_count_tokens_for
-    ] + [ws_data.report]
-    token_counts = get_num_tokens_in_texts(texts_to_count_tokens_for)
-
-    num_tokens_report = token_counts[-1]
-    for link, num_tokens in zip(links_to_count_tokens_for, token_counts):
-        ws_data.link_data_dict[link].num_tokens = num_tokens
-
-    # Shorten texts that are too long and construct combined sources text
-    print("Constructing final context...")
-    final_texts, final_token_counts = limit_tokens_in_texts(
-        texts_to_include,
-        ws_data.max_tokens_final_context - num_tokens_report,
-        cached_token_counts=[
-            ws_data.link_data_dict[x].num_tokens for x in links_to_include
-        ],
-    )
-    final_texts = [
-        f"SOURCE: {link}\nCONTENT:\n{text}\n====="
-        for text, link in zip(final_texts, links_to_include)
-    ]
-    final_context = "\n\n".join(final_texts)
-    t_construct_context_end = datetime.now()
-
-    print("Time taken to fetch sites:", t_fetch_end - t_start)
-    print("Time taken to process html from sites:", t_extract_texts_end - t_fetch_end)
-    print("Time taken to process texts:", t_construct_context_end - t_extract_texts_end)
-    num_tokens_final_context = get_num_tokens(final_context)
-    print("Number of resulting tokens in the context:", num_tokens_final_context)
-    print(
-        "Number of resulting tokens in the context + report:",
-        num_tokens_report + num_tokens_final_context,
-    )
-
-    print("Generating report...\n")
-    chain = get_prompt_llm_chain(
-        ITERATIVE_REPORT_IMPROVER_PROMPT, callbacks=chat_state.callbacks, stream=True
-    )
-    answer = chain.invoke(
-        {
-            "new_info": final_context,
-            "query": ws_data.query,
-            "previous_report": ws_data.report,
-        }
-    )
-
-    # Extract and record treport and the LLM's assessment of the report
-    REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
-    NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
-    length_diff = len(NO_IMPROVEMENT_MSG) - len(REPORT_ASSESSMENT_MSG)
-
-    idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
-    if idx_assessment == -1:
-        # Something went wrong, keep the old report
-        print("Something went wrong, keeping the old report")  # NOTE: can remove
-    else:
-        idx_no_improvement = idx_assessment - length_diff
-        if (
-            idx_no_improvement >= 0
-            and answer[
-                idx_no_improvement : idx_no_improvement + len(NO_IMPROVEMENT_MSG)
-            ]
-            == NO_IMPROVEMENT_MSG
-        ):
-            # No improvement, keep the old report, record the LLM's assessment
-            print("No improvement, keeping the old report")  # NOTE: can remove
-            ws_data.evaluation = answer[idx_no_improvement:]
-        else:
-            # Improvement, record the new report and the LLM's assessment
-            ws_data.report = answer
-            ws_data.evaluation = answer[idx_assessment:]
-
-    ws_data.processed_links += links_to_process
-    ws_data.unprocessed_links = ws_data.unprocessed_links[len(links_to_process) :]
-
-    if links_to_include:
-        # Prepare new documents for ingestion
-        print("Ingesting new documents into ChromaDB...")
-        docs: list[Document] = []
-        for link in links_to_include:
-            link_data = ws_data.link_data_dict[link]
-            metadata = {"url": link}
-            if link_data.num_tokens is not None:
-                metadata["num_tokens"] = link_data.num_tokens
-            docs.append(Document(page_content=link_data.text, metadata=metadata))
-
-        # Ingest documents into ChromaDB
-        ingest_docs_into_chroma_client(
-            docs, ws_data.collection_name, chat_state.vectorstore._client
-        )
-
-    return {"answer": answer, "ws_data": ws_data}
-
-
-class WebsearcherMode(Enum):
-    QUICK = 1
-    MEDIUM = 2
-    TEST=3
-
-def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
-    if mode == WebsearcherMode.QUICK:
-        return get_websearcher_response_quick(chat_state)
-    elif mode == WebsearcherMode.MEDIUM:
-        return get_websearcher_response_medium(chat_state)
-    elif mode == WebsearcherMode.TEST:
-        return get_websearcher_response_medium(chat_state)
-        # return get_web_test_response(chat_state)
-    raise ValueError(f"Invalid mode: {mode}")

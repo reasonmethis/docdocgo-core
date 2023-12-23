@@ -1,4 +1,3 @@
-
 # DocDocGo
 
 ## Table of Contents
@@ -14,17 +13,27 @@
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents it can also ingest find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents, it can also find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
+## (Very) Quickstart
+
+Please see more detailed setup instructions below, but here they are in a nutshell:
+
+1. Install requirements
+2. Create `.env` using `.env.example`
+3. Run `streamlit run streamlit_app.py`
+
+That's it!
+   
 ## Features
 
+- Comes with a Streamlit UI, but can also be run in console mode or as a flask app
 - Provides [several response modes](#response-modes) ("chat", "detailed report", "quotes", "web research", "iterative web research")
 - Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
-- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
 - Allows to create and switch between multiple document collections
 - Automatically ingests content retrieved during web research into a new document collection
 - Provides links to source documents or websites
-- Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
+- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
 
 For reference, DocDocGo Carbon (not available here) has these features:
 
