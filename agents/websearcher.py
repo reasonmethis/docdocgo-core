@@ -1,5 +1,5 @@
+import json
 import os
-import random
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable
@@ -35,6 +35,7 @@ from utils.web import (
     is_html_text_ok,
     remove_failed_fetches,
 )
+import secrets
 
 
 def get_related_websearch_queries(message: str):
@@ -453,7 +454,7 @@ def get_initial_iterative_researcher_response(
         # Catching ValueError: Expected collection name ...
         # Create a random valid collection name and try again
         ws_data.collection_name = "collection-" + "".join(
-            random.sample("abcdefghijklmnopqrstuvwxyz", 6)
+            secrets.SystemRandom().sample("abcdefghijklmnopqrstuvwxyz", 6)
         )
         ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
     return {"answer": answer, "ws_data": ws_data}
