@@ -4,8 +4,9 @@ import streamlit as st
 
 from components.llm import CallbackHandlerDDGConsole
 from docdocgo import do_intro_tasks
+from utils.chat_state import ChatState
 from utils.streamlit.fix_event_loop import remove_tornado_fix
-from utils.type_utils import ChatState, OperationMode
+from utils.type_utils import OperationMode
 
 
 def prepare_app():

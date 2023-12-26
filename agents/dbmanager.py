@@ -1,10 +1,11 @@
 from enum import Enum
 
 from components.chroma_ddg import ChromaDDG, load_vectorstore
+from utils.chat_state import ChatState
 from utils.helpers import DB_COMMAND_HELP_TEMPLATE
 from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.prepare import DEFAULT_COLLECTION_NAME
-from utils.type_utils import ChatState, JSONish, OperationMode
+from utils.type_utils import JSONish, OperationMode
 
 DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE EXIT")
 menu_main = {
@@ -69,7 +70,7 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
             if not new_name:
                 continue
             try:
-                vectorstore._collection.modify(name=new_name)
+                vectorstore.rename_collection(new_name)
             except Exception as e:
                 print(f"Error renaming collection: {e}")
                 continue
@@ -77,7 +78,7 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
             return {
                 "answer": "",
                 "vectorstore": load_vectorstore(new_name, vectorstore._client),
-            }
+            } # NOTE: can likely just return vectorstore without reinitializing
         elif choice == DBCommand.DELETE:
             collections = vectorstore._client.list_collections()
             collection_names = [collection.name for collection in collections]
@@ -101,7 +102,7 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
                 f"Are you sure you want to delete the collection {collection_name}? [y/N] "
             )
             if ans == "y":
-                vectorstore._client.delete_collection(name=collection_name)
+                vectorstore.delete_collection(collection_name)
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
 
@@ -158,7 +159,7 @@ def handle_db_command_with_subcommand(
             )
 
         try:
-            vectorstore._collection.modify(name=value)
+            vectorstore.rename_collection(value)
         except Exception as e:
             return format_answer(f"Error renaming collection:\n```\n{e}\n```")
 
@@ -181,7 +182,7 @@ def handle_db_command_with_subcommand(
         if value not in collection_names:
             return format_answer(get_db_not_found_str(value))
 
-        vectorstore._client.delete_collection(name=value)
+        vectorstore.delete_collection(value)
         return format_answer(f"Collection {value} deleted.")
 
     # Should never happen

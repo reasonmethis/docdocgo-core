@@ -2,7 +2,7 @@ import os
 from typing import Any
 
 # from chromadb import ClientAPI, PersistentClient
-from chromadb import Client, API
+from chromadb import API, Client
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
 from langchain.schema import Document
@@ -25,6 +25,35 @@ class ChromaDDG(Chroma):
     def name(self) -> str:
         """Name of the underlying Chroma collection."""
         return self._collection.name
+    
+    @property
+    def collection(self) -> Chroma:
+        """The underlying Chroma collection."""
+        return self._collection
+    
+    @property
+    def client(self) -> API:
+        """The underlying Chroma client."""
+        return self._client
+    
+    def get_collection_metadata(self) -> dict[str, Any] | None:
+        """Get metadata for the underlying Chroma collection."""
+        return self._collection.metadata
+
+    def set_collection_metadata(self, metadata: dict[str, Any]) -> None:
+        """Set metadata for the underlying Chroma collection."""
+        self._collection.modify(metadata=metadata)
+        self._client.persist() # won't be needed when we can switch to v >= 0.4.0
+
+    def rename_collection(self, new_name: str) -> None:
+        """Rename the underlying Chroma collection."""
+        self._collection.modify(name=new_name)
+        self._client.persist() # won't be needed when we can switch to v >= 0.4.0
+
+    def delete_collection(self, collection_name: str) -> None:
+        """Delete the underlying Chroma collection."""
+        self._client.delete_collection(collection_name)
+        self._client.persist() # won't be needed when we can switch to v >= 0.4.0
 
     def similarity_search_with_score(
         self,
@@ -75,6 +104,20 @@ class ChromaDDG(Chroma):
         return _results_to_docs_and_scores(results)
 
 
+def exists_collection(
+    collection_name: str,
+    client: API,
+) -> bool:
+    """
+    Check if a collection exists.
+    """
+    try:
+        client.get_collection(collection_name)
+        return True
+    except ValueError:
+        return False  # collection does not exist
+
+
 def initialize_client(path: str) -> API:
     """
     Initialize a chroma client from a given path.
@@ -86,14 +129,19 @@ def initialize_client(path: str) -> API:
     # return PersistentClient(path)
 
 
+def ensure_chroma_client(client: API | None = None) -> API:
+    """
+    Ensure that a chroma client is initialized and return it.
+    """
+    return client or initialize_client(VECTORDB_DIR)
+
+
 def load_vectorstore(collection_name: str, client: API | None = None):
     """
     Load a ChromaDDG vectorstore from a given collection name.
     """
-    if client is None:
-        client = initialize_client(VECTORDB_DIR)
     vectorstore = ChromaDDG(
-        client=client,
+        client=ensure_chroma_client(client),
         collection_name=collection_name,
         embedding_function=OpenAIEmbeddingsDDG(),
     )

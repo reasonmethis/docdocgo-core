@@ -6,7 +6,6 @@ from langchain.vectorstores.base import VectorStoreRetriever
 
 from agents.dbmanager import handle_db_command
 from agents.websearcher import (
-    WebsearcherData,
     get_iterative_researcher_response,
     get_websearcher_response,
 )
@@ -15,6 +14,7 @@ from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
+from utils.chat_state import ChatState
 from utils.helpers import (
     DEFAULT_MODE,
     DELIMITER,
@@ -31,8 +31,6 @@ from utils.lang_utils import pairwise_chat_history_to_msg_list
 from utils.prepare import (
     DEFAULT_COLLECTION_NAME,
 )
-
-# validate_settings,
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -40,7 +38,7 @@ from utils.prompts import (
     QA_PROMPT_QUOTES,
     QA_PROMPT_SUMMARIZE_KB,
 )
-from utils.type_utils import ChatMode, ChatState, OperationMode
+from utils.type_utils import ChatMode, OperationMode
 
 
 def get_bot_response(chat_state: ChatState):
@@ -57,7 +55,8 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if chat_state.message:
             # Start new research
-            chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
+            # chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
+            pass
         elif not chat_state.ws_data:
             return {
                 "answer": "The /research prefix without a message is used to iterate "
@@ -199,16 +198,15 @@ if __name__ == "__main__":
 
     # Start chat
     chat_history = []
-    ws_data = None
     while True:
         # Print hints and other info
         print('"/help" for help, "exit" to exit (or just press Enter twice)')
-        print(f"Vector database: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
+        print(f"Document collection: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
         print(DELIMITER)
 
         # Get query from user
         query = input("\nYOU: ")
-        if query == "exit" or query == "quit":
+        if query.strip() in {"exit", "/exit", "quit", "/quit"}:
             break
         if query == "":
             print("Please enter your query or press Enter to exit.")
@@ -231,8 +229,7 @@ if __name__ == "__main__":
                     chat_history,
                     chat_history,  # chat_and_command_history is not used in console mode
                     search_params,
-                    vectorstore,
-                    ws_data,  # callbacks and bot_settings can be default here
+                    vectorstore,  # callbacks and bot_settings can be default here
                 )
             )
         except Exception as e:
@@ -252,11 +249,6 @@ if __name__ == "__main__":
         # Update chat history if needed
         if answer:
             chat_history.append((query, answer))
-
-        # Update iterative research data
-        if "ws_data" in response:
-            ws_data = response["ws_data"]
-        # TODO: update in API as well
 
         # Update vectorstore if needed
         if "vectorstore" in response:

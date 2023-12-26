@@ -1,13 +1,15 @@
 import os
+
 from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
-from langchain.schema.messages import AIMessage, BaseMessage, HumanMessage
+from langchain.schema.messages import AIMessage, BaseMessage, HumanMessage, get_buffer_string
 
 from utils.async_utils import execute_func_map_in_threads
 from utils.type_utils import PairwiseChatHistory
 
 load_dotenv(override=True)
+
 
 def _get_default_llm_for_token_counting() -> BaseLanguageModel:
     """Get the default language model for token counting."""
@@ -24,12 +26,15 @@ def _get_default_llm_for_token_counting() -> BaseLanguageModel:
             os.environ["OPENAI_API_KEY"] = openai_api_key
     return llm
 
+
 default_llm_for_token_counting = _get_default_llm_for_token_counting()
+
 
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
     llm = llm_for_token_counting or default_llm_for_token_counting
     return llm.get_num_tokens(text)
+
 
 def get_num_tokens_in_texts(
     texts: list[str], llm_for_token_counting: BaseLanguageModel | None = None
@@ -43,6 +48,7 @@ def get_num_tokens_in_texts(
 
     token_counts = execute_func_map_in_threads(_get_num_tokens, texts)
     return token_counts
+
 
 def pairwise_chat_history_to_msg_list(
     chat_history: PairwiseChatHistory,
@@ -67,12 +73,12 @@ def msg_list_chat_history_to_pairwise(
     return chat_history
 
 
-def pairwise_chat_history_to_buffer_string(
+def pairwise_chat_history_to_string(
     chat_history: PairwiseChatHistory,
     human_prefix="Human",
     ai_prefix="AI",
 ) -> str:
-    """Convert chat history to buffer string such as 'Human: hi\nAI: Hi!\n...'
+    """Convert chat history to a string such as 'Human: hi\nAI: Hi!\n...'
 
     See also langchain.schema.messages.get_buffer_string"""
 
@@ -82,6 +88,16 @@ def pairwise_chat_history_to_buffer_string(
             for human_msg, ai_msg in chat_history
         ]
     )
+
+def msg_list_chat_history_to_string(
+    msg_list: list[BaseMessage],
+    human_prefix="Human",
+    ai_prefix="AI",
+) -> str:
+    """
+    Convert a list of messages to a string such as 'Human: hi\nAI: Hi!\n...' 
+    """
+    return get_buffer_string(msg_list,human_prefix, ai_prefix)
 
 
 def limit_chat_history(
@@ -115,7 +131,7 @@ def limit_chat_history(
             token_count_in_pair = cached_token_counts[-i - 1]
         else:
             token_count_in_pair = get_num_tokens(
-                pairwise_chat_history_to_buffer_string([human_and_ai_msgs]),
+                pairwise_chat_history_to_string([human_and_ai_msgs]),
                 llm_for_token_counting,
             )
 
@@ -185,7 +201,7 @@ def shorten_chat_msg_pair(
 
     # Recalculate token count
     token_count_new = get_num_tokens(
-        pairwise_chat_history_to_buffer_string([(human_msg, ai_msg)]),
+        pairwise_chat_history_to_string([(human_msg, ai_msg)]),
         llm_for_token_counting,
     )
 
@@ -267,6 +283,7 @@ def limit_tokens_in_text(
             / (1 + slow_down_factor)
         )
         # print(at_most_words)
+
 
 def get_max_token_allowance_for_texts(
     texts: list[str], max_tot_tokens: int, cached_token_counts: list[int] | None = None

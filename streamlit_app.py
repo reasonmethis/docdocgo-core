@@ -4,12 +4,14 @@ import streamlit as st
 
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response
+from utils.chat_state import ChatState
 from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
+from utils.output import format_exception
 from utils.prepare import TEMPERATURE
 from utils.streamlit.helpers import status_config, write_slowly
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import ChatState, chat_modes_needing_llm
+from utils.type_utils import chat_modes_needing_llm
 
 # Run just once
 if "chat_state" not in st.session_state:
@@ -47,8 +49,10 @@ with st.sidebar:
                 user_openai_api_key = ""
                 if not st.session_state.allow_all_settings_for_default_key:
                     st.session_state.allow_all_settings_for_default_key = True
-                    st.session_state.llm_api_key_ok_status = True # collapse the key field
-                    st.rerun() # otherwise won't collapse until next interaction
+                    st.session_state.llm_api_key_ok_status = (
+                        True  # collapse the key field
+                    )
+                    st.rerun()  # otherwise won't collapse until next interaction
             else:
                 # Otherwise, use the key entered by the user as the OpenAI API key
                 os.environ["OPENAI_API_KEY"] = user_openai_api_key
@@ -191,7 +195,7 @@ with st.chat_message("assistant"):
             status.write(status_config[chat_mode]["error.body"])
 
         # Add the error message to the likely incomplete response
-        answer = f"Apologies, an error has occurred:\n```\n{e}\n```"
+        answer = f"Apologies, an error has occurred:\n```\n{format_exception(e)}\n```"
         print(f"{answer}\n{DELIMITER}")
 
         if callback_handler.buffer:
@@ -207,11 +211,6 @@ with st.chat_message("assistant"):
     finally:
         # Update the full chat history
         chat_state.chat_and_command_history.append((full_query, answer))
-
-# Update iterative research data
-if "ws_data" in response:
-    chat_state.ws_data = response["ws_data"]
-# TODO: update in flask app as well
 
 # Update vectorstore if needed
 if "vectorstore" in response:

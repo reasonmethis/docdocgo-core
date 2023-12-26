@@ -1,57 +1,63 @@
 import asyncio
-import aiohttp
 from enum import Enum
 
+import aiohttp
+import trafilatura
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-from playwright.async_api import (
-    async_playwright,
-    TimeoutError as PlaywrightTimeoutError,
-)
-import trafilatura
-from langchain.schema import Document
-from langchain.document_loaders import AsyncHtmlLoader, AsyncChromiumLoader
+from langchain.document_loaders import AsyncChromiumLoader, AsyncHtmlLoader
 from langchain.document_loaders.async_html import default_header_template
 from langchain.document_transformers import BeautifulSoupTransformer
+from langchain.schema import Document
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright
+from pydantic import BaseModel
 
+from utils.output import format_exception
 from utils.strings import remove_consecutive_blank_lines
+
+MAX_PLAYWRIGHT_INSTANCES = 5
+# TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
+
+PLAYWRIGHT_TIMEOUT_MS = 10000
+AIOHTTP_TIMEOUT_MS = 10000
 
 
 async def afetch_url_aiohttp(session: aiohttp.ClientSession, url: str):
     """
     Asynchronously fetch the content from a URL using an aiohttp session.
     """
+    header_template = default_header_template
+    header_template["User-Agent"] = UserAgent().random
+    # TODO: add retries (see AsyncHtmlLoader._fetch)
     try:
-        async with session.get(url) as response:
+        async with session.get(url, headers=header_template) as response:
             response.raise_for_status()
             return await response.text()
-    except aiohttp.ClientError as e:
-        return f"Error: {e}"
+    # except aiohttp.ClientError as e:
+    except Exception as e:
+        # ClientError, asyncio.TimeoutError, etc.
+        return f"Error: {format_exception(e)}"
 
 
 async def afetch_urls_in_parallel_aiohttp(urls):
     """
     Asynchronously fetch multiple URLs in parallel using aiohttp.
-    Return the HTML content of each URL. If there is an error in a particular URL, 
-    return the error message instead of that URL's content.
+    Return the HTML content of each URL. If there is an error in a particular URL,
+    return the error message instead of that URL's content, starting with "Error: ".
     """
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=AIOHTTP_TIMEOUT_MS / 1000)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = [afetch_url_aiohttp(session, url) for url in urls]
         htmls = await asyncio.gather(*tasks)
 
     return htmls
 
 
-MAX_PLAYWRIGHT_INSTANCES = 5
-# TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)
-
-DEFAULT_PLAYWRIGHT_TIMEOUT = 10000
-
-
 async def afetch_url_playwright(
     url: str,
     headless=True,
-    timeout=DEFAULT_PLAYWRIGHT_TIMEOUT,
+    timeout=PLAYWRIGHT_TIMEOUT_MS,
     sleep_after_load_ms=0,
     **fetch_options,
 ):
@@ -92,7 +98,7 @@ async def afetch_url_playwright(
 async def afetch_urls_in_parallel_playwright(
     urls,
     headless=True,
-    timeout=DEFAULT_PLAYWRIGHT_TIMEOUT,
+    timeout=PLAYWRIGHT_TIMEOUT_MS,
     sleep_after_load_ms=0,
     callback=None,
     **fetch_options,
@@ -124,13 +130,17 @@ async def afetch_urls_in_parallel_playwright(
     htmls = await asyncio.gather(*tasks)
     return htmls
 
+
 def fetch_urls_playwright(urls):
     pass
+
+
 #     transport = await self._make_subprocess_transport(
 #                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "C:\Users\micro\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", 
+#   File "C:\Users\micro\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py",
 #   line 502, in _make_subprocess_transport
 #     raise NotImplementedError
+
 
 async def afetch_urls_in_parallel_chromium_loader(urls):
     """
@@ -215,7 +225,7 @@ def get_text_from_html(
     """
     if html_content.startswith("Error: "):
         return html_content
-    
+
     if mode == TextFromHtmlMode.TRAFILATURA:
         # https://trafilatura.readthedocs.io/en/latest/usage-python.html
         text = trafilatura.extract(
@@ -253,17 +263,18 @@ def get_text_from_html(
     return text
 
 
-MIN_CHARS_PER_URL_CONTENT = 100
+MIN_WORDS_PER_URL_CONTENT = 80
+
 
 def is_html_text_ok(text: str) -> bool:
     """
-    Return True if the text extracted from an HTML string appears to be from a 
+    Return True if the text extracted from an HTML string appears to be from a
     successfully fetched website.
-     
-    Specifically, return True if has at least MIN_CHARS_PER_URL_CONTENT
-    characters.
+
+    Specifically, return True if it has at least MIN_WORDS_PER_URL_CONTENT words.
     """
-    return len(text) >= MIN_CHARS_PER_URL_CONTENT
+    return len(text.split()) >= MIN_WORDS_PER_URL_CONTENT
+
 
 def remove_failed_fetches(
     texts: list[str], urls: list[str]
@@ -282,12 +293,27 @@ def remove_failed_fetches(
         if not is_html_text_ok(text):
             print(
                 f"Skipping URL {url}: retrieved text has only {len(text)} characters, "
-                f"less than the minimum of {MIN_CHARS_PER_URL_CONTENT}"
+                f"less than the minimum of {MIN_WORDS_PER_URL_CONTENT}"
             )
             continue
         new_texts.append(text)
         new_urls.append(url)
     return new_texts, new_urls
+
+
+class LinkData(BaseModel):
+    text: str | None = None
+    error: str | None = None
+    num_tokens: int | None = None
+
+    @classmethod
+    def from_html(cls, html: str):
+        if html.startswith("Error: "):
+            return cls(error=html)
+        text = get_text_from_html(html)
+        if is_html_text_ok(text):
+            return cls(text=text)
+        return cls(text=text, error="UNACCEPTABLE_EXTRACTED_TEXT")
 
 
 # NOTE: Fetching without chromium often leads to empty content (with chromium, that can still happen; also, it's slow). For example, of the following 27 URLs, only 8 have non-empty content:

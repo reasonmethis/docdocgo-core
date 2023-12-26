@@ -49,7 +49,10 @@ def load_gitbook(root_url: str) -> list[Document]:
 
 def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
     """
-    Prepare docs for vectorstore creation
+    Prepare docs for vectorstore creation. Specifically, split into snippets and
+    group duplicates together. Returns a list of snippets (each is a Document).
+
+    It is ok to pass an empty list of docs.
     """
     clg = ConditionalLogger(verbose)
 
@@ -89,17 +92,27 @@ def ingest_docs_into_chroma_client(
     docs: list[Document],
     collection_name: str,
     chroma_client: Chroma,
+    collection_metadata: dict | None = None,
     verbose: bool = False,
 ) -> ChromaDDG:
     """
     Ingest a list of documents and return a vectorstore.
+
+    If collection_metadata is passed and the collection exists, the metadata will be
+    replaced with the passed metadata, according to the Chroma docs.
     """
+    # NOTE: it looks like this appends to the existing collection if it exists
+    # (we use it in ingest_local_docs.py for both creating a new collection and
+    # adding to an existing one). But I am still not 100% sure if the returned vectorstore
+    # incorporates the existing docs (I think it does, but I need to double check).
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
         embedding=OpenAIEmbeddingsDDG(),
         client=chroma_client,
         collection_name=collection_name,
+        collection_metadata=collection_metadata,
     )
+    chroma_client.persist() # NOTE: won't be needed when we are able to use v >= 0.4.0
     if verbose:
         print(f"Ingested documents into collection {collection_name}")
     return vectorstore

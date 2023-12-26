@@ -33,7 +33,6 @@ chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI wh
 
 END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
 Use them for your response ONLY if relevant."""
-
 CHAT_WITH_DOCS_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", chat_with_docs_system_template),
@@ -69,29 +68,6 @@ YOUR TASK: print any quotes from your knowledge base relevant to user's query, i
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
 
-simple_websearcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
-
-RAW GOOGLE SEARCH RESULTS:
-
-{results}
-
-USER SEARCHED FOR: {query}
-
-YOUR RESPONSE: """
-SIMPLE_WEBSEARCHER_PROMPT = PromptTemplate.from_template(simple_websearcher_template)
-
-websearcher_template0 = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
-
-{texts_str}
-
-END OF RETRIEVED INFO
-
-USER'S QUERY: {query}
-
-YOUR TASK: throw out irrelevant info and write a LONG well-crafted, well-formatted report to help the user and present the info in a digestible way.
-
-YOUR RESPONSE: """
-
 websearcher_template_gpt_researcher = (
     'Information: """{texts_str}"""\n\n'
     "Using the above information, answer the following"
@@ -111,52 +87,12 @@ websearcher_template_gpt_researcher = (
     "Assume that the current date is {datetime}"
 )
 
-websearcher_template_short_and_sweet = """<sources>{texts_str}</sources>
+websearcher_template_simple = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 
 <query>{query}</query>
 Write a report, which should be: 1500-2000 words long, in markdown syntax, in apa format. List the references used.
 """
-WEBSEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(
-    websearcher_template_short_and_sweet
-)
-
-websearcher_template_dynamic_report = """<sources>{texts_str}</sources>
-Please extract all information relevant to the following query: 
-<query>{query}</query>
-Write a report in Markdown syntax, which should be: {report_type}. List the references used, with URLs if available.
-"""
-WEBSEARCHER_PROMPT_DYNAMIC_REPORT = PromptTemplate.from_template(
-    websearcher_template_dynamic_report
-)
-
-summarizer_template = """<source>{text}</source>
-Given the following query:
-<query>{query}</query>
-please remove any sections that are completely off-topic to the query. Keep the rest as is.
-
-# Guidelines for what counts as off-topic
-
-Cookie consent messages, ads, and other boilerplate text are off-topic.
-If a section addresses a completely different domain, it is off-topic. Example: query is "atomic physics", but an article is about dog grooming (and it's not used to illustrate a concept in atomic physics).
-
-# Guidelines for what counts as on-topic
-
-A section doesn't have to directly answer the query to be kept: if it is in the same general ballpark or on a related topic, that's good enough.
-
-# Output
-Your entire output should be the original text sans off-topic sections."""
-
-summarizer_template = """ORIGINAL TEXT:
-{text}
-
-END OF ORIGINAL TEXT
-Please reproduce the original text as is with only the following modification:
-- Keep only sections that may in some, even indirect way, be related to the following query: 
-{query}
-
-Your output should be just the modified text, no other info.
-"""
-SUMMARIZER_PROMPT = PromptTemplate.from_template(summarizer_template)
+WEBSEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(websearcher_template_simple)
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
@@ -227,7 +163,26 @@ timestamp: {timestamp}
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
 
-iterative_report_improver_template = """\
+websearcher_template_initial_report0 = """<sources>{texts_str}</sources>
+Please extract all information relevant to the following query: 
+<query>{query}</query>
+Write a report in Markdown syntax, which should be: {report_type}.
+"""
+
+websearcher_template_initial_report = """<sources>{texts_str}</sources>
+The above information has been retrieved from various websites. Please use it to \
+answer the following query: 
+<query>{query}</query>
+Please act as an expert in writing well-researched, clear and highly useful reports/answers. \
+Write your report in Markdown syntax, which should be: {report_type}.
+Please write **only** the report, followed by "REPORT ASSESSMENT: X%, where X is your estimate of how well the information serves USER's information need on a scale from 0% to 100%.
+"""
+
+WEBSEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
+    [("user", websearcher_template_initial_report)]
+)
+
+iterative_report_improver_template0 = """\
 You are AIRIA, Advanced Iterative Report Improvement Assistant. 
 
 USER's query: {query}
@@ -250,8 +205,46 @@ If the new information you retrieved is useful to improve the report to best ser
 
 If the new information isn't useful to improve previous report then don't output a report, simply output "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT: X%", where X is your estimate of how well the previous report serves USER's information need. Output: """
 
-ITERATIVE_REPORT_IMPROVER_PROMPT = PromptTemplate.from_template(
-    iterative_report_improver_template
+iterative_report_improver_template = """\
+You are ARIA, Advanced Report Improvement Assistant. 
+
+For this task, you can use the following information retrieved from the Internet:
+
+{new_info}
+
+END OF RETRIEVED INFORMATION 
+
+Your task: pinpoint areas of improvement in the report/answer prepared in response to the following query:
+
+{query}
+
+END OF QUERY. REPORT/ANSWER TO ANALYZE:
+
+{previous_report}
+
+END OF REPORT
+
+Please decide how specifically the RETRIEVED INFORMATION you were provided at the beginning can address any areas of improvement in the report: additions, corrections, deletions, perhaps even a complete rewrite.
+
+Please write: "ACTION ITEMS FOR IMPROVEMENT:" then provide a numbered list of the individual SOURCEs in the RETRIEVED INFORMATION: first the URL, then specific instructions, in imperative form, for how to use **that particular** URL's CONTENT from above to enhance the report - use word economy, no filler words, and if that particular content is not useful then just write "NOT RELEVANT".
+
+Add one more item in your numbered list - any additional instructions you can think of for improving the report/answer, independent of the RETRIEVED INFORMATION, particularly as related to the overall structure of the report, for example how to rearrange sections, what parts to remove, reword, etc.
+
+After that, write: "NEW REPORT:" and write a new report from scratch in Markdown format, starting with a title. Important: any action items you listed must be **fully** implemented in your report, in which case your report must necessarily be different from the original report. In fact, the new report can be completely different if needed, the only concern is to craft an informative, no-fluff answer to the user's query:
+
+{query}
+
+END OF QUERY. This new report/answer should be: {report_type}.
+
+Finish with: "REPORT ASSESSMENT: X%", where X is your estimate of how well your new report serves user's information need on a scale from 0% to 100%, based on their query. Don't use Markdown here, only for the new report/answer.
+"""
+
+ITERATIVE_REPORT_IMPROVER_PROMPT0 = PromptTemplate.from_template(
+    iterative_report_improver_template0
+)
+
+ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
+    [("user", iterative_report_improver_template)]
 )
 
 if __name__ == "__main__":
@@ -269,7 +262,7 @@ if __name__ == "__main__":
         "ai news": ai_news_1,
     }
 
-    prompts_templates_to_test = [summarizer_template]
+    prompts_templates_to_test = []  # summarizer_template]
 
     query = "ai news"
     NUM_ITERATIONS = 2
@@ -279,9 +272,7 @@ if __name__ == "__main__":
         print("-" * 50)
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
-            chain = get_prompt_llm_chain(
-                prompt, BotSettings(), stream=True
-            )
+            chain = get_prompt_llm_chain(prompt, BotSettings(), stream=True)
             print("Prompt", i)
             try:
                 chain.invoke({"query": query, "text": query_to_context[query]})
