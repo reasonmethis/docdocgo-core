@@ -31,8 +31,7 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
     while True:
         # Print the menu and get the user's choice
         print()
-        choice = get_choice_from_dict_menu(menu_main)
-        if choice == DBCommand.EXIT:
+        if (choice := get_choice_from_dict_menu(menu_main)) == DBCommand.EXIT:
             print("OK, back to the chat.")
             return {"answer": ""}
         elif choice == DBCommand.LIST:

@@ -42,8 +42,7 @@ from utils.type_utils import ChatMode, OperationMode
 
 
 def get_bot_response(chat_state: ChatState):
-    chat_mode = chat_state.chat_mode
-    if chat_mode == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
+    if (chat_mode := chat_state.chat_mode) == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
     elif chat_mode == ChatMode.DETAILS_COMMAND_ID:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)

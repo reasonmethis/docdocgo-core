@@ -256,18 +256,16 @@ class ChatWithDocsChain(Chain):
         get_chat_history = (
             self.format_chat_history or lang_utils.pairwise_chat_history_to_string
         )
-        chat_history_str = get_chat_history(inputs["chat_history"])
-        if chat_history_str:
+        if chat_history_str := get_chat_history(inputs["chat_history"]):
             callbacks = _run_manager.get_child()
             new_question = await self.query_generator_chain.arun(
                 question=question, chat_history=chat_history_str, callbacks=callbacks
             )
         else:
             new_question = question
-        accepts_run_manager = (
+        if accepts_run_manager := (
             "run_manager" in inspect.signature(self._aget_docs).parameters
-        )
-        if accepts_run_manager:
+        ):
             docs = await self._aget_docs(new_question, inputs, run_manager=_run_manager)
         else:
             docs = await self._aget_docs(new_question, inputs)  # type: ignore[call-arg]

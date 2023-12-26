@@ -32,15 +32,14 @@ with st.sidebar:
     with st.expander(
         "OpenAI API Key", expanded=not st.session_state.llm_api_key_ok_status
     ):
-        user_openai_api_key = st.text_input(
+
+        # If the user has entered a non-empty OpenAI API key, use it
+        if user_openai_api_key := st.text_input(
             "OpenAI API Key",
             label_visibility="collapsed",
             key="openai_api_key",
             type="password",
-        )
-
-        # If the user has entered a non-empty OpenAI API key, use it
-        if user_openai_api_key:
+        ):
             # If a non-empty correct unlock pwd was entered, keep using the
             # default key but unlock the full settings
             if user_openai_api_key == os.getenv(
@@ -61,12 +60,11 @@ with st.sidebar:
         if not user_openai_api_key:
             os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key_init_value
 
-        is_community_key = (
+        if is_community_key := (
             st.session_state.openai_api_key_init_value
             and not user_openai_api_key
             and not st.session_state.allow_all_settings_for_default_key
-        )
-        if is_community_key:
+        ):
             "Using the default OpenAI API key (some settings are restricted)"
             "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
         elif not os.getenv("OPENAI_API_KEY"):
