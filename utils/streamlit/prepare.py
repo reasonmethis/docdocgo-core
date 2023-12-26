@@ -4,8 +4,9 @@ import streamlit as st
 
 from components.llm import CallbackHandlerDDGConsole
 from docdocgo import do_intro_tasks
+from utils.chat_state import ChatState
 from utils.streamlit.fix_event_loop import remove_tornado_fix
-from utils.type_utils import ChatState, OperationMode
+from utils.type_utils import OperationMode
 
 
 def prepare_app():
@@ -21,7 +22,7 @@ def prepare_app():
 
     try:
         remove_tornado_fix()  # used to be run on every rerun
-        st.session_state.vectorstore = do_intro_tasks()
+        vectorstore = do_intro_tasks()
     except Exception as e:
         st.error(
             "Apologies, I could not load the vector database. This "
@@ -32,7 +33,7 @@ def prepare_app():
 
     st.session_state.chat_state = ChatState(
         OperationMode.STREAMLIT,
-        vectorstore=st.session_state.vectorstore,
+        vectorstore=vectorstore,
         callbacks=[
             CallbackHandlerDDGConsole(),
             "placeholder for CallbackHandlerDDGStreamlit",

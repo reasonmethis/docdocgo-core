@@ -3,13 +3,15 @@ import os
 import streamlit as st
 
 from components.llm import CallbackHandlerDDGStreamlit
-from docdocgo import get_bot_response
+from docdocgo import get_bot_response, get_source_links
+from utils.chat_state import ChatState
 from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
+from utils.output import format_exception
 from utils.prepare import TEMPERATURE
-from utils.streamlit.helpers import status_config, write_slowly
+from utils.streamlit.helpers import show_sources, status_config, write_slowly
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import ChatState, chat_modes_needing_llm
+from utils.type_utils import chat_modes_needing_llm
 
 # Run just once
 if "chat_state" not in st.session_state:
@@ -47,8 +49,10 @@ with st.sidebar:
                 user_openai_api_key = ""
                 if not st.session_state.allow_all_settings_for_default_key:
                     st.session_state.allow_all_settings_for_default_key = True
-                    st.session_state.llm_api_key_ok_status = True # collapse the key field
-                    st.rerun() # otherwise won't collapse until next interaction
+                    st.session_state.llm_api_key_ok_status = (
+                        True  # collapse the key field
+                    )
+                    st.rerun()  # otherwise won't collapse until next interaction
             else:
                 # Otherwise, use the key entered by the user as the OpenAI API key
                 os.environ["OPENAI_API_KEY"] = user_openai_api_key
@@ -111,12 +115,16 @@ if not chat_state.chat_and_command_history:
             ":red[⮟]:grey[ Tip: See your current **doc collection** in the chat box]"
         )
 
-# Show previous exchanges
-for full_query, answer in chat_state.chat_and_command_history:
+# Show previous exchanges and sources
+for msg_pair, sources in zip(
+    chat_state.chat_and_command_history, chat_state.sources_history
+):
+    full_query, answer = msg_pair
     with st.chat_message("user"):
         st.markdown(full_query)
     with st.chat_message("assistant"):
         st.markdown(answer)
+        show_sources(sources)
 
 # Check if the user has entered a query
 collection_name = chat_state.vectorstore.name
@@ -174,6 +182,10 @@ with st.chat_message("assistant"):
         if chat_mode not in chat_modes_needing_llm:
             write_slowly(message_placeholder, answer)
 
+        # Display sources if present
+        sources = get_source_links(response)
+        show_sources(sources)
+        
         # Display the "complete" status
         if status:
             status.update(
@@ -191,11 +203,14 @@ with st.chat_message("assistant"):
             status.write(status_config[chat_mode]["error.body"])
 
         # Add the error message to the likely incomplete response
-        answer = f"Apologies, an error has occurred:\n```\n{e}\n```"
+        answer = f"Apologies, an error has occurred:\n```\n{format_exception(e)}\n```"
         print(f"{answer}\n{DELIMITER}")
 
         if callback_handler.buffer:
             answer = f"{callback_handler.buffer}\n\n{answer}"
+
+        # Assign sources
+        sources = []
 
         # Display the response with the error message
         message_placeholder.markdown(answer)
@@ -205,13 +220,9 @@ with st.chat_message("assistant"):
             raise e
         st.stop()
     finally:
-        # Update the full chat history
+        # Update the full chat history and sources history
         chat_state.chat_and_command_history.append((full_query, answer))
-
-# Update iterative research data
-if "ws_data" in response:
-    chat_state.ws_data = response["ws_data"]
-# TODO: update in flask app as well
+        chat_state.sources_history.append(sources)
 
 # Update vectorstore if needed
 if "vectorstore" in response:

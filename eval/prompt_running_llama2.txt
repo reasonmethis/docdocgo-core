@@ -1,0 +1,536 @@
+<sources>SOURCE: https://www.makeuseof.com/how-to-download-and-install-llama-2-locally/
+CONTENT:
+Readers like you help support MUO. When you make a purchase using links on our site, we may earn an affiliate commission.
+[Read More.](/page/terms-of-use/)
+Meta released Llama 2 in the summer of 2023. The new version of Llama is fine-tuned with 40% more tokens than the original Llama model, doubling its context length and significantly outperforming other open-sourced models available. The fastest and easiest way to access Llama 2 is via an API through an online platform. However, if you want the best experience, installing and loading Llama 2 directly on your computer is best.
+With that in mind, we've created a step-by-step guide on how to use Text-Generation-WebUI to load a quantized Llama 2 LLM locally on your computer.
+Why Install Llama 2 Locally
+There are many reasons why people choose to run Llama 2 directly. Some do it for privacy concerns, some for customization, and others for offline capabilities. If you're researching, fine-tuning, or integrating Llama 2 for your projects, then accessing Llama 2 via API might not be for you. The point of running an LLM locally on your PC is to reduce reliance on
+[third-party AI tools](https://www.makeuseof.com/best-ai-web-apps/) and use AI anytime, anywhere, without worrying about leaking potentially sensitive data to companies and other organizations.
+With that said, let's begin with the step-by-step guide to installing Llama 2 locally.
+Step 1: Install Visual Studio 2019 Build Tool
+To simplify things, we will use a one-click installer for Text-Generation-WebUI (the program used to load Llama 2 with GUI). However, for this installer to work, you need to download the Visual Studio 2019 Build Tool and install the necessary resources.
+Download:
+[Visual Studio 2019](https://learn.microsoft.com/en-us/visualstudio/releases/2019/release-notes) (Free)
+- Go ahead and download the community edition of the software.
+- Now install Visual Studio 2019, then open the software. Once opened, tick the box on Desktop development with C++ and hit install.
+Now that you have Desktop development with C++ installed, it's time to download the Text-Generation-WebUI one-click installer.
+Step 2: Install Text-Generation-WebUI
+The Text-Generation-WebUI one-click installer is a script that automatically creates the required folders and sets up the Conda environment and all necessary requirements to run an AI model.
+To install the script, download the one-click installer by clicking on Code > Download ZIP.
+Download:
+[Text-Generation-WebUI Installer](https://github.com/oobabooga/text-generation-webui/tree/main) (Free)
+- Once downloaded, extract the ZIP file to your preferred location, then open the extracted folder.
+- Within the folder, scroll down and look for the appropriate start program for your operating system. Run the programs by double-clicking the appropriate script.
+- If you are on Windows, select start_windows batch file
+- for MacOS, select start_macos shell scrip
+- for Linux, start_linux shell script.
+- Your anti-virus might create an alert; this is fine. The prompt is just an
+[antivirus false positive](https://www.makeuseof.com/what-is-antivirus-false-result/)for running a batch file or script. Click on Run anyway.
+- A terminal will open and start the setup. Early on, the setup will pause and ask you what GPU you are using. Select the appropriate type of GPU installed on your computer and hit enter. For those without a dedicated graphics card, select None (I want to run models in CPU mode). Keep in mind that running on CPU mode is much slower when compared to running the model with a dedicated GPU.
+- Once the setup is complete, you can now launch Text-Generation-WebUI locally. You can do so by opening your preferred web browser and entering the provided IP address on the URL.
+- The WebUI is now ready for use.
+However, the program is only a model loader. Let's download Llama 2 for the model loader to launch.
+Step 3: Download the Llama 2 Model
+There are quite a few things to consider when deciding which iteration of Llama 2 you need. These include parameters, quantization, hardware optimization, size, and usage. All of this information will be found denoted in the model's name.
+- Parameters: The number of parameters used to train the model. Bigger parameters make more capable models but at the cost of performance.
+- Usage: Can either be standard or chat. A chat model is optimized to be used as a chatbot like ChatGPT, while the standard is the default model.
+- Hardware Optimization: Refers to what hardware best runs the model. GPTQ means the model is optimized to run on a dedicated GPU, while GGML is optimized to run on a CPU.
+- Quantization: Denotes the precision of weights and activations in a model. For inferencing, a precision of q4 is optimal.
+- Size: Refers to the size of the specific model.
+Note that some models may be arranged differently and may not even have the same types of information displayed. However, this type of naming convention is fairly common in the
+[HuggingFace](https://www.makeuseof.com/what-is-hugging-face-and-what-is-it-used-for/) Model library, so it's still worth understanding.
+In this example, the model can be identified as a medium-sized Llama 2 model trained on 13 billion parameters optimized for chat inferencing using a dedicated CPU.
+For those running on a dedicated GPU, choose a GPTQ model, while for those using a CPU, choose GGML. If you want to chat with the model like you would with ChatGPT, choose chat, but if you want to experiment with the model with its full capabilities, use the standard model. As for parameters, know that using bigger models will provide better results at the expense of performance. I would personally recommend you start with a 7B model. As for quantization, use q4, as it's only for inferencing.
+Download:
+[GGML](https://huggingface.co/localmodels/Llama-2-7B-ggml/tree/main) (Free)
+Download:
+[GPTQ](https://huggingface.co/localmodels/Llama-2-7B-Chat-GPTQ/tree/main) (Free)
+Now that you know what iteration of Llama 2 you need, go ahead and download the model you want.
+In my case, since I'm running this on an ultrabook, I'll be using a GGML model fine-tuned for chat, llama-2-7b-chat-ggmlv3.q4_K_S.bin.
+After the download is finished, place the model in text-generation-webui-main > models.
+Now that you have your model downloaded and placed in the model folder, it's time to configure the model loader.
+Step 4: Configure Text-Generation-WebUI
+Now, let's begin the configuration phase.
+- Once again, open Text-Generation-WebUI by running the start_(your OS) file (see the previous steps above).
+- On the tabs located above the GUI, click Model. Click the refresh button at the model dropdown menu and select your model.
+- Now click on the dropdown menu of the Model loader and select AutoGPTQ for those using a GTPQ model and ctransformers for those using a GGML model. Finally, click on Load to load your model.
+- To use the model, open the Chat tab and start testing the model.
+Congratulations, you've successfully loaded Llama2 on your local computer!
+Try Out Other LLMs
+Now that you know how to run Llama 2 directly on your computer using Text-Generation-WebUI, you should also be able to run other LLMs besides Llama. Just remember the naming conventions of models and that only quantized versions of models (usually q4 precision) can be loaded on regular PCs. Many quantized LLMs are available on HuggingFace. If you want to explore other models, search for TheBloke in HuggingFace's model library, and you should find many models available.
+=====
+
+SOURCE: https://dev.to/nithinibhandari1999/how-to-run-llama-2-on-your-local-computer-42g1
+CONTENT:
+[
+](#introduction)
+Introduction
+LLAMA 2 is a large language model that can generate text, translate languages, and answer your questions in an informative way. In this blog post, I will show you how to run LLAMA 2 on your local computer.
+[
+](#prerequisite)
+Prerequisite:
+- Install anaconda
+- Install Python 11
+[
+](#steps)
+Steps
+[
+](#step-1)
+Step 1:
+1.1: Visit to huggingface.co
+Model Link:
+[https://huggingface.co/meta-llama/Llama-2-7b-hf](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+1.2: Create an account on HuggingFace
+1.3: Request for llama model access
+It may take a day to get access.
+1.4: Go to below link and request llama access
+Link:
+[https://ai.meta.com/resources/models-and-libraries/llama-downloads/](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)
+1.5: As llama 2 is private repo, login by huggingface and generate a token.
+Link:
+[https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+pip install huggingface_hub
+huggingface-cli login
+[
+](#step-2-create-a-conda-environment-and-activate-conda-environment)
+Step 2: Create a conda environment and activate conda environment
+conda create -n py_3_11_lamma2_run python=3.11 -y
+conda activate py_3_11_lamma2_run
+[
+](#step-3-install-library)
+Step 3: Install library
+pip install transformers torch accelerate
+[
+](#step-4-create-a-file-touch-runpy)
+Step 4: Create a file "touch run.py"
+import time
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+timeStart = time.time()
+tokenizer = AutoTokenizer.from_pretrained(
+"meta-llama/Llama-2-7b-chat-hf"
+)
+model = AutoModelForCausalLM.from_pretrained(
+"meta-llama/Llama-2-7b-chat-hf",
+torch_dtype=torch.bfloat16,
+low_cpu_mem_usage=True,
+)
+print("Load model time: ", -timeStart + time.time())
+while(True):
+input_str = input('Enter: ')
+input_token_length = input('Enter length: ')
+if(input_str == 'exit'):
+break
+timeStart = time.time()
+inputs = tokenizer.encode(
+input_str,
+return_tensors="pt"
+)
+outputs = model.generate(
+inputs,
+max_new_tokens=int(input_token_length),
+)
+output_str = tokenizer.decode(outputs[0])
+print(output_str)
+print("Time taken: ", -timeStart + time.time())
+[
+](#step-5-run-python-file)
+Step 5: Run python file
+python run.py
+[
+](#performance)
+Performance:
+I am using a CPU with 20 GB of RAM (4 GB + 16 GB).
+It took 51 seconds to load the model and 227 seconds to generate a response for 250 tokens.
+If you use a GPU, it will take significantly less time.
+On Google Colab, i got 16 second for a response.
+Top comments (4)
+Hi Nitin, Thanks for sharing this when I follow the above steps I am not getting any output after I give the Input String and token length. The code just hangs. I tried this in my MacBook Pro(M2) and also in AMD powered machine with 48 GB RAM with 6 Core processors and Nvidia GPU.
+Can you please advice
+Please try to give less input_token_length that is 1 (1 token).
+And check does it is produce an output.
+If the above step produce output, then try with 10 token.
+And check does it is produce an output.
+Also try to see Task manager, does there are any fluctuation in RAM and SSD usage.
+Please try these and share does it worked or not.
+Can you please share the screenshot
+Try to also change
+torch_dtype=torch.bfloat16,
+to
+torch_dtype=torch.float16,
+=====
+
+SOURCE: https://lachieslifestyle.com/2023/07/29/how-to-install-llama-2/?amp=1
+CONTENT:
+Introduction
+If you’re looking to install LLaMA 2, the next generation of Meta’s open-source large language model, you’ve come to the right place. LLaMA 2 is making significant strides in the field of Artificial Intelligence (AI), revolutionizing various fields, from customer service to content creation.
+This model, available for free for research and commercial use, has been trained on 2 trillion tokens and boasts double the context length of its predecessor, LLaMA 1.
+Its fine-tuned models have been trained on over 1 million human annotations, making it a powerful tool for various AI applications.
+This guide will walk you through the process of installing LLaMA 2 locally, providing a step-by-step approach to help you set up and start using this powerful AI model on your own machine.
+If you’re interested in exploring more about AI models, you might find our posts on
+[ChatGPT-4 Unleashed](https://lachieslifestyle.com/2023/05/06/chat-gpt-4-unleashed/?amp=1) and [How to Install SuperAGI](https://lachieslifestyle.com/2023/06/06/how-to-install-superagi/?amp=1) useful.
+Prerequisites
+Before we install LLaMA 2, ensure that you have Conda installed on your system. We will be using Conda to create a new environment for our installation. We will also be using Text Generation Web UI for the interface for this model. You can follow our instructions to install conda from our
+[GPT-Engineer guide](https://lachieslifestyle.com/2023/06/19/gpt-engineer-install/?amp=1).
+Once Conda is installed, open a Conda terminal and continue following the guide.
+If you have trouble copying and pasting the code, you must enable copy and paste in the properties of the terminal. Once enabled, you can copy and paste the commands from this guide into the terminal by Crtl + Shift + C/V.
+Preparing To Install LLaMA 2
+Step 1: Create a New Conda Environment
+The first step is to create a new Conda environment. You can do this by running the following command in your terminal:
+conda create -n TextGen2 python=3.10.9
+This command creates a new Conda environment named
+TextGen2 with Python version 3.10.9. Once the command executes, you will be prompted to install the package images. Press
+y to proceed.
+Step 2: Activate the New Environment
+After creating the new environment, you need to activate it. This can be done with the following command:
+conda activate TextGen2
+You will know the environment is activated when you see
+TextGen2 in your terminal prompt.
+Step 3: Install PyTorch
+Next, we need to install PyTorch. This can be done with the following command:
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
+This command downloads and installs PyTorch along with torchvision and torchaudio from the specified URL. The installation may take a few minutes.
+Step 4: Clone the Repository
+After installing PyTorch, we must clone the Text Generation Web UI repository. This can be done with the following command:
+git clone https://github.com/oobabooga/text-generation-webui.git
+This command clones the repository into a new folder named
+text-generation-webui.
+Step 5: Change Directory
+Next, change the directory to the newly cloned folder with the following command:
+cd text-generation-webui
+Step 6: Install Python Modules
+Inside the
+text-generation-webui folder, install all the required Python modules with the following command:
+pip install -r requirements.txt
+This command installs all the Python modules listed in the
+requirements.txt file. This process may also take a few minutes.
+Step 7: Start the Server
+Now that all the necessary modules are installed, you can start the server with the following command:
+python server.py
+Once the server is running, you will see a local URL in your terminal. In my case, it is
+[http://127.0.0.1:7860](http://127.0.0.1:7860)
+Step 8: Access the Web UI
+Copy the local URL from your terminal and paste it into your web browser. You should now see the Text Generation Web UI.
+Step 9: Download the Model
+Next, go to the
+[LLaMA 2 70b chat model](https://huggingface.co/TheBloke/Llama-2-70B-chat-GPTQ) on Hugging Face and copy the model URL. Switch back to the Text Generation Web UI, go to the Model tab, and paste the partial URL into the “Download custom model” field in my case, that is, “TheBloke/Llama-2-70B-chat-GPTQ”.
+I use the 70B model, but you can use the 13B or 7B models if your GPU can’t handle that.
+Click “Download” to start the download. This process will take a significant amount of time due to the large file size of the model.
+Step 10: Load the Model
+Once the model is downloaded, click the blue “Reload” button at the top of the Model tab. Find the downloaded model in the list and click “Load”. Make sure to use the Transformers model loader for this process. This process may also take some time.
+Step 11: Configure the Session
+After loading the model, switch to the Session tab and select “Chat” from the Mode dropdown menu. Click “Apply and Restart” to apply the changes.
+Step 12: Configure Parameters
+Switch to the Parameters tab and max out the “New Tokens” field. Set the “Temperature” field to 0. You can adjust these settings later based on your needs.
+Step 13: Test the Model
+Finally, switch back to the Text Generation tab and test the model by typing something into the input field and clicking “Generate”.
+And there you have it! You have successfully installed LLaMA 2 locally. Enjoy exploring the capabilities of this powerful AI model.
+Conclusion
+Congratulations! You have successfully installed LLaMA 2 locally. With this powerful AI model at your disposal, you can now explore various applications, from text generation to AI research. Remember, the power of AI lies not just in its capabilities but also in how we use it.
+So, use LLaMA 2 responsibly, explore its capabilities, and let it assist you in your AI journey.
+Remember, this guide is a comprehensive walkthrough to help you start with LLaMA 2. If you encounter any issues during installation, please seek my help by commenting below or contacting me on my social media.
+If you liked this guide, check out our latest
+[guide on Code Llama](https://lachieslifestyle.com/2023/08/26/install-code-llama/?amp=1), a fine-tuned Llama 2 coding model. It is a close competitor to OpenAI’s GPT-4 coding capabilities.
+For more insights into AI and related technologies, check out our posts on
+[Tortoise Text-to-Speech](https://lachieslifestyle.com/2023/07/07/tortoise-text-to-speech/?amp=1) and [OpenAI ChatGPT Guide](https://lachieslifestyle.com/2023/07/04/openai-chatgpt-guide/?amp=1).
+Really great walk through, easy to follow and work from. Just had a quick question, is there any easy way to benchmark tokens per minute for a given model and respective parameters?
+Thanks for the comment Aidan. I don’t know of an easy way to do this, there may be a tool to test it.
+i cant see the option chat on session
+Once the model has downloaded, press the refresh button and then press the load button. Once the load button has been clicked it can take some time and it will show model loaded in the bottom right. Now the chat option should be available in the session tab.
+I’m installing under Win11. Your install guide is a big help.Steps OK until I attempt to load the model. The loader is unable to find some path : File “C:\Users\timho\miniconda3\envs\TextGen2\lib\pathlib.py”, line 578, in _parse_args
+Erroe msg is: a = os.fspath(a). Any thoughts?
+Hi Tim,
+I am glad the guide has been helpful. In step 2 did you activated the environment with “conda activate TextGen2”. If yes did terminal change from (base) to (TextGen2) ? Each you close the terminal you will have to make sure the environment you want is activated.
+Hope this helps, if you have more questions please ask.
+can i train my model with this uI
+Hi Ano, I am not sure what you mean by ul. You can fine-tune the Llama 2 model.
+Hi,
+I followed all the steps mentioned above. I observe the following error:
+ValueError: Found modules on cpu/disk. Using Exllama backend requires all the modules to be on GPU.You can deactivate exllama backend by setting disable_exllama=True in the quantization config object
+This is most likely caused because your GPU RAM is not enough to handle the model you are running. Try running the Llama-2-7b model.
+=====
+
+SOURCE: https://replicate.com/blog/run-llama-locally
+CONTENT:
+A comprehensive guide to running Llama 2 locally
+Posted
+by
+[@zeke](/zeke)
+We’ve been talking a lot about
+[how to run](https://replicate.com/blog/llama-2-roundup) and [fine-tune Llama 2](https://replicate.com/blog/fine-tune-llama-2) on Replicate. But you can also run Llama locally on your M1/M2 Mac, on Windows, on Linux, or even your phone. The cool thing about running Llama 2 locally is that you don’t even need an internet connection.
+Here’s an example using a locally-running Llama 2 to whip up a website about why llamas are cool:
+It’s only been a couple days since Llama 2 was released, but there are already a handful of techniques for running it locally. In this blog post we’ll cover three open-source tools you can use to run Llama 2 on your own devices:
+- Llama.cpp (Mac/Windows/Linux)
+- Ollama (Mac)
+- MLC LLM (iOS/Android)
+Llama.cpp (Mac/Windows/Linux)
+[Llama.cpp](https://github.com/ggerganov/llama.cpp) is a port of Llama in C/C++, which makes it possible to run Llama 2 locally using 4-bit integer quantization on Macs. However, Llama.cpp also has support for Linux/Windows.
+Here’s a one-liner you can use to install it on your M1/M2 Mac:
+curl -L "https://replicate.fyi/install-llama-cpp" | bash
+Here’s what that one-liner does:
+#!/bin/bash
+# Clone llama.cpp
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+# Build it. `LLAMA_METAL=1` allows the computation to be executed on the GPU
+LLAMA_METAL=1 make
+# Download model
+export MODEL=llama-2-13b-chat.ggmlv3.q4_0.bin
+if [ ! -f models/${MODEL} ]; then
+curl -L "https://huggingface.co/TheBloke/Llama-2-13B-chat-GGML/resolve/main/${MODEL}" -o models/${MODEL}
+fi
+# Set prompt
+PROMPT="Hello! How are you?"
+# Run in interactive mode
+./main -m ./models/llama-2-13b-chat.ggmlv3.q4_0.bin \
+--color \
+--ctx_size 2048 \
+-n -1 \
+-ins -b 256 \
+--top_k 10000 \
+--temp 0.2 \
+--repeat_penalty 1.1 \
+-t 8
+Here’s a one-liner for your intel Mac, or Linux machine. It’s the same as above, but we’re not including the
+LLAMA_METAL=1 flag:
+curl -L "https://replicate.fyi/install-llama-cpp-cpu" | bash
+Here’s a one-liner to run on Windows on
+[WSL](https://learn.microsoft.com/en-us/windows/wsl/about):
+curl -L "https://replicate.fyi/windows-install-llama-cpp" | bash
+Ollama (Mac)
+[Ollama](https://ollama.ai/) is an open-source macOS app (for Apple Silicon) that lets you run, create, and share large language models with a command-line interface. Ollama already has support for Llama 2.
+To use the Ollama CLI, download the macOS app at
+[ollama.ai/download](https://ollama.ai/download). Once you’ve got it installed, you can download Lllama 2 without having to register for an account or join any waiting lists. Run this in your terminal:
+# download the 7B model (3.8 GB)
+ollama pull llama2
+# or the 13B model (7.3 GB)
+ollama pull llama2:13b
+Then you can run the model and chat with it:
+ollama run llama2
+>>> hi
+Hello! How can I help you today?
+Note: Ollama recommends that have at least 8 GB of RAM to run the 3B models, 16 GB to run the 7B models, and 32 GB to run the 13B models.
+MLC LLM (Llama on your phone)
+[MLC LLM](https://github.com/mlc-ai/mlc-llm) is an open-source project that makes it possible to run language models locally on a variety of devices and platforms, including iOS and Android.
+For iPhone users, there’s an
+[MLC chat app](https://apps.apple.com/us/app/mlc-chat/id6448482937) on the App Store. MLC now has support for the 7B, 13B, and 70B versions of Llama 2, but it’s still in beta and not yet on the Apple Store version, so you’ll need to install TestFlight to try it out. Check out out the [instructions for installing the beta version here](https://mlc.ai/mlc-llm/docs/get_started/try_out.html).
+Next steps
+[Follow us on](https://x.com/replicate)
+- We’d love to see what you build.
+[Hop in our Discord and share it with our community.](https://discord.gg/replicate)
+- Replicate lets you run machine learning models in the cloud.
+[Run Llama 2 with an API on Replicate.](https://replicate.com/blog/run-llama-2-with-an-api) [Fine-tune Llama 2 on Replicate](https://replicate.com/blog/fine-tune-llama-2) [What’s the difference between Llama 2 7B, 13B, and 70B?](https://replicate.com/blog/all-the-llamas)
+Happy hacking! 🦙
+=====
+
+SOURCE: https://medium.com/@karankakwani/build-and-run-llama2-llm-locally-a3b393c1570e
+CONTENT:
+Build and run llama2 LLM locally
+P/S: These instructions are tailored for macOS and have been tested on a Mac with an M1 chip.
+In this guide, we’ll walk through the step-by-step process of running the llama2 language model (LLM) locally on your machine.
+llama2 models are a collection of pretrained and fine-tuned large language models (LLMs) ranging in scale from 7 billion to 70 billion parameters. Fine-tuned LLMs, Llama 2-Chat, are optimized for dialogue use cases.
+This guide will cover the installation process and the necessary steps to set up and run the model. Please note that the instructions provided have been tested on a Mac with an M1 chip.
+Prerequisites
+Before we begin, make sure you have the following prerequisites installed on your system:
+1. Python: You’ll need Python 3.8 or higher. You can check your Python version by running the following command in your terminal:
+python3 --version
+Python 3.11 is recommended which can be installed using the below command -
+brew install python@3.11
+2. Git: Ensure you have Git installed. If not, you can install it using a package manager like Homebrew:
+brew install git
+Cloning the llama2 Repository
+1. Open your terminal
+2. Navigate to the directory where you want to clone the llama2 repository.
+Let's call this directory
+llama2
+3. Clone the
+[llama2 repository](https://github.com/facebookresearch/llama) using the following command:
+git clone https://github.com/facebookresearch/llama.git
+4. Clone the
+[llama C++ port repository](https://github.com/ggerganov/llama.cpp)
+git clone https://github.com/ggerganov/llama.cpp.git
+Now, you should have both the repositories in your
+llama2 directory.
+5. Navigate to inside the
+llama.cpp repository and build it by running the
+make command in that directory.
+✗ cd llama.cpp
+✗ make
+Requesting access to Llama Models
+1. Go to the link
+[https://ai.meta.com/resources/models-and-libraries/llama-downloads/](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)
+2. Enter your details in the form as below
+3. You’ll receive an email like below with a unique custom URL to download the models
+4. Navigate to the
+llama repository in the terminal
+cd llama
+5. Run the
+download.sh script to download the models using your custom URL
+/bin/bash ./download.sh
+6. It will prompt you to enter the download URL, enter the custom URL received in email and then select the models you want to download. e.g. if you choose the 7B-chat model, it will get downloaded and be present at
+./llama2/llama/llama-2–7b-chat
+Converting the downloaded model(s)
+1. Navigate to inside the
+llama.cpp repository
+cd llama.cpp
+2. Create a python virtual environment for llama2 using the command below, I'd chosen the name
+llama2 for the virtual environment.
+python3.11 -m venv llama2
+3. Activate the virtual environment
+source llama2/bin/activate
+The activated virtual environment will appear at the beginning in the command line inside parenthesis.
+4. Install all required python dependencies. They are present in the
+requirements.txt
+python3 -m pip install -r requirements.txt
+5. Run the convert command while still in the
+llama.cpp directory to convert the model to f16 format
+python3 convert.py --outfile models/7B/ggml-model-f16.bin --outtype f16 ../../llama2/llama/llama-2-7b-chat --vocab-dir ../../llama2/llama
+--outfile is for specifying the output file name (Don't forget to create the
+7B folder inside
+./llama2/llama.cpp/models directory).
+--outtype is for specifying the output type which is
+f16
+then the downloaded model is specified
+--vocab-dir is for specifying the directory containing
+tokenizer.model file
+It will create a file
+ggml-model-f16.bin which is of the size 13.5 GB.
+6. Next quantize the model to reduce its size
+./quantize ./models/7B/ggml-model-f16.bin ./models/7B/ggml-model-q4_0.bin q4_0
+It will create a quantized model
+ggml-model-q4_0.bin which is of the size 3.8 GB.
+7. All set! Now you can run it and try one of the prompt examples inside the
+.prompts folder.
+./main -m ./models/7B/ggml-model-q4_0.bin -n 1024 --repeat_penalty 1.0 --color -i -r "User:" -f ./prompts/chat-with-bob.txt
+-m for specifying the model file
+-n for specifying the number of tokens
+--color for specifying that input text should be formatted as colored text
+-i for specifying that the program to be run in an interactive mode
+-r "User:": for specifying a marker to indicate user's input in the conversation. In this case, the marker used is "User:"
+-f ./prompts/chat-with-bob.txt: for specifying path to the file (
+chat-with-bob.txt) containing prompts or input for the program
+— — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — — —
+=====
+
+SOURCE: https://medium.com/@tushitdavergtu/how-to-install-llama-2-locally-d3e3c6c8eb4c
+CONTENT:
+How to Install Llama 2 Locally
+After the major release from Meta, you might be wondering how to download models such as 7B, 13B, 7B-chat, and 13B-chat locally in order to experiment and develop use cases. Allow me to guide you through this process and provide a solution:
+Here’s how you can download and utilise these models effectively for your projects:
+Step-1:
+Access a request from Meta Website :
+[https://ai.meta.com/resources/models-and-libraries/llama-downloads/](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)
+and fill this below form:
+Than select a model you want to download :
+Accept the Terms and condition:
+Upon completion of this process, you can expect to receive an email from Meta with the subject line “Get Started with Llama 2.” This email will include the following information:
+- Instructions on how to access and use Llama 2.
+- Tips for making the most out of the platform.
+- Links to additional resources and support for your journey with Llama 2.
+Mail format as follows:
+and the process of downloading:
+Step-2
+Following these steps, establish a folder named “Llama2” on your Desktop or any preferred path within your system. To access this directory via your terminal, utilize the appropriate command. As an example, if the folder is saved on the Desktop, use the terminal to navigate to the directory path as shown below:
+(base) tushitdave@Tushits-MacBook-Air Llama2 %
+Once you’ve reached the desired directory using the terminal, proceed with the following actions:
+Apply the command
+git clone to the two provided repositories from Facebook:
+git clone
+[https://github.com/ggerganov/llama.cpp](https://github.com/ggerganov/llama.cpp)
+git clone
+[https://github.com/facebookresearch/llama](https://github.com/facebookresearch/llama)
+The execution of the above commands will result in the creation of two distinct folders within the primary “Llama2” folder.
+Step-3
+To begin, set up a dedicated environment on your machine. Next, navigate to the “llama.cpp” folder and execute the following command:
+python3 -m pip install -r requirements.txt
+It’s important to ensure that you have Python version 3.9 or higher before running the aforementioned command.
+Once you’ve completed the installation, exit the “llama.cpp” folder within your terminal. Then, access the “llama” folder from the terminal and execute the following:
+sh download.sh
+Remember to input this command exclusively within your terminal. After executing this command, you’ll be prompted to copy a mail link as depicted below:
+By following these steps, you’ll be well on your way to effectively utilizing the Llama environment.
+Make sure to confirm that “wget” and “md5sum” are installed on your machine. If they are not already present, you can easily install them using pip or conda commands.
+After you’ve installed the necessary tools, paste the provided link in your terminal. Once done, the system will prompt you to select a model, presenting you with the following options:
+To select the models you wish to download, enter the appropriate command as shown below:
+wget 7B,13B,70B,7B-chat,13B-chat,70B-chat
+Once you execute this command, the selected models will begin downloading to your machine. After the download completes, you will find the corresponding model files within your llama folder.
+And That’s it :)
+But this is just a part-1. We yet to utilise and convert these downloaded files in required format to to perform various NLP task.
+Note : To save time , you have option to download the pre-trained converted and quantised models from Hugging-face.
+#AI , #LLMs , #Llama2 , #Machine Learning , #Open Source LLMs.
+Cheers !!!
+=====
+
+SOURCE: https://github.com/facebookresearch/llama/issues/764
+CONTENT:
+LLama2 model straight forward steps to run on local machine #764
+Closed
+[ShreeInventive](/ShreeInventive)opened this issue
+Closed
+[
+LLama2 model straight forward steps to run on local machine
+](#top)
+#764
+[ShreeInventive](/ShreeInventive)opened this issue
+Labels
+Improvements or additions to documentation
+[documentation](/facebookresearch/llama/labels/documentation)
+Comments
+[ShreeInventive](/ShreeInventive)changed the title Sep 6, 2023 [albertodepaola](/albertodepaola)added the [documentation](/facebookresearch/llama/labels/documentation) Sep 6, 2023 [albertodepaola](/albertodepaola)self-assigned this Sep 6, 2023
+[agunapal](/agunapal)
+commented
+Sep 6, 2023 [agunapal](/agunapal)commented Sep 6, 2023
+|
+Hi
+[zeelsheladiya](/zeelsheladiya)
+commented
+Sep 7, 2023 [zeelsheladiya](/zeelsheladiya)commented Sep 7, 2023
+|
+Here are the steps to run Llama 2 locally:
+python sample.py -m path/to/model/file
+Let me know if any of these steps need more clarification or if you encounter any issues. The key things are setting up the environment correctly, getting the right model files, and running the sample code to interface with Llama 2 locally.
+[livius2](/livius2)
+commented
+•
+Sep 9, 2023 [livius2](/livius2)commented [•](#issuecomment-1712483345) Sep 9, 2023
+|
+[zeelsheladiya](/zeelsheladiya)
+commented
+Sep 9, 2023 [zeelsheladiya](/zeelsheladiya)commented Sep 9, 2023
+|
+Hi
+The process of running the script step by step that I followed:
+[livius2](/livius2)
+commented
+Sep 9, 2023 [livius2](/livius2)commented Sep 9, 2023
+|
+[zeelsheladiya](/zeelsheladiya)
+commented
+Sep 10, 2023 [zeelsheladiya](/zeelsheladiya)commented Sep 10, 2023
+|
+[albertodepaola](/albertodepaola)
+commented
+Oct 11, 2023 [albertodepaola](/albertodepaola)commented Oct 11, 2023
+|
+This one is solved with the answer from
+[WieMaKa](/WieMaKa)
+commented
+Oct 28, 2023 [WieMaKa](/WieMaKa)commented Oct 28, 2023
+|
+(textgen) maric@MacBook-Pro-7 llama-main % torchrun --nproc_per_node 8 example_chat_completion.py
+[Sign up for free](/join?source=comment-repo)to join this conversation on GitHub. Already have an account? [Sign in to comment](/login?return_to=https%3A%2F%2Fgithub.com%2Ffacebookresearch%2Fllama%2Fissues%2F764)
+Labels
+[documentation](/facebookresearch/llama/labels/documentation)
+As a beginner, this was my first time exploring the Llama2 model, and i have a project idea of chatbot using the LLama 2 model.
+But this has been the most confusing part, that how to run the model locally??
+Why do i need to download an -hf, -ggml model from other user. Why this all is needed.
+For starters I want to get "Hello World" reply from the LLama2 model as response and I don'y want to get into opensource web ui and model to do this thing, when I have LLama2 original model with me officially from meta.
+I have already gone through tons of videos on YouTube and articles, but no one uses the original model by meta, why??
+Please I request someone to give me straight-forward set of steps to get "Hello World" response from the LLama 2 model, using the ORIGINAL LLAMA2 MODEL provided by META and no other models pls.
+or refer something relevant.
+The text was updated successfully, but these errors were encountered:
+=====</sources>
+Please extract all information relevant to the following query: 
+<query>running llama2 locally</query>
+Write a report in Markdown syntax, which should be: step by step guide with code snippets, 1000-1500 words. IMPORTANT: Your content must be based on the above SOURCEs. To avoid plagiarism, include links to each relevant 
+SOURCE in every paragraph that uses it, just like in a Wikipedia article.

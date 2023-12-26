@@ -8,7 +8,7 @@ from utils.prepare import MODEL_NAME, TEMPERATURE
 
 JSONish = dict[str, Any] | list
 PairwiseChatHistory = list[tuple[str, str]]
-Callbacks = list[BaseCallbackHandler] | None
+CallbacksOrNone = list[BaseCallbackHandler] | None
 
 OperationMode = Enum("OperationMode", "CONSOLE STREAMLIT FLASK")
 
@@ -35,35 +35,7 @@ chat_modes_needing_llm = {
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
 }
 
+
 class BotSettings(BaseModel):
     model_name: str = MODEL_NAME
     temperature: float = TEMPERATURE
-
-class ChatState:
-    def __init__(
-        self,
-        operation_mode: OperationMode,
-        chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID,
-        message: str = "",
-        chat_history: PairwiseChatHistory | None = None,
-        chat_and_command_history: PairwiseChatHistory | None = None,
-        search_params: JSONish | None = None,
-        vectorstore: Any = None,
-        ws_data: Any = None,
-        callbacks: Callbacks = None,
-        bot_settings: BotSettings | None = None,
-    ) -> None:
-        self.operation_mode = operation_mode
-        self.chat_mode = chat_mode
-        self.message = message
-        self.chat_history = chat_history or []
-        self.chat_and_command_history = chat_and_command_history or []
-        self.search_params = search_params or {}
-        self.vectorstore = vectorstore
-        self.ws_data = ws_data
-        self.callbacks = callbacks
-        self.bot_settings = bot_settings or BotSettings()
-
-    def update(self, **kwargs: Any) -> None:
-        for k, v in kwargs.items():
-            setattr(self, k, v)

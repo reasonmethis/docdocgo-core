@@ -1,19 +1,21 @@
-import json
 import os
+import random
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Callable
 
 from chromadb import API
 from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
-from pydantic import BaseModel
 
+from agents.websearcher_data import WebsearcherData
+from agents.websearcher_quick import get_websearcher_response_quick
+from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
-from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync, make_sync
+from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma_client
-from utils.helpers import print_no_newline
+from utils.helpers import DELIMITER, print_no_newline
 from utils.lang_utils import (
     get_num_tokens,
     get_num_tokens_in_texts,
@@ -23,167 +25,16 @@ from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
-    WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
-    WEBSEARCHER_PROMPT_SIMPLE,
+    WEBSEARCHER_PROMPT_INITIAL_REPORT,
 )
 from utils.strings import extract_json
-from utils.type_utils import ChatMode, ChatState, OperationMode
+from utils.type_utils import ChatMode, OperationMode
 from utils.web import (
+    LinkData,
     afetch_urls_in_parallel_aiohttp,
     afetch_urls_in_parallel_playwright,
-    get_text_from_html,
-    is_html_text_ok,
-    remove_failed_fetches,
 )
-import secrets
-
-
-def get_related_websearch_queries(message: str):
-    search = GoogleSerperAPIWrapper()
-    search_results = search.results(message)
-    # print("search results:", json.dumps(search_results, indent=4))
-    related_searches = [x["query"] for x in search_results.get("relatedSearches", [])]
-    people_also_ask = [x["question"] for x in search_results.get("peopleAlsoAsk", [])]
-
-    return related_searches, people_also_ask
-
-
-def extract_domain(url: str):
-    try:
-        full_domain = url.split("://")[-1].split("/")[0]  # blah.blah.domain.com
-        return ".".join(full_domain.split(".")[-2:])  # domain.com
-    except Exception:
-        return ""
-
-
-domain_blacklist = ["youtube.com"]
-
-
-def get_links(search_results: list[dict[str, Any]]):
-    # current_links: list[str], new_links: list[str], num_links_to_add: int):
-    links_for_each_query = [
-        [x["link"] for x in search_result["organic"]]
-        for search_result in search_results
-    ]  # [[links for query 1], [links for query 2], ...]
-
-    # NOTE: can ask LLM to decide which links to keep
-    return [
-        link
-        for link in remove_duplicates_keep_order(
-            interleave_iterables(links_for_each_query)
-        )
-        if extract_domain(link) not in domain_blacklist
-    ]
-
-
-def get_websearcher_response_quick(
-    chat_state: ChatState, max_queries: int = 3, max_total_links: int = 9
-):
-    """
-    Perform quick web research on a query, with only one call to the LLM.
-
-    It gets related queries to search for by examining the "related searches" and
-    "people also ask" sections of the Google search results for the query. It then
-    searches for each of these queries on Google, and gets the top links for each
-    query. It then fetches the content from each link, shortens them to fit all
-    texts into one context window, and then sends it to the LLM to generate a report.
-    """
-    message = chat_state.message
-    related_searches, people_also_ask = get_related_websearch_queries(message)
-
-    # Get queries to search for
-    queries = [message] + [
-        query for query in related_searches + people_also_ask if query != message
-    ]
-    queries = queries[:max_queries]
-    print("queries:", queries)
-
-    # Get links
-    search = GoogleSerperAPIWrapper()
-    search_tasks = [search.aresults(query) for query in queries]
-    search_results = gather_tasks_sync(search_tasks)
-    links = get_links(search_results)[:max_total_links]
-    print("links:", links)
-
-    # Get content from links, measuring time taken
-    t_start = datetime.now()
-    print("Fetching content from links...")
-    # htmls = make_sync(afetch_urls_in_parallel_chromium_loader)(links)
-    htmls = make_sync(afetch_urls_in_parallel_playwright)(links)
-    # htmls = make_sync(afetch_urls_in_parallel_html_loader)(links)
-    # htmls = fetch_urls_with_lc_html_loader(links) # takes ~20s, slow
-    t_fetch_end = datetime.now()
-
-    print("Processing content...")
-    texts = [get_text_from_html(html) for html in htmls]
-    ok_texts, ok_links = remove_failed_fetches(texts, links)
-
-    processed_texts, token_counts = limit_tokens_in_texts(
-        ok_texts, max_tot_tokens=int(CONTEXT_LENGTH * 0.5)
-    )
-    processed_texts = [
-        f"SOURCE: {link}\nCONTENT:\n{text}\n====="
-        for text, link in zip(processed_texts, ok_links)
-    ]
-    texts_str = "\n\n".join(processed_texts)
-    t_end = datetime.now()
-
-    print("CONTEXT FOR GENERATING REPORT:\n")
-    print(texts_str + "\n" + "=" * 100 + "\n")
-    print("Original number of links:", len(links))
-    print("Number of links after removing unsuccessfully fetched ones:", len(ok_links))
-    print("Time taken to fetch sites:", t_fetch_end - t_start)
-    print("Time taken to process sites:", t_end - t_fetch_end)
-    print("Number of resulting tokens:", get_num_tokens(texts_str))
-
-    chain = get_prompt_llm_chain(
-        WEBSEARCHER_PROMPT_SIMPLE,
-        llm_settings=chat_state.bot_settings,
-        callbacks=chat_state.callbacks,
-        stream=True,
-    )
-    answer = chain.invoke({"texts_str": texts_str, "query": message})
-    return {"answer": answer}
-
-
-class LinkData(BaseModel):
-    text: str | None = None
-    error: str | None = None
-    num_tokens: int | None = None
-
-    @classmethod
-    def from_html(cls, html: str):
-        if html.startswith("Error: "):
-            return cls(error=html)
-        text = get_text_from_html(html)
-        if is_html_text_ok(text):
-            return cls(text=text)
-        return cls(text=text, error="UNACCEPTABLE_EXTRACTED_TEXT")
-
-
-class WebsearcherData(BaseModel):
-    query: str
-    report: str
-    report_type: str
-    unprocessed_links: list[str]
-    processed_links: list[str]
-    link_data_dict: dict[str, LinkData]
-    num_obtained_unprocessed_links: int = 0
-    num_obtained_unprocessed_ok_links: int = 0
-    evaluation: str | None = None
-    collection_name: str | None = None
-    max_tokens_final_context: int = int(CONTEXT_LENGTH * 0.7)
-
-    @classmethod
-    def from_query(cls, query: str):
-        return cls(
-            query=query,
-            report="",
-            report_type="",
-            unprocessed_links=[],
-            processed_links=[],
-            link_data_dict={},
-        )
+from utils.websearcher_utils import get_links
 
 
 def get_batch_fetcher():
@@ -252,9 +103,64 @@ def get_content_from_urls_with_top_up(
     return link_data_dict
 
 
+REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
+NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
+ACTION_ITEMS_MSG = "ACTION ITEMS FOR IMPROVEMENT:"
+NEW_REPORT_MSG = "NEW REPORT:"
+
+
+def parse_iterative_report(answer: str) -> tuple[str, str | None]:
+    """
+    Parse the answer from an iterative researcher response and return the
+    report and the LLM's assessment of the report.
+    """
+    # Extract and record the report and the LLM's assessment of the report
+    idx_suggestions = answer.find(ACTION_ITEMS_MSG)
+    idx_new_report = answer.find(NEW_REPORT_MSG)
+    idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
+
+    # Determine the start of the report (and end of suggestions if present)
+    if -1 < idx_suggestions < idx_new_report:
+        # SUGGESTIONS and NEW REPORT found
+        idx_start_report = idx_new_report + len(NEW_REPORT_MSG)
+    else:
+        # No suggestions found. Identify the start of the report by "#" if present
+        idx_start_report = answer.find("#")
+        if idx_start_report == -1:
+            # No "#" found, so the report starts at the beginning of the answer
+            idx_start_report = 0
+
+    # Determine the end of the report and the start of the evaluation
+    if idx_assessment == -1:
+        # Something went wrong, we will return evaluation = None
+        idx_end_report = len(answer)
+        evaluation = None
+    else:
+        # Determine which of the two evaluations we got
+        length_diff = len(NO_IMPROVEMENT_MSG) - len(REPORT_ASSESSMENT_MSG)
+        idx_no_improvement = idx_assessment - length_diff
+        if (
+            idx_no_improvement >= 0
+            and answer[
+                idx_no_improvement : idx_no_improvement + len(NO_IMPROVEMENT_MSG)
+            ]
+            == NO_IMPROVEMENT_MSG
+        ):
+            # No improvement string found
+            idx_end_report = idx_no_improvement
+        else:
+            # Improvement
+            idx_end_report = idx_assessment
+        evaluation = answer[idx_end_report:]
+
+    report = answer[idx_start_report:idx_end_report].strip()
+    return report, evaluation
+
+
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 DEFAULT_MAX_TOTAL_LINKS = round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600)
+# TODO: experiment with reducing the number of sources (gpt-3.5 may have trouble with 7)
 
 
 def get_websearcher_response_medium(
@@ -337,11 +243,16 @@ def get_websearcher_response_medium(
         raise ValueError(f"Failed to fetch content from URLs: {e}")
 
     # Initialize data object
-    ws_data = WebsearcherData.from_query(query)
-    ws_data.report_type = report_type
-    ws_data.processed_links = list(link_data_dict.keys())
-    ws_data.unprocessed_links = all_links[len(ws_data.processed_links) :]
-    ws_data.link_data_dict = link_data_dict
+    processed_links = list(link_data_dict.keys())
+    ws_data = WebsearcherData(
+        query=query,
+        generated_queries=queries,
+        report_type=report_type,
+        unprocessed_links=all_links[len(processed_links) :],
+        processed_links=processed_links,
+        link_data_dict=link_data_dict,
+        max_tokens_final_context=max_tokens_final_context,
+    )
 
     # Get a list of acceptably fetched links and their texts
     links = [link for link, data in link_data_dict.items() if not data.error]
@@ -370,21 +281,23 @@ def get_websearcher_response_medium(
 
         print("\nGenerating report...\n")
         chain = get_prompt_llm_chain(
-            WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
+            WEBSEARCHER_PROMPT_INITIAL_REPORT,
+            # WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
             llm_settings=chat_state.bot_settings,
+            print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
             callbacks=chat_state.callbacks,
             stream=True,
         )
-        ws_data.report = chain.invoke(
+        answer = chain.invoke(
             {"texts_str": final_context, "query": query, "report_type": report_type}
         )
-        return {
-            "answer": ws_data.report,
-            "ws_data": ws_data,
-        }
+        ws_data.report, ws_data.evaluation = parse_iterative_report(answer)
+
+        return {"answer": answer, "ws_data": ws_data, "source_links": links}
     except Exception as e:
         texts_str = "\n\n".join(x[:200] for x in texts)
-        raise ValueError(f"Failed to get report: {e}, texts:\n\n{texts_str}")
+        print(f"Failed to get report: {e}, texts:\n\n{texts_str}")
+        raise ValueError(f"Failed to generate report: {e}")
 
 
 SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
@@ -397,15 +310,16 @@ SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
 def get_initial_iterative_researcher_response(
     chat_state: ChatState,
 ) -> WebsearcherData:
-    ws_data = get_websearcher_response_medium(chat_state)["ws_data"]
-    answer = ws_data.report  # TODO consider including report in the db
+    response = get_websearcher_response_medium(chat_state)
+    ws_data: WebsearcherData = response["ws_data"]
 
     # Determine which links to include in the db
     links_to_include = [
         link for link, data in ws_data.link_data_dict.items() if not data.error
     ]
-    if not links_to_include:
-        return ws_data
+    # if not links_to_include:
+    #     return ws_data
+    # NOTE: should work even if there are no links to include, but might want to test
 
     # Decide on the collection name consistent with ChromaDB's naming rules
     query_words = [x.lower() for x in ws_data.query.split()]
@@ -431,33 +345,44 @@ def get_initial_iterative_researcher_response(
     # Check if collection exists, if so, add a number to the end
     chroma_client: API = chat_state.vectorstore._client
     for i in range(2, 1000000):
-        try:
-            chroma_client.get_collection(ws_data.collection_name)
-        except ValueError:
-            break  # collection does not exist
+        if not exists_collection(ws_data.collection_name, chroma_client):
+            break
         ws_data.collection_name = f"{new_coll_name}-{i}"
 
     # Convert website content into documents for ingestion
+    print()  # we just printed the report, so add a newline
     print("Ingesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = ws_data.link_data_dict[link]
-        metadata = {"url": link}
+        metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    try:
-        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
-    except ValueError:
-        # Catching ValueError: Expected collection name ...
-        # Create a random valid collection name and try again
-        ws_data.collection_name = "collection-" + "".join(
-            secrets.SystemRandom().sample("abcdefghijklmnopqrstuvwxyz", 6)
-        )
-        ingest_docs_into_chroma_client(docs, ws_data.collection_name, chroma_client)
-    return {"answer": answer, "ws_data": ws_data}
+    for i in range(2):
+        try:
+            collection_metadata = {"ws_data": ws_data.json()}
+            # NOTE: might want to remove collection_name from collection_metadata
+            # since the user can rename the collection without updating the metadata
+            ingest_docs_into_chroma_client(
+                docs,
+                ws_data.collection_name,
+                chroma_client,
+                collection_metadata=collection_metadata,
+            )
+            break  # success
+        except ValueError:
+            # Catching ValueError for invalid name: Expected collection name ...
+            if i:
+                raise  # tried normal name and random name, give up
+
+            # Create a random valid collection name and try again
+            ws_data.collection_name = "collection-" + "".join(
+                random.sample("abcdefghijklmnopqrstuvwxyz", 6)
+            )
+    return response  # has answer, ws_data
 
 
 NUM_NEW_OK_LINKS_TO_PROCESS = 2
@@ -467,14 +392,21 @@ INIT_BATCH_SIZE = 4
 def get_iterative_researcher_response(
     chat_state: ChatState,
 ) -> WebsearcherData:
-    ws_data: WebsearcherData = chat_state.ws_data
+    if chat_state.message:
+        # No need to get ws_data from the database, since we are starting a new research
+        ws_data = None
+    else:
+        ws_data: WebsearcherData = chat_state.ws_data  # NOTE: might want to convert to
+        # chat_state.get_ws_data() for readability
 
     # Special handling for first iteration
-    if not ws_data.report:
+    if not ws_data or not ws_data.report:
         return get_initial_iterative_researcher_response(chat_state)
 
     t_start = datetime.now()
-
+    print("Current version of report:\n", ws_data.report)
+    print(DELIMITER)
+    print("Processed links:\n- " + "\n- ".join(ws_data.processed_links))
     # Sanity check
     if (
         sum(
@@ -543,6 +475,8 @@ def get_iterative_researcher_response(
 
     # If no links to include, don't submit to LLM
     if not links_to_include:
+        # Save new ws_data in chat_state (which saves it in the database) and return
+        chat_state.save_ws_data(ws_data)
         return {
             "answer": "There are no more usable sources to incorporate into the report",
             "ws_data": ws_data,
@@ -587,54 +521,36 @@ def get_iterative_researcher_response(
             num_tokens_report + num_tokens_final_context,
         )
 
+    # Submit to LLM to generate report
     print("Generating report...\n")
     chain = get_prompt_llm_chain(
         ITERATIVE_REPORT_IMPROVER_PROMPT,
         llm_settings=chat_state.bot_settings,
+        print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
     )
-    answer = chain.invoke(
-        {
-            "new_info": final_context,
-            "query": ws_data.query,
-            "previous_report": ws_data.report,
-        }
-    )
+    inputs = {
+        "new_info": final_context,
+        "query": ws_data.query,
+        "previous_report": ws_data.report,
+    }
+    if "report_type" in ITERATIVE_REPORT_IMPROVER_PROMPT.input_variables:
+        inputs["report_type"] = ws_data.report_type
 
-    # Extract and record treport and the LLM's assessment of the report
-    REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
-    NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
-    length_diff = len(NO_IMPROVEMENT_MSG) - len(REPORT_ASSESSMENT_MSG)
+    answer = chain.invoke(inputs)
 
-    idx_assessment = answer.rfind(REPORT_ASSESSMENT_MSG)
-    if idx_assessment == -1:
-        # Something went wrong, keep the old report
-        print("Something went wrong, keeping the old report")  # NOTE: can remove
-    else:
-        idx_no_improvement = idx_assessment - length_diff
-        if (
-            idx_no_improvement >= 0
-            and answer[
-                idx_no_improvement : idx_no_improvement + len(NO_IMPROVEMENT_MSG)
-            ]
-            == NO_IMPROVEMENT_MSG
-        ):
-            # No improvement, keep the old report, record the LLM's assessment
-            print("No improvement, keeping the old report")  # NOTE: can remove
-            ws_data.evaluation = answer[idx_no_improvement:]
-        else:
-            # Improvement, record the new report and the LLM's assessment
-            ws_data.report = answer
-            ws_data.evaluation = answer[idx_assessment:]
+    # Extract and record the report and the LLM's assessment of the report
+    ws_data.report, ws_data.evaluation = parse_iterative_report(answer)
 
     # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
+    print()  # we just printed the report, so add a newline
     print("Ingesting new documents into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = ws_data.link_data_dict[link]
-        metadata = {"url": link}
+        metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
@@ -644,7 +560,10 @@ def get_iterative_researcher_response(
         docs, ws_data.collection_name, chat_state.vectorstore._client
     )
 
-    return {"answer": answer, "ws_data": ws_data}
+    # Save new ws_data in chat_state (which saves it in the database) and return
+    chat_state.save_ws_data(ws_data)
+    return {"answer": answer, "ws_data": ws_data, "source_links": links_to_include}
+    # NOTE: look into removing ws_data from the response
 
 
 class WebsearcherMode(Enum):

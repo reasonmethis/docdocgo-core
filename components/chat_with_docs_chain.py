@@ -17,7 +17,7 @@ from pydantic import Extra
 
 from utils import lang_utils
 from utils.prepare import CONTEXT_LENGTH
-from utils.type_utils import Callbacks, JSONish, PairwiseChatHistory
+from utils.type_utils import CallbacksOrNone, JSONish, PairwiseChatHistory
 
 
 class ChatWithDocsChain(Chain):
@@ -59,7 +59,7 @@ class ChatWithDocsChain(Chain):
     query_generator_chain: LLMChain
     retriever: BaseRetriever
 
-    callbacks: Callbacks = None  # TODO consider removing
+    callbacks: CallbacksOrNone = None  # TODO consider removing
 
     # Limit for docs + chat (no prompt); must leave room for answer
     max_tokens_limit_qa: int = int(CONTEXT_LENGTH * 0.75)
@@ -131,8 +131,7 @@ class ChatWithDocsChain(Chain):
         callbacks = run_manager.get_child() if run_manager else (self.callbacks or [])
 
         _format_chat_history = (
-            self.format_chat_history
-            or lang_utils.pairwise_chat_history_to_buffer_string
+            self.format_chat_history or lang_utils.pairwise_chat_history_to_string
         )
 
         # Get user's query and chat history from inputs
@@ -255,8 +254,7 @@ class ChatWithDocsChain(Chain):
         _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
         question = inputs["question"]
         get_chat_history = (
-            self.format_chat_history
-            or lang_utils.pairwise_chat_history_to_buffer_string
+            self.format_chat_history or lang_utils.pairwise_chat_history_to_string
         )
         chat_history_str = get_chat_history(inputs["chat_history"])
         if chat_history_str:

@@ -5,19 +5,21 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.chat_models.base import BaseChatModel
 from langchain.prompts.prompt import PromptTemplate
+from langchain.prompts.chat import ChatPromptValue
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.schema import StrOutputParser
 from langchain.schema.output import ChatGenerationChunk, GenerationChunk
 from streamlit.delta_generator import DeltaGenerator
 
-from utils.helpers import MAIN_BOT_PREFIX
+from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
 from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
 )
-from utils.type_utils import BotSettings, Callbacks
+from utils.type_utils import BotSettings, CallbacksOrNone
+from utils.lang_utils import msg_list_chat_history_to_string
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
@@ -58,7 +60,7 @@ class CallbackHandlerDDGConsole(BaseCallbackHandler):
 
 
 def get_llm_with_callbacks(
-    settings: BotSettings, callbacks: Callbacks = None
+    settings: BotSettings, callbacks: CallbacksOrNone = None
 ) -> BaseChatModel:
     """
     Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
@@ -88,7 +90,7 @@ def get_llm_with_callbacks(
 
 def get_llm(
     settings: BotSettings,
-    callbacks: Callbacks = None,
+    callbacks: CallbacksOrNone = None,
     stream=False,
     init_str=MAIN_BOT_PREFIX,
 ) -> BaseChatModel:
@@ -110,7 +112,11 @@ def get_prompt_llm_chain(
         return prompt | get_llm(llm_settings, **kwargs) | StrOutputParser()
 
     def print_and_return(thing):
-        print(f"PROMPT:\n{thing}")
+        if isinstance(thing, ChatPromptValue):
+            print(f"PROMPT:\n{msg_list_chat_history_to_string(thing.messages)}")
+        else:
+            print(f"PROMPT:\n{type(thing)}\n{thing}")
+        print(DELIMITER)
         return thing
 
     return (
