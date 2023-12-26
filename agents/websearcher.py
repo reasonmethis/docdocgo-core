@@ -293,7 +293,7 @@ def get_websearcher_response_medium(
         )
         ws_data.report, ws_data.evaluation = parse_iterative_report(answer)
 
-        return {"answer": answer, "ws_data": ws_data}
+        return {"answer": answer, "ws_data": ws_data, "source_links": links}
     except Exception as e:
         texts_str = "\n\n".join(x[:200] for x in texts)
         print(f"Failed to get report: {e}, texts:\n\n{texts_str}")
@@ -355,7 +355,7 @@ def get_initial_iterative_researcher_response(
     docs: list[Document] = []
     for link in links_to_include:
         link_data = ws_data.link_data_dict[link]
-        metadata = {"url": link}
+        metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
@@ -537,7 +537,7 @@ def get_iterative_researcher_response(
     }
     if "report_type" in ITERATIVE_REPORT_IMPROVER_PROMPT.input_variables:
         inputs["report_type"] = ws_data.report_type
-    
+
     answer = chain.invoke(inputs)
 
     # Extract and record the report and the LLM's assessment of the report
@@ -550,7 +550,7 @@ def get_iterative_researcher_response(
     docs: list[Document] = []
     for link in links_to_include:
         link_data = ws_data.link_data_dict[link]
-        metadata = {"url": link}
+        metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
@@ -562,7 +562,8 @@ def get_iterative_researcher_response(
 
     # Save new ws_data in chat_state (which saves it in the database) and return
     chat_state.save_ws_data(ws_data)
-    return {"answer": answer, "ws_data": ws_data}
+    return {"answer": answer, "ws_data": ws_data, "source_links": links_to_include}
+    # NOTE: look into removing ws_data from the response
 
 
 class WebsearcherMode(Enum):

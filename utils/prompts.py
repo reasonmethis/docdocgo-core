@@ -239,10 +239,6 @@ END OF QUERY. This new report/answer should be: {report_type}.
 Finish with: "REPORT ASSESSMENT: X%", where X is your estimate of how well your new report serves user's information need on a scale from 0% to 100%, based on their query. Don't use Markdown here, only for the new report/answer.
 """
 
-ITERATIVE_REPORT_IMPROVER_PROMPT0 = PromptTemplate.from_template(
-    iterative_report_improver_template0
-)
-
 ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", iterative_report_improver_template)]
 )

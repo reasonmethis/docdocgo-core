@@ -17,6 +17,7 @@ class ChatState:
         chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID,
         message: str = "",
         chat_history: PairwiseChatHistory | None = None,
+        sources_history: list[list[str]] | None = None, 
         chat_and_command_history: PairwiseChatHistory | None = None,
         search_params: JSONish | None = None,
         vectorstore: ChromaDDG | None = None,
@@ -27,6 +28,7 @@ class ChatState:
         self.chat_mode = chat_mode
         self.message = message
         self.chat_history = chat_history or []
+        self.sources_history = sources_history or [] # used only in Streamlit for now
         self.chat_and_command_history = chat_and_command_history or []
         self.search_params = search_params or {}
         self.vectorstore = vectorstore

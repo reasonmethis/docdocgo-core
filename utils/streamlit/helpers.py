@@ -1,5 +1,5 @@
 import time
-
+import streamlit as st
 from utils.type_utils import ChatMode
 
 default_status_config = {
@@ -36,3 +36,11 @@ def write_slowly(message_placeholder, answer):
     for i in range(1, len(answer) + 1):
         message_placeholder.markdown(answer[:i])
         time.sleep(0.005)
+
+def show_sources(sources: list[str]):
+    """Show the sources if present."""
+    if not sources:
+        return
+    with st.expander("Sources"):
+        for source in sources:
+            st.markdown(source)

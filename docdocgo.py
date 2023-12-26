@@ -50,8 +50,8 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif chat_mode == ChatMode.WEB_COMMAND_ID:  # /web command
-        res_from_bot = get_websearcher_response(chat_state)
-        return {"answer": res_from_bot["answer"]}  # remove ws_data
+        return get_websearcher_response(chat_state)
+        # return {"answer": res_from_bot["answer"]}  # remove ws_data
     elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if chat_state.message:
             # Start new research
@@ -110,19 +110,21 @@ def get_bot_response(chat_state: ChatState):
     )
 
 
-def get_source_links(result_from_conv_retr_chain: dict[str, Any]) -> list[str]:
+def get_source_links(result_from_chain: dict[str, Any]) -> list[str]:
     """
-    Return a list of source links from the result of a ConversationalRetrievalChain
+    Return a list of source links from the result of a chat chain.
     """
 
-    source_docs = result_from_conv_retr_chain.get("source_documents", [])
+    source_docs = result_from_chain.get("source_documents", [])
 
-    source_links_with_duplicates = [
+    sources_with_duplicates = [
         doc.metadata["source"] for doc in source_docs if "source" in doc.metadata
     ]
 
+    sources_with_duplicates += result_from_chain.get("source_links", [])
+
     # Remove duplicates while keeping order and return
-    return remove_duplicates_keep_order(source_links_with_duplicates)
+    return remove_duplicates_keep_order(sources_with_duplicates)
 
 
 def get_docs_chat_chain(
