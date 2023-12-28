@@ -1,4 +1,6 @@
 my-chroma*
+.chroma_env
+DOCS-APPENDIX.md
 docs-private
 launch.json
 # Byte-compiled / optimized / DLL files
