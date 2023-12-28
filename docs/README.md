@@ -1,30 +1,44 @@
-
 # DocDocGo
 
 ## Table of Contents
 
 - [Introduction](#introduction)
+- [(Very) Quickstart](#very-quickstart)
+- [Features](#features)
 - [Installation](#installation)
+- [Running DocDocGo](#running-docdocgo)
 - [Ingesting Documents](#ingesting-documents)
-- [Running the Bot](#running-the-bot)
-- [Running the Containerized Application](#running-the-containerized-application)
 - [Response Modes](#response-modes)
 - [Querying based on substrings](#querying-based-on-substrings)
 - [Contributing](#contributing)
+- [Appendix](#appendix)
+  - [Minified Requirements](#minified-requirements)
+  - [Running the Containerized Application](#running-the-containerized-application)
+  - [License](#license)
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents it can also ingest find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents, it can also find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+
+## (Very) Quickstart
+
+You will see more detailed setup instructions below, but here they are in a nutshell:
+
+1. Install requirements with `pip install -r requirements.txt`
+2. Create `.env` using `.env.example`
+3. Run `streamlit run streamlit_app.py`
+
+That's it, happy chatting!
 
 ## Features
 
+- Comes with a Streamlit UI, but can also be run in console mode or as a flask app
 - Provides [several response modes](#response-modes) ("chat", "detailed report", "quotes", "web research", "iterative web research")
 - Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
-- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
 - Allows to create and switch between multiple document collections
 - Automatically ingests content retrieved during web research into a new document collection
 - Provides links to source documents or websites
-- Has been tuned to be resilient to "jail-breaking" (by contrast, in some well-known commercial applications it's possible to access the "internals")
+- Dynamically manages its "memory" allocations for the source documents vs the current conversation, based on the relevance of the documents to the conversation
 
 For reference, DocDocGo Carbon (not available here) has these features:
 
@@ -43,6 +57,8 @@ cd docdocgo-core
 ```
 
 ### 2. Create and activate a virtual environment
+
+First, make sure you are using Python 3.11 or higher. If you prefer using the exact version that the code was developed with, please use Python 3.11.6. Then, create a virtual environment and activate it.
 
 On Windows:
 
@@ -64,6 +80,8 @@ Run:
 pip install -r requirements.txt
 ```
 
+> Note: if you would like to see a "minified" version of the requirements, please see the [Appendix](DOCS-APPENDIX.md#minified-requirements).
+
 It's possible you may get the error message:
 
 ```bash
@@ -80,32 +98,7 @@ cp .env.example .env
 
 At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are.
 
-## Ingesting Documents
-
-> You can skip this section and still try out all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
-
-To ingest your documents and use them when chatting with the bot, follow the steps below.
-
-### 1. Fill in the desired ingestion settings in the `.env` file
-
-Set the following values in the `.env` file:
-
-```bash
-DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
-COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
-```
-
-### 2. Run the ingestion script
-
-To ingest the documents, run:
-
-```bash
-python ingest_local_docs.py
-```
-
-The script will show you the ingestion settings and ask for confirmation before proceeding.
-
-## Running the Bot
+## Running DocDocGo
 
 The easiest way to interact with the bot is to run its web UI:
 
@@ -127,46 +120,30 @@ waitress-serve --listen=0.0.0.0:8000 main:app
 
 We won't cover the details of using the flask server in this README, but the necessary format for requests can be relatively easily gleaned from `main.py`. The server was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
-## Running the Containerized Application
+## Ingesting Documents
 
-DocDocGo is also containerized with Docker. The following steps can be used to run the containerized flask server.
+> You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
 
-### 1. Build the Docker image
+To ingest your documents and use them when chatting with the bot, follow the steps below.
 
-```bash
-docker build -t docdocgo:latest .
-```
+### 1. Fill in the desired ingestion settings in the `.env` file
 
-### 2. Run the Docker container
-
-Run the Docker container and expose port 8000:
+Set the following values in the `.env` file:
 
 ```bash
-docker run --name docdocgo -p 8000:8000 -d -i -t docdocgo:latest /bin/bash
+DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
+COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
 ```
 
-### 3. Open a terminal inside the container
+### 2. Run the ingestion script
+
+To ingest the documents, run:
 
 ```bash
-docker exec -it docdocgo /bin/bash
+python ingest_local_docs.py
 ```
 
-### 4. Start the application
-
-Start the flask server inside the Docker container:
-
-```bash
-waitress-serve --listen=0.0.0.0:8000 main:app
-```
-
-If there are changes to the code or database, you will need to rebuild and rerun the container. Start by stopping and removing the container:
-
-```bash
-docker stop docdocgo
-docker rm docdocgo
-```
-
-After that, follow the above steps to rebuild the container and restart the service.
+The script will show you the ingestion settings and ask for confirmation before proceeding.
 
 ## Response Modes
 
@@ -216,7 +193,68 @@ DocDocGo will only consider document chunks that contain the substring "Christop
 
 Contributions are welcome! If you have any questions or suggestions, please open an issue or a pull request.
 
-## License
+## Appendix
+
+### Minified Requirements
+
+Installing the following packages will also install all of the other requirements:
+
+```bash
+langchain==0.0.352
+chromadb==0.4.21
+openai==1.6.1
+tiktoken==0.5.2
+beautifulsoup4==4.12.2
+trafilatura==1.6.3
+fake-useragent==1.4.0
+python-dotenv==1.0.0
+streamlit==1.29.0
+playwright==1.40.0
+Flask==3.0.0
+```
+
+### Running the Containerized Application
+
+DocDocGo is also containerized with Docker. The following steps can be used to run the containerized flask server.
+
+#### 1. Build the Docker image
+
+```bash
+docker build -t docdocgo:latest .
+```
+
+#### 2. Run the Docker container
+
+Run the Docker container and expose port 8000:
+
+```bash
+docker run --name docdocgo -p 8000:8000 -d -i -t docdocgo:latest /bin/bash
+```
+
+#### 3. Open a terminal inside the container
+
+```bash
+docker exec -it docdocgo /bin/bash
+```
+
+#### 4. Start the application
+
+Start the flask server inside the Docker container:
+
+```bash
+waitress-serve --listen=0.0.0.0:8000 main:app
+```
+
+If there are changes to the code or database, you will need to rebuild and rerun the container. Start by stopping and removing the container:
+
+```bash
+docker stop docdocgo
+docker rm docdocgo
+```
+
+After that, follow the above steps to rebuild the container and restart the service.
+
+### License
 
 MIT License
 

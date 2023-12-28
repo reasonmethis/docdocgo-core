@@ -70,7 +70,7 @@ if __name__ == "__main__":
             clear_directory(VECTORDB_DIR)
             print("Done!")
         else:
-            chroma_client = initialize_client(VECTORDB_DIR)
+            chroma_client = initialize_client()
             collections = chroma_client.list_collections()
             collection_names = [c.name for c in collections]
             if COLLECTON_NAME_FOR_INGESTED_DOCS in collection_names:

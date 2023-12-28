@@ -10,6 +10,10 @@ EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
 
 DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documentation")
+USE_CHROMA_VIA_HTTP = bool(os.getenv("USE_CHROMA_VIA_HTTP"))
+CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
+CHROMA_SERVER_HTTP_PORT = os.getenv("CHROMA_SERVER_HTTP_PORT", "8000")
+CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-1106")
@@ -55,7 +59,7 @@ if not os.getenv("SERPER_API_KEY"):
 
 # Verify the validity of the db path
 if not os.path.isdir(VECTORDB_DIR):
-    try: 
+    try:
         abs_path = os.path.abspath(VECTORDB_DIR)
     except Exception:
         abs_path = "INVALID PATH"
@@ -66,4 +70,3 @@ if not os.path.isdir(VECTORDB_DIR):
         f"The absolute path resolves to: {abs_path}."
     )
     sys.exit()
-        

@@ -37,5 +37,5 @@ chat_modes_needing_llm = {
 
 
 class BotSettings(BaseModel):
-    model_name: str = MODEL_NAME
+    llm_model_name: str = MODEL_NAME
     temperature: float = TEMPERATURE

@@ -112,7 +112,7 @@ def ingest_docs_into_chroma_client(
         collection_name=collection_name,
         collection_metadata=collection_metadata,
     )
-    chroma_client.persist() # NOTE: won't be needed when we are able to use v >= 0.4.0
+    # chroma_client.persist() # NOTE: won't be needed when we are able to use v >= 0.4.0
     if verbose:
         print(f"Ingested documents into collection {collection_name}")
     return vectorstore

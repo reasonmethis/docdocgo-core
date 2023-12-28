@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Callable
 
-from chromadb import API
+from chromadb import ClientAPI
 from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
@@ -343,7 +343,7 @@ def get_initial_iterative_researcher_response(
     ws_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
-    chroma_client: API = chat_state.vectorstore._client
+    chroma_client: ClientAPI = chat_state.vectorstore._client
     for i in range(2, 1000000):
         if not exists_collection(ws_data.collection_name, chroma_client):
             break
@@ -351,7 +351,7 @@ def get_initial_iterative_researcher_response(
 
     # Convert website content into documents for ingestion
     print()  # we just printed the report, so add a newline
-    print("Ingesting fetched content into ChromaDB...")
+    print_no_newline("Ingesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = ws_data.link_data_dict[link]
@@ -373,15 +373,15 @@ def get_initial_iterative_researcher_response(
                 collection_metadata=collection_metadata,
             )
             break  # success
-        except ValueError:
-            # Catching ValueError for invalid name: Expected collection name ...
-            if i:
-                raise  # tried normal name and random name, give up
-
+        except Exception as e: # bad name error may not be ValueError in docker mode
+            if i or "Expected collection name" not in str(e):
+                raise e  # i == 1 means tried normal name and random name, give up
+            
             # Create a random valid collection name and try again
             ws_data.collection_name = "collection-" + "".join(
                 random.sample("abcdefghijklmnopqrstuvwxyz", 6)
             )
+    print("Done!")
     return response  # has answer, ws_data
 
 
