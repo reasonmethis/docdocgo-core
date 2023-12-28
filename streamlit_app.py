@@ -79,7 +79,7 @@ with st.sidebar:
         if is_community_key:
             model_options = model_options[:1]
         # TODO: adjust context length (for now assume 16k)
-        chat_state.bot_settings.model_name = st.selectbox(
+        chat_state.bot_settings.llm_model_name = st.selectbox(
             "Language model", model_options, disabled=is_community_key
         )
 
@@ -185,7 +185,7 @@ with st.chat_message("assistant"):
         # Display sources if present
         sources = get_source_links(response)
         show_sources(sources)
-        
+
         # Display the "complete" status
         if status:
             status.update(

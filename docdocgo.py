@@ -136,7 +136,7 @@ def get_docs_chat_chain(
     """
     # Initialize chain for query generation from chat history
     query_generator_chain = LLMChain(
-        llm=get_llm(chat_state.bot_settings.copy(update={"temperature": 0})),
+        llm=get_llm(chat_state.bot_settings.model_copy(update={"temperature": 0})),
         prompt=CONDENSE_QUESTION_PROMPT,
         verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
     )  # need it to be an object that exposes easy access to the underlying llm
@@ -202,8 +202,11 @@ if __name__ == "__main__":
     chat_history = []
     while True:
         # Print hints and other info
-        print('"/help" for help, "exit" to exit (or just press Enter twice)')
-        print(f"Document collection: {vectorstore.name}\t\tDefault mode: {DEFAULT_MODE}")
+        print(
+            'Type "/help" for help, "exit" to exit (or just press Enter twice)\n'
+            f"Document collection: {vectorstore.name} ({vectorstore.collection.count()} "
+            f"doc chunks)\t\tDefault mode: {DEFAULT_MODE}"
+        )
         print(DELIMITER)
 
         # Get query from user
@@ -229,6 +232,7 @@ if __name__ == "__main__":
                     command_id,
                     query,
                     chat_history,
+                    None,  # sources_history (NOTE: not used in console mode for now)
                     chat_history,  # chat_and_command_history is not used in console mode
                     search_params,
                     vectorstore,  # callbacks and bot_settings can be default here

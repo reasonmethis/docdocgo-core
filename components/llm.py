@@ -4,8 +4,8 @@ from uuid import UUID
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 from langchain.chat_models.base import BaseChatModel
-from langchain.prompts.prompt import PromptTemplate
 from langchain.prompts.chat import ChatPromptValue
+from langchain.prompts.prompt import PromptTemplate
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.schema import StrOutputParser
@@ -13,13 +13,13 @@ from langchain.schema.output import ChatGenerationChunk, GenerationChunk
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
+from utils.lang_utils import msg_list_chat_history_to_string
 from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
 )
 from utils.type_utils import BotSettings, CallbacksOrNone
-from utils.lang_utils import msg_list_chat_history_to_string
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
@@ -78,7 +78,7 @@ def get_llm_with_callbacks(
         )
     else:
         llm = ChatOpenAI(
-            model=settings.model_name,
+            model=settings.llm_model_name,
             temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,

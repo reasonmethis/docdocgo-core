@@ -1,5 +1,7 @@
+.chroma_env
 my-chroma*
 docs-private
+DOCS-APPENDIX.md
 launch.json
 # Byte-compiled / optimized / DLL files
 __pycache__/

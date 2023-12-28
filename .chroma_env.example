@@ -1,0 +1,7 @@
+# You need to use this only if you want to run Chroma in a Docker container
+CHROMA_SERVER_AUTH_CREDENTIALS="" # choose your own
+
+# You don't need to change these
+CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER="chromadb.auth.token.TokenConfigServerAuthCredentialsProvider"
+CHROMA_SERVER_AUTH_PROVIDER="chromadb.auth.token.TokenAuthServerProvider"
+CHROMA_SERVER_AUTH_TOKEN_TRANSPORT_HEADER="X_CHROMA_TOKEN"
