@@ -59,8 +59,7 @@ def limit_number_of_words(text: str, max_words: int) -> tuple[str, int]:
     whitespace from the text.
     """
     parts, whitespaces = split_preserving_whitespace(text)
-    num_words = min(max_words, len(parts))
-    if num_words == 0:
+    if (num_words := min(max_words, len(parts))) == 0:
         return "", 0
     text = (
         "".join(p + w for p, w in zip(parts[: num_words - 1], whitespaces[1:num_words]))
