@@ -183,7 +183,7 @@ def handle_db_command_with_subcommand(
             return format_answer(get_db_not_found_str(value))
 
         vectorstore.delete_collection(value)
-        return format_answer(f"Collection {value} deleted.")
+        return format_answer(f"Collection `{value}` deleted.")
 
     # Should never happen
     raise ValueError(f"Invalid command: {choice}")
