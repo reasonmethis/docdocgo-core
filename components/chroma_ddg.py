@@ -1,6 +1,8 @@
 import os
 from typing import Any
 
+import sys
+sys.modules["google.colab"] = "placeholder"
 from chromadb import ClientAPI, HttpClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
