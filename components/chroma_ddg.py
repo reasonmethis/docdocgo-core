@@ -2,8 +2,13 @@ import os
 from typing import Any
 
 import sys
-sys.modules["google.colab"] = "placeholder"
+sys.modules["sqlite3"] = lambda: None
+sys.modules["sqlite3"].sqlite_version_info = (42, 42, 42)
+
 from chromadb import ClientAPI, HttpClient
+del sys.modules["sqlite3"]
+import sqlite3
+
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
 from langchain.schema import Document
