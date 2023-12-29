@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from chromadb import ClientAPI, HttpClient, PersistentClient
+from chromadb import ClientAPI, HttpClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
 from langchain.schema import Document
@@ -145,6 +145,8 @@ def initialize_client() -> ClientAPI:
     if not isinstance(VECTORDB_DIR, str) or not os.path.isdir(VECTORDB_DIR):
         # NOTE: interestingly, isdir(None) returns True, hence the additional check
         raise ValueError(f"Invalid chromadb path: {VECTORDB_DIR}")
+    
+    from chromadb import PersistentClient # import here to avoid Streamlit import error
     return PersistentClient(VECTORDB_DIR, settings=Settings(anonymized_telemetry=False))
     # return Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=path))
 
