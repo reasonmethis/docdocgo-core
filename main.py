@@ -1,16 +1,20 @@
-""" The flask server that enables API access to DocDocGo.
+""" 
+The flask server that enables API access to DocDocGo.
 NOTE: The logic below needs to be updated to catch up with the latest features in
 docdocgo.py. Specifically, we need to add support for the /db command and the
-/research command. """
+/research command. 
+"""
 import json
 import os
 from collections import defaultdict
 
 from flask import Flask, jsonify, request
 
+from _prepare_env import is_env_loaded
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
+from utils.chat_state import ChatState
 from utils.helpers import DEFAULT_CHAT_MODE, DELIMITER, parse_query
-from utils.type_utils import ChatMode, ChatState, JSONish, OperationMode, PairwiseChatHistory
+from utils.type_utils import ChatMode, JSONish, OperationMode, PairwiseChatHistory
 
 RETRY_COMMAND_ID = 1000  # unique to the flask server
 
@@ -20,6 +24,8 @@ app = Flask(__name__)
 
 prev_input_by_user = defaultdict(dict)
 prev_outputs = defaultdict(dict)
+
+is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 
 def convert_chat_history(
@@ -106,6 +112,8 @@ def chat():
                 chat_mode,
                 message,
                 chat_history,
+                None,  # sources_history (NOTE: not used in flask mode for now)
+                chat_history,  # chat_and_command_history is not used in flask mode
                 search_params,
                 vectorstore,
             )

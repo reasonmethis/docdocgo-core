@@ -1,14 +1,6 @@
 import os
 from typing import Any
-
-import sys
-sys.modules["sqlite3"] = lambda: None
-sys.modules["sqlite3"].sqlite_version_info = (42, 42, 42)
-
-from chromadb import ClientAPI, HttpClient
-del sys.modules["sqlite3"]
-import sqlite3
-
+from chromadb import ClientAPI, HttpClient, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
 from langchain.schema import Document
@@ -153,7 +145,6 @@ def initialize_client() -> ClientAPI:
         # NOTE: interestingly, isdir(None) returns True, hence the additional check
         raise ValueError(f"Invalid chromadb path: {VECTORDB_DIR}")
     
-    from chromadb import PersistentClient # import here to avoid Streamlit import error
     return PersistentClient(VECTORDB_DIR, settings=Settings(anonymized_telemetry=False))
     # return Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=path))
 

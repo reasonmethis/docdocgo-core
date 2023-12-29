@@ -2,6 +2,7 @@ import os
 
 import streamlit as st
 
+from _prepare_env import is_env_loaded
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
@@ -16,6 +17,7 @@ from utils.type_utils import chat_modes_needing_llm
 # Run just once
 if "chat_state" not in st.session_state:
     prepare_app()
+    is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 # For convenience
 chat_state: ChatState = st.session_state.chat_state

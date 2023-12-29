@@ -5,27 +5,41 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+# Import chromadb while making it think sqlite3 has a new enough version.
+# This is necessary because the version of sqlite3 in Streamlit Share is too old.
+# We don't actually use sqlite3 in a Streamlit Share context, because we use HttpClient,
+# so it's fine to use the app there despite ending up with an incompatible sqlite3.
+sys.modules["sqlite3"] = lambda: None
+sys.modules["sqlite3"].sqlite_version_info = (42, 42, 42)
+__import__("chromadb")
+del sys.modules["sqlite3"]
+__import__("sqlite3") # import here because chromadb was supposed to import it
+
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
 
 DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documentation")
-USE_CHROMA_VIA_HTTP = bool(os.getenv("USE_CHROMA_VIA_HTTP"))
+
+if USE_CHROMA_VIA_HTTP := bool(os.getenv("USE_CHROMA_VIA_HTTP")):
+    os.environ["CHROMA_API_IMPL"] = "rest" 
+
+# The following three variables are only used if USE_CHROMA_VIA_HTTP is True
 CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
 CHROMA_SERVER_HTTP_PORT = os.getenv("CHROMA_SERVER_HTTP_PORT", "8000")
 CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
+
+# The following variable is only used if USE_CHROMA_VIA_HTTP is False
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-1106")
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))
-TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
+TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
+
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
 DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 
-
-# def validate_settings():
-#    global DEFAULT_COLLECTION_NAME, VECTORDB_DIR
 
 # Check that the necessary environment variables are set
 if IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME):
@@ -52,7 +66,7 @@ if not os.getenv("SERPER_API_KEY"):
         "that this key will have run out of credits by now. "
         "If the Internet search functionality does not work, please set "
         "the SERPER_API_KEY environment variable to your own Google Serper API key, "
-        "which you can get for free at https://serper.dev. "
+        "which you can get for free, without a credit card, at https://serper.dev. "
     )
     # Set the free key explicitly (there is no payment info associated with this key)
     os.environ["SERPER_API_KEY"] = "71f6d411db55df3ed492bf6da727c4512be35e52"
@@ -70,3 +84,6 @@ if not os.path.isdir(VECTORDB_DIR):
         f"The absolute path resolves to: {abs_path}."
     )
     sys.exit()
+
+
+is_env_loaded = True

@@ -2,14 +2,17 @@ import os
 import sys
 
 from langchain.document_loaders import DirectoryLoader, TextLoader
-from components.chroma_ddg import initialize_client
 
+from _prepare_env import is_env_loaded
+from components.chroma_ddg import initialize_client
 from utils.docgrab import (
     JSONLDocumentLoader,
     create_vectorstore_ram_or_disk,
     ingest_docs_into_chroma_client,
 )
 from utils.helpers import clear_directory, is_directory_empty, print_no_newline
+
+is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 if __name__ == "__main__":
     print("-" * 70 + "\n" + " " * 20 + "Local Document Ingestion\n" + "-" * 70 + "\n")
@@ -84,22 +87,31 @@ if __name__ == "__main__":
                 print()
                 if ans not in {"1", "2"}:
                     sys.exit()
-                if ans == "2":                  
-                    ans = input("Type 'erase' to confirm deleting the existing collection: ")
+                if ans == "2":
+                    ans = input(
+                        "Type 'erase' to confirm deleting the existing collection: "
+                    )
                     if ans != "erase":
                         sys.exit()
-                    print_no_newline(f"Deleting collection {COLLECTON_NAME_FOR_INGESTED_DOCS}...")
+                    print_no_newline(
+                        f"Deleting collection {COLLECTON_NAME_FOR_INGESTED_DOCS}..."
+                    )
                     chroma_client.delete_collection(COLLECTON_NAME_FOR_INGESTED_DOCS)
                     print("Done!\n")
-
 
     # Confirm the ingestion
     print(f"You are about to ingest documents from: {DOCS_TO_INGEST_DIR_OR_FILE}")
     print(f"The vector database directory: {VECTORDB_DIR}")
     print(f"The collection name is: {COLLECTON_NAME_FOR_INGESTED_DOCS}")
-    print(f"Is this a new database? {'Yes' if is_new_db else 'No'}\n")
+    print(f"Is this a new database? {'Yes' if is_new_db else 'No'}")
+    if os.getenv("USE_CHROMA_VIA_HTTP") or os.getenv("CHROMA_API_IMPL"):
+        print(
+            "NOTE: we will disable the USE_CHROMA_VIA_HTTP and "
+            "CHROMA_API_IMPL environment variables since this is a local ingestion."
+        )
+        os.environ["USE_CHROMA_VIA_HTTP"] = os.environ["CHROMA_API_IMPL"] = ""
 
-    print("ATTENTION: This will incur some cost on your OpenAI account.")
+    print("\nATTENTION: This will incur some cost on your OpenAI account.")
 
     if input("Press Enter to proceed. Any non-empty input will cancel the procedure: "):
         print("Ingestion cancelled. Exiting")

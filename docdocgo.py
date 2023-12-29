@@ -4,6 +4,7 @@ from typing import Any
 from langchain.chains import LLMChain
 from langchain.vectorstores.base import VectorStoreRetriever
 
+from _prepare_env import is_env_loaded
 from agents.dbmanager import handle_db_command
 from agents.websearcher import (
     get_iterative_researcher_response,
@@ -272,3 +273,9 @@ if __name__ == "__main__":
         if os.getenv("PRINT_STANDALONE_QUERY") and "generated_question" in response:
             print(f"Standalone query: {response['generated_question']}")
             print(DELIMITER)
+
+# This snippet is merely to make sure that Ruff or other tools don't remove the
+# _prepare_env import above, which is needed to set up the environment variables
+# and do other initialization tasks before other imports are done.
+if not is_env_loaded:
+    raise RuntimeError("This should be unreachable.")
