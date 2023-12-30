@@ -23,6 +23,7 @@ class ChatState:
         vectorstore: ChromaDDG | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
+        user_id: str | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.chat_mode = chat_mode
@@ -34,6 +35,7 @@ class ChatState:
         self.vectorstore = vectorstore
         self.callbacks = callbacks
         self.bot_settings = bot_settings or BotSettings()
+        self.user_id = user_id
 
     def update(self, **kwargs) -> None:
         for k, v in kwargs.items():
@@ -46,7 +48,7 @@ class ChatState:
         if self.vectorstore is None:
             raise ValueError("No vectorstore selected")
         coll_metadata = self.vectorstore.get_collection_metadata() or {}
-        coll_metadata["ws_data"] = ws_data.json()
+        coll_metadata["ws_data"] = ws_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
     @property
@@ -62,4 +64,4 @@ class ChatState:
             ws_data_json = coll_metadata["ws_data"]
         except KeyError:
             return None
-        return WebsearcherData.parse_raw(ws_data_json)
+        return WebsearcherData.model_validate_json(ws_data_json)

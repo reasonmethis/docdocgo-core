@@ -1,8 +1,16 @@
 from enum import Enum
+from typing import Any
+
+from chromadb import Collection
 
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.chat_state import ChatState
-from utils.helpers import DB_COMMAND_HELP_TEMPLATE
+from utils.helpers import (
+    DB_COMMAND_HELP_TEMPLATE,
+    PRIVATE_COLLECTION_FULL_PREFIX_LENGTH,
+    PRIVATE_COLLECTION_PREFIX,
+    PRIVATE_COLLECTION_USER_ID_LENGTH,
+)
 from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.type_utils import JSONish, OperationMode
@@ -24,9 +32,77 @@ db_command_to_enum = {
 }
 
 
+def get_user_facing_collection_name(collection_name: str) -> str:
+    """
+    Get the user-facing name of a collection by removing the internal prefix
+    containing the user ID, if any.
+    """
+    return (
+        collection_name[PRIVATE_COLLECTION_FULL_PREFIX_LENGTH:]
+        if collection_name.startswith(PRIVATE_COLLECTION_PREFIX)
+        else collection_name
+    )
+
+
+def construct_full_collection_name(user_id: str | None, collection_name: str) -> str:
+    """
+    Construct the full collection name from the user ID and the user-facing name.
+    """
+    return (
+        PRIVATE_COLLECTION_PREFIX
+        + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+        + collection_name
+        if user_id
+        else collection_name
+    )
+
+
+def is_user_authorized_for_collection(user_id: str | None, coll_name_full: str) -> bool:
+    """
+    Check if the user is authorized to access the given collection.
+    """
+    if not user_id:
+        return not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX)
+    return coll_name_full == DEFAULT_COLLECTION_NAME or coll_name_full.startswith(
+        PRIVATE_COLLECTION_PREFIX + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+    )
+
+
+def get_collections(
+    vectorstore: ChromaDDG, user_id: str | None, include_default_collection=True
+) -> list[Collection]:
+    """
+    Get the collections for the given user
+    """
+    collections = vectorstore.client.list_collections()
+    if not user_id:
+        # Return only public collections
+        return [
+            c for c in collections if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
+        ]
+
+    if len(user_id) < PRIVATE_COLLECTION_USER_ID_LENGTH:
+        raise ValueError(f"Invalid user_id: {user_id}")
+
+    # User's collections are prefixed with:
+    prefix = PRIVATE_COLLECTION_PREFIX + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+
+    if not include_default_collection:
+        # Return only the user's collections
+        return [c for c in collections if c.name.startswith(prefix)]
+
+    # Return the user's collections and the default collection
+    return [
+        c
+        for c in collections
+        if c.name.startswith(prefix) or c.name == DEFAULT_COLLECTION_NAME
+    ]
+
+
 def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
     """
-    Manage collections from the console (using `input`)
+    Manage collections from the console (using `input`).
+    NOTE: In console mode, there's no separation of users.
     """
     while True:
         # Print the menu and get the user's choice
@@ -78,7 +154,7 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
             return {
                 "answer": "",
                 "vectorstore": load_vectorstore(new_name, vectorstore._client),
-            } # NOTE: can likely just return vectorstore without reinitializing
+            }  # NOTE: can likely just return vectorstore without reinitializing
         elif choice == DBCommand.DELETE:
             collections = vectorstore._client.list_collections()
             collection_names = [collection.name for collection in collections]
@@ -112,13 +188,14 @@ def format_answer(answer):
 
 
 def handle_db_command_with_subcommand(
-    vectorstore: ChromaDDG, choice: DBCommand, value: str
-) -> JSONish:
-    collections = vectorstore._client.list_collections()
-    collection_names = [c.name for c in collections]
+    vectorstore: ChromaDDG, choice: DBCommand, value: str, user_id: str | None
+) -> dict[str, Any]:
+    collections = get_collections(vectorstore, user_id)
+    coll_names_full = [c.name for c in collections]
+    coll_names_as_shown = list(map(get_user_facing_collection_name, coll_names_full))
 
     def get_available_dbs_str() -> str:
-        tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(collection_names)])
+        tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(coll_names_as_shown)])
         return f"Available collections:\n\n{tmp}"
 
     def get_db_not_found_str(name: str) -> str:
@@ -136,17 +213,21 @@ def handle_db_command_with_subcommand(
                 "```\n/db use 3\n```"
             )
 
-        if value not in collection_names:
+        # Get the index of the collection to switch to
+        try:
+            idx = coll_names_as_shown.index(value)
+        except ValueError:
             try:
+                # See if the user provided an index directly instead of a name
                 idx = int(value) - 1
-                if idx < 0:
+                if idx < 0 or idx >= len(coll_names_as_shown):
                     raise ValueError
-                value = collection_names[idx]
-            except (ValueError, IndexError):
+                value = coll_names_as_shown[idx]
+            except ValueError:
                 return format_answer(get_db_not_found_str(value))
 
-        return format_answer(f"Switched to collection: `{value}`") | {
-            "vectorstore": load_vectorstore(value, vectorstore._client),
+        return format_answer(f"Switched to collection: `{value}`.") | {
+            "vectorstore": load_vectorstore(coll_names_full[idx], vectorstore.client),
         }
 
     if choice == DBCommand.RENAME:
@@ -157,14 +238,21 @@ def handle_db_command_with_subcommand(
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
+        if value == DEFAULT_COLLECTION_NAME:
+            return format_answer("You cannot rename a collection to the default name.")
+        if not user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
+            return format_answer(
+                f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
+            )
 
+        new_full_name = construct_full_collection_name(user_id, value)
         try:
-            vectorstore.rename_collection(value)
+            vectorstore.rename_collection(new_full_name)
         except Exception as e:
             return format_answer(f"Error renaming collection:\n```\n{e}\n```")
 
         return format_answer(f"Collection renamed to: {value}") | {
-            "vectorstore": load_vectorstore(value, vectorstore._client),
+            "vectorstore": load_vectorstore(new_full_name, vectorstore.client),
         }
 
     if choice == DBCommand.DELETE:
@@ -177,13 +265,30 @@ def handle_db_command_with_subcommand(
             )
         if value == DEFAULT_COLLECTION_NAME:
             return format_answer("You cannot delete the default collection.")
-        if value == vectorstore.name:
-            return format_answer("You cannot delete the currently selected collection.")
-        if value not in collection_names:
+
+        curr_coll_name_as_shown = get_user_facing_collection_name(vectorstore.name)
+        if value == "-c" or value == "--current":
+            value = curr_coll_name_as_shown
+
+        # Get the full name of the collection to delete
+        try:
+            full_name = coll_names_full[coll_names_as_shown.index(value)]
+        except ValueError:
             return format_answer(get_db_not_found_str(value))
 
-        vectorstore.delete_collection(value)
-        return format_answer(f"Collection `{value}` deleted.")
+        # Delete the collection
+        vectorstore.delete_collection(full_name)
+
+        # Form answer, and - if the current collection was deleted - indicate a switch
+        ans = format_answer(f"Collection `{value}` deleted.")
+        if full_name == vectorstore.name:
+            ans |= {
+                "vectorstore": load_vectorstore(
+                    DEFAULT_COLLECTION_NAME, vectorstore.client
+                )
+            }
+
+        return ans
 
     # Should never happen
     raise ValueError(f"Invalid command: {choice}")
@@ -247,4 +352,6 @@ def handle_db_command(chat_state: ChatState) -> JSONish:
     value = words[1] if len(words) > 1 else ""
 
     # Handle the command
-    return handle_db_command_with_subcommand(vectorstore, choice, value)
+    return handle_db_command_with_subcommand(
+        vectorstore, choice, value, chat_state.user_id
+    )

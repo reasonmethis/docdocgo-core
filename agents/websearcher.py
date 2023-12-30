@@ -8,6 +8,7 @@ from chromadb import ClientAPI
 from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
+from agents.dbmanager import construct_full_collection_name
 from agents.websearcher_data import WebsearcherData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.chroma_ddg import exists_collection
@@ -336,8 +337,10 @@ def get_initial_iterative_researcher_response(
     words = words_excluding_small if len(words_excluding_small) > 2 else words
 
     new_coll_name = "-".join(words[:3])[:35].rstrip("-")
+    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
     if len(new_coll_name) < 3:
+        # Can only happen for a public collection (no prefixed user_id)
         new_coll_name = f"collection-{new_coll_name}".rstrip("-")
 
     ws_data.collection_name = new_coll_name
@@ -373,13 +376,14 @@ def get_initial_iterative_researcher_response(
                 collection_metadata=collection_metadata,
             )
             break  # success
-        except Exception as e: # bad name error may not be ValueError in docker mode
+        except Exception as e:  # bad name error may not be ValueError in docker mode
             if i or "Expected collection name" not in str(e):
                 raise e  # i == 1 means tried normal name and random name, give up
-            
+
             # Create a random valid collection name and try again
-            ws_data.collection_name = "collection-" + "".join(
-                random.sample("abcdefghijklmnopqrstuvwxyz", 6)
+            ws_data.collection_name = construct_full_collection_name(
+                chat_state.user_id,
+                "collection-" + "".join(random.sample("abcdefghijklmnopqrstuvwxyz", 6)),
             )
     print("Done!")
     return response  # has answer, ws_data

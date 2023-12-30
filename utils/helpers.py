@@ -15,6 +15,17 @@ INTRO_ASCII_ART = """\
 
 MAIN_BOT_PREFIX = "DocDocGo: "
 
+PRIVATE_COLLECTION_PREFIX = "u-"
+PRIVATE_COLLECTION_USER_ID_LENGTH = 6
+
+# The length of the prefix + the user ID (pre-calculated for efficiency)
+PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
+    len(PRIVATE_COLLECTION_PREFIX) + PRIVATE_COLLECTION_USER_ID_LENGTH
+)
+
+# If bot tries to create a community collection with the above prefix, use:
+SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"
+
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
     "/docs": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,

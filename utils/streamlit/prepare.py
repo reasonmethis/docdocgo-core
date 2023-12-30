@@ -10,7 +10,7 @@ from utils.type_utils import OperationMode
 
 
 def prepare_app():
-    st.session_state.openai_api_key_init_value = os.getenv("OPENAI_API_KEY", "")
+    st.session_state.default_openai_api_key = os.getenv("OPENAI_API_KEY", "")
 
     # Usually start with settings restrictions, user can unlock by entering pwd or OpenAI key
     st.session_state.allow_all_settings_for_default_key = bool(
@@ -27,7 +27,7 @@ def prepare_app():
         st.error(
             "Apologies, I could not load the vector database. This "
             "could be due to a misconfiguration of the environment variables "
-            f"or missing file. The error reads: \n\n{e}"
+            f"or missing files. The error reads: \n\n{e}"
         )
         st.stop()
 

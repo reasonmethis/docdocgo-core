@@ -37,7 +37,7 @@ def write_slowly(message_placeholder, answer):
         message_placeholder.markdown(answer[:i])
         time.sleep(0.005)
 
-def show_sources(sources: list[str]):
+def show_sources(sources: list[str] | None):
     """Show the sources if present."""
     if not sources:
         return

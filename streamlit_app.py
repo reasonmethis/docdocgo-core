@@ -3,12 +3,17 @@ import os
 import streamlit as st
 
 from _prepare_env import is_env_loaded
+from agents.dbmanager import (
+    get_user_facing_collection_name,
+    is_user_authorized_for_collection,
+)
+from components.chroma_ddg import load_vectorstore
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
 from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
 from utils.output import format_exception
-from utils.prepare import TEMPERATURE
+from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
 from utils.streamlit.helpers import show_sources, status_config, write_slowly
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
@@ -19,7 +24,6 @@ if "chat_state" not in st.session_state:
     prepare_app()
     is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
-# For convenience
 chat_state: ChatState = st.session_state.chat_state
 
 # Page config
@@ -51,9 +55,7 @@ with st.sidebar:
                 user_openai_api_key = ""
                 if not st.session_state.allow_all_settings_for_default_key:
                     st.session_state.allow_all_settings_for_default_key = True
-                    st.session_state.llm_api_key_ok_status = (
-                        True  # collapse the key field
-                    )
+                    st.session_state.llm_api_key_ok_status = True  # collapse key field
                     st.rerun()  # otherwise won't collapse until next interaction
             else:
                 # Otherwise, use the key entered by the user as the OpenAI API key
@@ -61,19 +63,39 @@ with st.sidebar:
 
         # If the user has not entered a key (or entered the unlock pwd) use the default
         if not user_openai_api_key:
-            os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key_init_value
+            os.environ["OPENAI_API_KEY"] = st.session_state.default_openai_api_key
 
         is_community_key = (
-            st.session_state.openai_api_key_init_value
+            st.session_state.default_openai_api_key
             and not user_openai_api_key
             and not st.session_state.allow_all_settings_for_default_key
         )
         if is_community_key:
-            "Using the default OpenAI API key (some settings are restricted)"
+            st.caption(
+                "Using the default OpenAI API key (some settings are restricted, "
+                "your collections are public)."
+            )
             "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
-        elif not os.getenv("OPENAI_API_KEY"):
-            "To use this app, you'll need an OpenAI API key."
+            chat_state.user_id = None
+        elif not (tmp := os.getenv("OPENAI_API_KEY")):
+            st.caption("To use this app, you'll need an OpenAI API key.")
             "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+            chat_state.user_id = None
+        else:
+            # User is using their own key (or has unlocked the default key)
+            chat_state.user_id = tmp
+
+        # If current user isn't authorized to use current collection, load default
+        if not is_user_authorized_for_collection(
+            chat_state.user_id, chat_state.vectorstore.name
+        ):
+            chat_state.vectorstore = load_vectorstore(
+                DEFAULT_COLLECTION_NAME, chat_state.vectorstore.client
+            )
+            chat_state.chat_and_command_history.append(
+                (None, "The user has changed, so I switched to the default collection.")
+            )
+            chat_state.sources_history.append(None)  # keep the lengths in sync
 
     # Settings
     with st.expander("Settings", expanded=False):
@@ -122,15 +144,18 @@ for msg_pair, sources in zip(
     chat_state.chat_and_command_history, chat_state.sources_history
 ):
     full_query, answer = msg_pair
-    with st.chat_message("user"):
-        st.markdown(full_query)
-    with st.chat_message("assistant"):
-        st.markdown(answer)
-        show_sources(sources)
+    if full_query is not None:
+        with st.chat_message("user"):
+            st.markdown(full_query)
+    if answer is not None or sources is not None:
+        with st.chat_message("assistant"):
+            st.markdown(answer)
+            show_sources(sources)
 
 # Check if the user has entered a query
-collection_name = chat_state.vectorstore.name
-full_query = st.chat_input(f"{limit_number_of_characters(collection_name, 35)}/")
+coll_name_full = chat_state.vectorstore.name
+coll_name_as_shown = get_user_facing_collection_name(coll_name_full)
+full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not (full_query):
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_and_command_history and os.getenv(
@@ -185,7 +210,7 @@ with st.chat_message("assistant"):
             write_slowly(message_placeholder, answer)
 
         # Display sources if present
-        sources = get_source_links(response)
+        sources = get_source_links(response) or None  # Cheaper to store None than []
         show_sources(sources)
 
         # Display the "complete" status
@@ -212,7 +237,7 @@ with st.chat_message("assistant"):
             answer = f"{callback_handler.buffer}\n\n{answer}"
 
         # Assign sources
-        sources = []
+        sources = None
 
         # Display the response with the error message
         message_placeholder.markdown(answer)
@@ -240,5 +265,5 @@ if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
     st.rerun()
 
 # If the user has switched to a different db, rerun to display the new db name
-if collection_name != chat_state.vectorstore.name:
+if coll_name_full != chat_state.vectorstore.name:
     st.rerun()

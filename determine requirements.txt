@@ -1,1 +1,0 @@
-pip install langchain chromadb openai tiktoken beautifulsoup4 trafilatura fake-useragent python-dotenv streamlit playwright Flask

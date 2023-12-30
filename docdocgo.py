@@ -124,6 +124,10 @@ def get_source_links(result_from_chain: dict[str, Any]) -> list[str]:
 
     sources_with_duplicates += result_from_chain.get("source_links", [])
 
+    # For performance
+    if not sources_with_duplicates:
+        return sources_with_duplicates # return empty list
+
     # Remove duplicates while keeping order and return
     return remove_duplicates_keep_order(sources_with_duplicates)
 
