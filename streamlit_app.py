@@ -230,16 +230,30 @@ with st.chat_message("assistant"):
             status.write(status_config[chat_mode]["error.body"])
 
         # Add the error message to the likely incomplete response
-        answer = f"Apologies, an error has occurred:\n```\n{format_exception(e)}\n```"
-        print(f"{answer}\n{DELIMITER}")
+        err_msg = format_exception(e)
+        answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
 
-        if callback_handler.buffer:
+        is_openai_api_key_error = (
+            err_msg.startswith("AuthenticationError")
+            and "key at https://platform.openai" in err_msg
+        )
+
+        if is_openai_api_key_error:
+            if is_community_key:
+                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{os.getenv('OPENAI_API_KEY', '')[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+            elif tmp := os.getenv("OPENAI_API_KEY"):
+                answer = f"Apologies, the OpenAI API key you entered ({tmp[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+            else:
+                answer = "In order to use DocDocGo, you'll need an OpenAI API key. Please get one at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+
+        elif callback_handler.buffer:
             answer = f"{callback_handler.buffer}\n\n{answer}"
 
         # Assign sources
         sources = None
 
         # Display the response with the error message
+        print(f"{answer}\n{DELIMITER}")
         message_placeholder.markdown(answer)
 
         # Stop this run
