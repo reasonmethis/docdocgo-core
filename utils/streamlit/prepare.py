@@ -5,13 +5,12 @@ import streamlit as st
 from components.llm import CallbackHandlerDDGConsole
 from docdocgo import do_intro_tasks
 from utils.chat_state import ChatState
+from utils.prepare import DUMMY_OPENAI_API_KEY_PLACEHOLDER
 from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.type_utils import OperationMode
 
 
 def prepare_app():
-    st.session_state.default_openai_api_key = os.getenv("OPENAI_API_KEY", "")
-
     # Usually start with settings restrictions, user can unlock by entering pwd or OpenAI key
     st.session_state.allow_all_settings_for_default_key = bool(
         os.getenv("BYPASS_SETTINGS_RESTRICTIONS")
@@ -22,7 +21,7 @@ def prepare_app():
 
     try:
         remove_tornado_fix()  # used to be run on every rerun
-        vectorstore = do_intro_tasks()
+        vectorstore = do_intro_tasks(os.getenv("DEFAULT_OPENAI_API_KEY"))
     except Exception as e:
         st.error(
             "Apologies, I could not load the vector database. This "
@@ -38,4 +37,9 @@ def prepare_app():
             CallbackHandlerDDGConsole(),
             "placeholder for CallbackHandlerDDGStreamlit",
         ],
+        openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY") ,
     )
+
+    st.session_state.default_openai_api_key = os.getenv("DEFAULT_OPENAI_API_KEY", "")
+    if st.session_state.default_openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
+        st.session_state.default_openai_api_key = ""

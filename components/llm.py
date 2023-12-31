@@ -60,7 +60,7 @@ class CallbackHandlerDDGConsole(BaseCallbackHandler):
 
 
 def get_llm_with_callbacks(
-    settings: BotSettings, callbacks: CallbacksOrNone = None
+    settings: BotSettings, api_key: str | None = None, callbacks: CallbacksOrNone = None
 ) -> BaseChatModel:
     """
     Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
@@ -78,6 +78,7 @@ def get_llm_with_callbacks(
         )
     else:
         llm = ChatOpenAI(
+            api_key=api_key or "", # don't allow None, no implicit key from env
             model=settings.llm_model_name,
             temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
@@ -90,6 +91,7 @@ def get_llm_with_callbacks(
 
 def get_llm(
     settings: BotSettings,
+    api_key: str | None = None,
     callbacks: CallbacksOrNone = None,
     stream=False,
     init_str=MAIN_BOT_PREFIX,
@@ -102,14 +104,18 @@ def get_llm(
     """
     if callbacks is None:
         callbacks = [CallbackHandlerDDGConsole(init_str)] if stream else []
-    return get_llm_with_callbacks(settings, callbacks)
+    return get_llm_with_callbacks(settings, api_key, callbacks)
 
 
 def get_prompt_llm_chain(
-    prompt: PromptTemplate, llm_settings: BotSettings, print_prompt=False, **kwargs
+    prompt: PromptTemplate,
+    llm_settings: BotSettings,
+    api_key: str | None = None,
+    print_prompt=False,
+    **kwargs,
 ):
     if not print_prompt:
-        return prompt | get_llm(llm_settings, **kwargs) | StrOutputParser()
+        return prompt | get_llm(llm_settings, api_key, **kwargs) | StrOutputParser()
 
     def print_and_return(thing):
         if isinstance(thing, ChatPromptValue):
@@ -120,7 +126,10 @@ def get_prompt_llm_chain(
         return thing
 
     return (
-        prompt | print_and_return | get_llm(llm_settings, **kwargs) | StrOutputParser()
+        prompt
+        | print_and_return
+        | get_llm(llm_settings, api_key, **kwargs)
+        | StrOutputParser()
     )
 
 

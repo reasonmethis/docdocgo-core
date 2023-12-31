@@ -175,6 +175,7 @@ def get_websearcher_response_medium(
     query_generator_chain = get_prompt_llm_chain(
         QUERY_GENERATOR_PROMPT,
         llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
     )
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
         try:
@@ -285,6 +286,7 @@ def get_websearcher_response_medium(
             WEBSEARCHER_PROMPT_INITIAL_REPORT,
             # WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
             llm_settings=chat_state.bot_settings,
+            api_key=chat_state.openai_api_key,
             print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
             callbacks=chat_state.callbacks,
             stream=True,
@@ -371,8 +373,9 @@ def get_initial_iterative_researcher_response(
             # since the user can rename the collection without updating the metadata
             ingest_docs_into_chroma_client(
                 docs,
-                ws_data.collection_name,
-                chroma_client,
+                collection_name=ws_data.collection_name,
+                openai_api_key=chat_state.openai_api_key,
+                chroma_client=chroma_client,
                 collection_metadata=collection_metadata,
             )
             break  # success
@@ -530,6 +533,7 @@ def get_iterative_researcher_response(
     chain = get_prompt_llm_chain(
         ITERATIVE_REPORT_IMPROVER_PROMPT,
         llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
         print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
@@ -561,7 +565,10 @@ def get_iterative_researcher_response(
 
     # Ingest documents into ChromaDB
     ingest_docs_into_chroma_client(
-        docs, ws_data.collection_name, chat_state.vectorstore._client
+        docs,
+        collection_name=ws_data.collection_name,
+        chroma_client=chat_state.vectorstore.client,
+        openai_api_key=chat_state.openai_api_key,
     )
 
     # Save new ws_data in chat_state (which saves it in the database) and return

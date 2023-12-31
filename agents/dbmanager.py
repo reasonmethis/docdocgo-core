@@ -3,7 +3,7 @@ from typing import Any
 
 from chromadb import Collection
 
-from components.chroma_ddg import ChromaDDG, load_vectorstore
+from components.chroma_ddg import ChromaDDG
 from utils.chat_state import ChatState
 from utils.helpers import (
     DB_COMMAND_HELP_TEMPLATE,
@@ -99,7 +99,7 @@ def get_collections(
     ]
 
 
-def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
+def manage_dbs_console(chat_state: ChatState) -> JSONish:
     """
     Manage collections from the console (using `input`).
     NOTE: In console mode, there's no separation of users.
@@ -112,12 +112,12 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
             print("OK, back to the chat.")
             return {"answer": ""}
         elif choice == DBCommand.LIST:
-            collections = vectorstore._client.list_collections()
+            collections = chat_state.vectorstore.client.list_collections()
             print("\nAvailable collections:")
             for i, collection in enumerate(collections):
                 print(f"{i+1}. {collection.name}")
         elif choice == DBCommand.USE:
-            collections = vectorstore._client.list_collections()
+            collections = chat_state.vectorstore.client.list_collections()
             collection_names = [collection.name for collection in collections]
             print()
             collection_idx = get_menu_choice(
@@ -131,32 +131,30 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
                 print(f"Switching to collection: {collection_name}")
                 return {
                     "answer": "",
-                    "vectorstore": load_vectorstore(
-                        collection_name, vectorstore._client
-                    ),
+                    "vectorstore": chat_state.get_new_vectorstore(collection_name),
                 }
         elif choice == DBCommand.RENAME:
-            if vectorstore.name == DEFAULT_COLLECTION_NAME:
+            if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
                 print("You cannot rename the default collection.")
                 continue
-            print(f"The current collection name is: {vectorstore.name}")
+            print(f"The current collection name is: {chat_state.vectorstore.name}")
             new_name = input(
                 "Enter the new name for this collection (Enter = Cancel): "
             )
             if not new_name:
                 continue
             try:
-                vectorstore.rename_collection(new_name)
+                chat_state.vectorstore.rename_collection(new_name)
             except Exception as e:
                 print(f"Error renaming collection: {e}")
                 continue
             print(f"Collection renamed to: {new_name}")
             return {
                 "answer": "",
-                "vectorstore": load_vectorstore(new_name, vectorstore._client),
+                "vectorstore": chat_state.get_new_vectorstore(new_name),
             }  # NOTE: can likely just return vectorstore without reinitializing
         elif choice == DBCommand.DELETE:
-            collections = vectorstore._client.list_collections()
+            collections = chat_state.vectorstore.client.list_collections()
             collection_names = [collection.name for collection in collections]
             print()
             collection_idx = get_menu_choice(
@@ -171,14 +169,14 @@ def manage_dbs_console(vectorstore: ChromaDDG) -> JSONish:
             if collection_name == DEFAULT_COLLECTION_NAME:
                 print("You cannot delete the default collection.")
                 continue
-            if collection_name == vectorstore.name:
+            if collection_name == chat_state.vectorstore.name:
                 print("You cannot delete the currently selected collection.")
                 continue
             ans = input(
                 f"Are you sure you want to delete the collection {collection_name}? [y/N] "
             )
             if ans == "y":
-                vectorstore.delete_collection(collection_name)
+                chat_state.vectorstore.delete_collection(collection_name)
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
 
@@ -188,9 +186,9 @@ def format_answer(answer):
 
 
 def handle_db_command_with_subcommand(
-    vectorstore: ChromaDDG, choice: DBCommand, value: str, user_id: str | None
+    chat_state: ChatState, choice: DBCommand, value: str
 ) -> dict[str, Any]:
-    collections = get_collections(vectorstore, user_id)
+    collections = get_collections(chat_state.vectorstore, chat_state.user_id)
     coll_names_full = [c.name for c in collections]
     coll_names_as_shown = list(map(get_user_facing_collection_name, coll_names_full))
 
@@ -227,11 +225,11 @@ def handle_db_command_with_subcommand(
                 return format_answer(get_db_not_found_str(value))
 
         return format_answer(f"Switched to collection: `{value}`.") | {
-            "vectorstore": load_vectorstore(coll_names_full[idx], vectorstore.client),
+            "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
         }
 
     if choice == DBCommand.RENAME:
-        if vectorstore.name == DEFAULT_COLLECTION_NAME:
+        if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
             return format_answer("You cannot rename the default collection.")
         if not value:
             return format_answer(
@@ -240,19 +238,19 @@ def handle_db_command_with_subcommand(
             )
         if value == DEFAULT_COLLECTION_NAME:
             return format_answer("You cannot rename a collection to the default name.")
-        if not user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
+        if not chat_state.user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
             return format_answer(
                 f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
             )
 
-        new_full_name = construct_full_collection_name(user_id, value)
+        new_full_name = construct_full_collection_name(chat_state.user_id, value)
         try:
-            vectorstore.rename_collection(new_full_name)
+            chat_state.vectorstore.rename_collection(new_full_name)
         except Exception as e:
             return format_answer(f"Error renaming collection:\n```\n{e}\n```")
 
         return format_answer(f"Collection renamed to: {value}") | {
-            "vectorstore": load_vectorstore(new_full_name, vectorstore.client),
+            "vectorstore": chat_state.get_new_vectorstore(new_full_name),
         }
 
     if choice == DBCommand.DELETE:
@@ -266,7 +264,9 @@ def handle_db_command_with_subcommand(
         if value == DEFAULT_COLLECTION_NAME:
             return format_answer("You cannot delete the default collection.")
 
-        curr_coll_name_as_shown = get_user_facing_collection_name(vectorstore.name)
+        curr_coll_name_as_shown = get_user_facing_collection_name(
+            chat_state.vectorstore.name
+        )
         if value == "-c" or value == "--current":
             value = curr_coll_name_as_shown
 
@@ -277,16 +277,12 @@ def handle_db_command_with_subcommand(
             return format_answer(get_db_not_found_str(value))
 
         # Delete the collection
-        vectorstore.delete_collection(full_name)
+        chat_state.vectorstore.delete_collection(full_name)
 
-        # Form answer, and - if the current collection was deleted - indicate a switch
+        # Form answer, and - if the current collection was deleted - initiate a switch
         ans = format_answer(f"Collection `{value}` deleted.")
-        if full_name == vectorstore.name:
-            ans |= {
-                "vectorstore": load_vectorstore(
-                    DEFAULT_COLLECTION_NAME, vectorstore.client
-                )
-            }
+        if full_name == chat_state.vectorstore.name:
+            ans["vectorstore"] = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
 
         return ans
 
@@ -332,26 +328,23 @@ def handle_db_command(chat_state: ChatState) -> JSONish:
     Handle a /db command
     """
 
-    vectorstore = chat_state.vectorstore
     words = chat_state.message.split()
 
     # Handle /db with no arguments
     if not words:
         if chat_state.operation_mode == OperationMode.CONSOLE:
-            return manage_dbs_console(vectorstore)
+            return manage_dbs_console(chat_state)
         return format_answer(
-            DB_COMMAND_HELP_TEMPLATE.format(current_db=vectorstore.name)
+            DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)
         )
 
     # Determine the command type and value
     if not (choice := get_db_subcommand_from_split_message(words)):
         return format_answer(
-            DB_COMMAND_HELP_TEMPLATE.format(current_db=vectorstore.name)
+            DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)
         )
 
     value = words[1] if len(words) > 1 else ""
 
     # Handle the command
-    return handle_db_command_with_subcommand(
-        vectorstore, choice, value, chat_state.user_id
-    )
+    return handle_db_command_with_subcommand(chat_state, choice, value)

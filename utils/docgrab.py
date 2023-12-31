@@ -8,7 +8,7 @@ from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
 
 from components.chroma_ddg import ChromaDDG
-from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
+from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.output import ConditionalLogger
 
 load_dotenv(override=True)
@@ -90,8 +90,10 @@ def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
 
 def ingest_docs_into_chroma_client(
     docs: list[Document],
+    *,
     collection_name: str,
     chroma_client: Chroma,
+    openai_api_key: str,
     collection_metadata: dict | None = None,
     verbose: bool = False,
 ) -> ChromaDDG:
@@ -107,7 +109,7 @@ def ingest_docs_into_chroma_client(
     # incorporates the existing docs (I think it does, but I need to double check).
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
-        embedding=OpenAIEmbeddingsDDG(),
+        embedding=get_openai_embeddings(openai_api_key),
         client=chroma_client,
         collection_name=collection_name,
         collection_metadata=collection_metadata,
@@ -120,8 +122,10 @@ def ingest_docs_into_chroma_client(
 # TODO: consider removing this
 def create_vectorstore_ram_or_disk(
     docs: list[Document],
+    *,
     collection_name: str,
-    save_dir: str = None,
+    openai_api_key: str,
+    save_dir: str|None = None,
     verbose: bool = False,
 ) -> ChromaDDG:
     """
@@ -129,7 +133,7 @@ def create_vectorstore_ram_or_disk(
     """
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
-        embedding=OpenAIEmbeddingsDDG(),
+        embedding=get_openai_embeddings(openai_api_key),
         persist_directory=save_dir,
         collection_name=collection_name,
     )

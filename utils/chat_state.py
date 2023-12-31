@@ -1,5 +1,5 @@
 from agents.websearcher_data import WebsearcherData
-from components.chroma_ddg import ChromaDDG
+from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.type_utils import (
     BotSettings,
     CallbacksOrNone,
@@ -17,25 +17,27 @@ class ChatState:
         chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID,
         message: str = "",
         chat_history: PairwiseChatHistory | None = None,
-        sources_history: list[list[str]] | None = None, 
+        sources_history: list[list[str]] | None = None,
         chat_and_command_history: PairwiseChatHistory | None = None,
         search_params: JSONish | None = None,
         vectorstore: ChromaDDG | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,
+        openai_api_key: str | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.chat_mode = chat_mode
         self.message = message
         self.chat_history = chat_history or []
-        self.sources_history = sources_history or [] # used only in Streamlit for now
+        self.sources_history = sources_history or []  # used only in Streamlit for now
         self.chat_and_command_history = chat_and_command_history or []
         self.search_params = search_params or {}
         self.vectorstore = vectorstore
         self.callbacks = callbacks
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
+        self.openai_api_key = openai_api_key
 
     def update(self, **kwargs) -> None:
         for k, v in kwargs.items():
@@ -65,3 +67,13 @@ class ChatState:
         except KeyError:
             return None
         return WebsearcherData.model_validate_json(ws_data_json)
+
+    def get_new_vectorstore(self, collection_name: str) -> ChromaDDG:
+        """
+        Get a new ChromaDDG instance with the given collection name
+        """
+        return load_vectorstore(
+            collection_name,
+            openai_api_key=self.openai_api_key,
+            client=self.vectorstore.client,
+        )

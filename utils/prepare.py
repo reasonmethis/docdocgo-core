@@ -15,7 +15,7 @@ __import__("chromadb")
 del sys.modules["sqlite3"]
 __import__("sqlite3") # import here because chromadb was supposed to import it
 
-IS_AZURE = bool(os.getenv("OPENAI_API_BASE"))
+IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
 
@@ -40,24 +40,26 @@ LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
 DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 
-
 # Check that the necessary environment variables are set
-if IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME):
+DUMMY_OPENAI_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
+
+if IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("OPENAI_API_BASE")):
     print(
-        "You have set the OPENAI_API_BASE environment variable but not the other ."
-        "variables necessary for Azure. Please refer to .env.example for details."
+        "You have set some but not all environment variables necessary to utilize the "
+        "Azure OpenAI API endpoint. Please refer to .env.example for details."
     )
     sys.exit()
-elif not IS_AZURE and not os.getenv("OPENAI_API_KEY"):
+elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
     # We don't exit because we could get the key from the Streamlit app
     print(
-        "WARNING: You have not set the OPENAI_API_KEY environment variable. "
+        "WARNING: You have not set the DEFAULT_OPENAI_API_KEY environment variable. "
         "This is ok when running in the Streamlit app, but not when running "
         "the command line app. For now, we will set it to a dummy non-empty value "
         "to avoid problems initializing the vectorstore etc. "
         "Please refer to .env.example for additional information."
     )
-    os.environ["OPENAI_API_KEY"] = "DUMMY NON-EMPTY VALUE"
+    os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
+    # TODO investigate the behavior when this happens 
 
 if not os.getenv("SERPER_API_KEY"):
     print(

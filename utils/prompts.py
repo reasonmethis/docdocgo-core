@@ -246,7 +246,7 @@ ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
 if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"
-
+    import os
     from components.llm import get_prompt_llm_chain
     from eval.ai_news_1 import ai_news_1
     from eval.openai_news import openai_news
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         print("-" * 50)
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
-            chain = get_prompt_llm_chain(prompt, BotSettings(), stream=True)
+            chain = get_prompt_llm_chain(prompt, BotSettings(), os.getenv("DEFAULT_OPENAI_API_KEY"),stream=True)
             print("Prompt", i)
             try:
                 chain.invoke({"query": query, "text": query_to_context[query]})

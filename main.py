@@ -116,6 +116,7 @@ def chat():
                 chat_history,  # chat_and_command_history is not used in flask mode
                 search_params,
                 vectorstore,
+                openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", "")
             )
         )
 

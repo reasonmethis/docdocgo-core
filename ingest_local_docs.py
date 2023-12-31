@@ -136,9 +136,17 @@ if __name__ == "__main__":
     # Create the vectorstore (this will print messages regarding the status)
     if is_new_db:
         create_vectorstore_ram_or_disk(
-            docs, COLLECTON_NAME_FOR_INGESTED_DOCS, save_dir=VECTORDB_DIR, verbose=True
+            docs,
+            collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
+            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
+            save_dir=VECTORDB_DIR,
+            verbose=True,
         )
     else:
         ingest_docs_into_chroma_client(
-            docs, COLLECTON_NAME_FOR_INGESTED_DOCS, chroma_client, verbose=True
+            docs,
+            collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
+            chroma_client=chroma_client,
+            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
+            verbose=True,
         )

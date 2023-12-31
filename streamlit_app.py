@@ -7,7 +7,6 @@ from agents.dbmanager import (
     get_user_facing_collection_name,
     is_user_authorized_for_collection,
 )
-from components.chroma_ddg import load_vectorstore
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
@@ -59,14 +58,13 @@ with st.sidebar:
                     st.rerun()  # otherwise won't collapse until next interaction
             else:
                 # Otherwise, use the key entered by the user as the OpenAI API key
-                os.environ["OPENAI_API_KEY"] = user_openai_api_key
+                openai_api_key_to_use = user_openai_api_key
 
         # If the user has not entered a key (or entered the unlock pwd) use the default
         if not user_openai_api_key:
-            os.environ["OPENAI_API_KEY"] = st.session_state.default_openai_api_key
-
+            openai_api_key_to_use = st.session_state.default_openai_api_key
         is_community_key = (
-            st.session_state.default_openai_api_key
+            openai_api_key_to_use
             and not user_openai_api_key
             and not st.session_state.allow_all_settings_for_default_key
         )
@@ -77,23 +75,33 @@ with st.sidebar:
             )
             "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
             chat_state.user_id = None
-        elif not (tmp := os.getenv("OPENAI_API_KEY")):
+        elif not openai_api_key_to_use:
             st.caption("To use this app, you'll need an OpenAI API key.")
             "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
-            chat_state.user_id = tmp
+            chat_state.user_id = openai_api_key_to_use # use the key as the user id
 
-        # If current user isn't authorized to use current collection, load default
-        if not is_user_authorized_for_collection(
+        # If user (i.e. OpenAI API key) changed, reload the vectorstore
+        is_auth = is_user_authorized_for_collection(
             chat_state.user_id, chat_state.vectorstore.name
-        ):
-            chat_state.vectorstore = load_vectorstore(
-                DEFAULT_COLLECTION_NAME, chat_state.vectorstore.client
+        )
+        if openai_api_key_to_use != chat_state.openai_api_key or not is_auth:
+            # NOTE: the second condition is needed because the user could have
+            # entered the unlock pwd and is now a "private" user, without a key change
+            chat_state.openai_api_key = openai_api_key_to_use
+
+            chat_state.vectorstore = chat_state.get_new_vectorstore(
+                chat_state.vectorstore.name if is_auth else DEFAULT_COLLECTION_NAME,
             )
             chat_state.chat_and_command_history.append(
-                (None, "The user has changed, so I switched to the default collection.")
+                (
+                    None,
+                    "I see that the user key has changed. Good to see you!"
+                    if is_auth
+                    else "The user has changed, so I switched to the default collection. Welcome!",
+                )
             )
             chat_state.sources_history.append(None)  # keep the lengths in sync
 
@@ -240,9 +248,9 @@ with st.chat_message("assistant"):
 
         if is_openai_api_key_error:
             if is_community_key:
-                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{os.getenv('OPENAI_API_KEY', '')[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
-            elif tmp := os.getenv("OPENAI_API_KEY"):
-                answer = f"Apologies, the OpenAI API key you entered ({tmp[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{os.getenv('DEFAULT_OPENAI_API_KEY', '')[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+            elif openai_api_key_to_use:
+                answer = f"Apologies, the OpenAI API key you entered ({openai_api_key_to_use[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             else:
                 answer = "In order to use DocDocGo, you'll need an OpenAI API key. Please get one at https://platform.openai.com/account/api-keys and enter it in the sidebar."
 

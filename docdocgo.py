@@ -71,9 +71,7 @@ def get_bot_response(chat_state: ChatState):
         # Load the new vectorstore if needed
         partial_res = {}
         if ws_data.collection_name != chat_state.vectorstore.name:
-            vectorstore = load_vectorstore(
-                ws_data.collection_name, chat_state.vectorstore._client
-            )
+            vectorstore = chat_state.get_new_vectorstore(ws_data.collection_name)
             partial_res["vectorstore"] = vectorstore
 
         # Return response, including the new vectorstore if needed
@@ -82,6 +80,7 @@ def get_bot_response(chat_state: ChatState):
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
             llm_settings=chat_state.bot_settings,
+            api_key=chat_state.openai_api_key,
             callbacks=chat_state.callbacks,
             stream=True,
         )
@@ -126,7 +125,7 @@ def get_source_links(result_from_chain: dict[str, Any]) -> list[str]:
 
     # For performance
     if not sources_with_duplicates:
-        return sources_with_duplicates # return empty list
+        return sources_with_duplicates  # return empty list
 
     # Remove duplicates while keeping order and return
     return remove_duplicates_keep_order(sources_with_duplicates)
@@ -140,8 +139,12 @@ def get_docs_chat_chain(
     Create a chain to respond to queries using a vectorstore of documents.
     """
     # Initialize chain for query generation from chat history
+    llm_for_q_generation = get_llm(
+        settings=chat_state.bot_settings.model_copy(update={"temperature": 0}),
+        api_key=chat_state.openai_api_key,
+    )
     query_generator_chain = LLMChain(
-        llm=get_llm(chat_state.bot_settings.model_copy(update={"temperature": 0})),
+        llm=llm_for_q_generation,
         prompt=CONDENSE_QUESTION_PROMPT,
         verbose=bool(os.getenv("PRINT_CONDENSE_QUESTION_PROMPT")),
     )  # need it to be an object that exposes easy access to the underlying llm
@@ -164,8 +167,9 @@ def get_docs_chat_chain(
     qa_from_docs_chain = get_prompt_llm_chain(
         prompt_qa,
         llm_settings=chat_state.bot_settings,
-        print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
+        api_key=chat_state.openai_api_key,
         callbacks=chat_state.callbacks,
+        print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
         stream=True,
     )
 
@@ -179,15 +183,15 @@ def get_docs_chat_chain(
     )
 
 
-def do_intro_tasks():
+def do_intro_tasks(openai_api_key: str):
     print(INTRO_ASCII_ART + "\n\n")
-
-    # validate_settings()
 
     # Load the vector database
     print_no_newline("Loading the vector database of your documents... ")
     try:
-        vectorstore = load_vectorstore(DEFAULT_COLLECTION_NAME)
+        vectorstore = load_vectorstore(
+            DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
+        )
     except Exception as e:
         print(
             f"Failed to load the vector database. Please check the settings. Error: {e}"
@@ -200,7 +204,7 @@ def do_intro_tasks():
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks()
+    vectorstore = do_intro_tasks(os.getenv("DEFAULT_OPENAI_API_KEY", ""))
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -241,6 +245,7 @@ if __name__ == "__main__":
                     chat_history,  # chat_and_command_history is not used in console mode
                     search_params,
                     vectorstore,  # callbacks and bot_settings can be default here
+                    openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
                 )
             )
         except Exception as e:

@@ -1,5 +1,6 @@
 import os
 from typing import Any
+
 from chromadb import ClientAPI, HttpClient, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
@@ -7,7 +8,7 @@ from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma
 from langchain_community.vectorstores.chroma import _results_to_docs_and_scores
 
-from components.openai_embeddings_ddg import OpenAIEmbeddingsDDG
+from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.prepare import (
     CHROMA_SERVER_AUTH_CREDENTIALS,
     CHROMA_SERVER_HOST,
@@ -144,7 +145,7 @@ def initialize_client() -> ClientAPI:
     if not isinstance(VECTORDB_DIR, str) or not os.path.isdir(VECTORDB_DIR):
         # NOTE: interestingly, isdir(None) returns True, hence the additional check
         raise ValueError(f"Invalid chromadb path: {VECTORDB_DIR}")
-    
+
     return PersistentClient(VECTORDB_DIR, settings=Settings(anonymized_telemetry=False))
     # return Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=path))
 
@@ -156,13 +157,15 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
     return client or initialize_client()
 
 
-def load_vectorstore(collection_name: str, client: ClientAPI | None = None):
+def load_vectorstore(
+    collection_name: str, *, openai_api_key: str, client: ClientAPI | None = None
+):
     """
     Load a ChromaDDG vectorstore from a given collection name.
     """
     vectorstore = ChromaDDG(
         client=ensure_chroma_client(client),
         collection_name=collection_name,
-        embedding_function=OpenAIEmbeddingsDDG(),
+        embedding_function=get_openai_embeddings(openai_api_key),
     )
     return vectorstore

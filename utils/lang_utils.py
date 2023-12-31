@@ -1,33 +1,16 @@
-import os
-
-from dotenv import load_dotenv
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
-from langchain.schema.messages import AIMessage, BaseMessage, HumanMessage, get_buffer_string
+from langchain.schema.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    get_buffer_string,
+)
 
 from utils.async_utils import execute_func_map_in_threads
 from utils.type_utils import PairwiseChatHistory
 
-load_dotenv(override=True)
-
-
-def _get_default_llm_for_token_counting() -> BaseLanguageModel:
-    """Get the default language model for token counting."""
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        # To avoid error when instantiating ChatOpenAI
-        os.environ["OPENAI_API_KEY"] = "DUMMY NON-EMPTY VALUE"
-    llm = ChatOpenAI()
-    if not openai_api_key:
-        # Reset the env variable
-        if openai_api_key is None:
-            del os.environ["OPENAI_API_KEY"]
-        else:
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-    return llm
-
-
-default_llm_for_token_counting = _get_default_llm_for_token_counting()
+default_llm_for_token_counting = ChatOpenAI(api_key="DUMMY")  # "DUMMY" to avoid error
 
 
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
@@ -89,15 +72,16 @@ def pairwise_chat_history_to_string(
         ]
     )
 
+
 def msg_list_chat_history_to_string(
     msg_list: list[BaseMessage],
     human_prefix="Human",
     ai_prefix="AI",
 ) -> str:
     """
-    Convert a list of messages to a string such as 'Human: hi\nAI: Hi!\n...' 
+    Convert a list of messages to a string such as 'Human: hi\nAI: Hi!\n...'
     """
-    return get_buffer_string(msg_list,human_prefix, ai_prefix)
+    return get_buffer_string(msg_list, human_prefix, ai_prefix)
 
 
 def limit_chat_history(

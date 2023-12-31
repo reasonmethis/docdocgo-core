@@ -89,6 +89,7 @@ def get_websearcher_response_quick(
     chain = get_prompt_llm_chain(
         WEBSEARCHER_PROMPT_SIMPLE,
         llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
         callbacks=chat_state.callbacks,
         stream=True,
     )
