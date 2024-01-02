@@ -97,6 +97,16 @@ def get_bot_response(chat_state: ChatState):
         return handle_db_command(chat_state)
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
         return {"answer": HELP_MESSAGE}
+    elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
+        if chat_state.operation_mode == OperationMode.STREAMLIT:
+            return {"answer": "Please select your documents to upload and ingest."}
+        elif chat_state.operation_mode == OperationMode.CONSOLE:
+            return {
+                "answer": "Sorry, the /ingest command is only supported in Streamlit mode. "
+                + "In console mode, please run `python ingest_local_docs.py`."
+            }
+        else:
+            return {"answer": "Sorry, this is only supported in Streamlit mode."}
     else:
         # Should never happen
         raise ValueError(f"Invalid command id: {chat_mode}")

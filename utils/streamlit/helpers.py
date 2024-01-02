@@ -1,6 +1,28 @@
 import time
+
 import streamlit as st
+
 from utils.type_utils import ChatMode
+
+# allowed_extensions = [".txt", ".pdf", ".docx", ".doc", ".md", ".html", ".htm", ""]
+allowed_extensions = ["", ".txt", ".md", ".rtf", ".log"]
+
+POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL = """\
+Your documents have been uploaded to a new collection: `{coll_name}`. \
+You can now use this collection in your queries. If you are done uploading, \
+you can rename it:
+```
+/db rename my-cool-collection-name
+```
+"""
+
+POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL = """\
+Your documents have been added to the existing collection: `{coll_name}`. \
+If you are done uploading, you can rename it:
+```
+/db rename my-cool-collection-name
+```
+"""
 
 default_status_config = {
     "thinking.header": "One sec...",
@@ -36,6 +58,7 @@ def write_slowly(message_placeholder, answer):
     for i in range(1, len(answer) + 1):
         message_placeholder.markdown(answer[:i])
         time.sleep(0.005)
+
 
 def show_sources(sources: list[str] | None):
     """Show the sources if present."""

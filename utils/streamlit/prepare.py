@@ -43,3 +43,6 @@ def prepare_app():
     st.session_state.default_openai_api_key = os.getenv("DEFAULT_OPENAI_API_KEY", "")
     if st.session_state.default_openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
         st.session_state.default_openai_api_key = ""
+
+    st.session_state.idx_file_upload = -1
+    st.session_state.uploader_form_key = "uploader-form"

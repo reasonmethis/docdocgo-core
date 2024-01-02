@@ -24,6 +24,7 @@ class ChatMode(Enum):
     JUST_CHAT_COMMAND_ID = 6
     DB_COMMAND_ID = 7
     HELP_COMMAND_ID = 8
+    INGEST_COMMAND_ID = 9
 
 
 chat_modes_needing_llm = {

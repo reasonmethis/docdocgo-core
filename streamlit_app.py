@@ -1,37 +1,84 @@
 import os
 
 import streamlit as st
+from langchain.schema import Document
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
+    construct_full_collection_name,
     get_user_facing_collection_name,
     is_user_authorized_for_collection,
 )
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
-from utils.helpers import DELIMITER, extract_chat_mode_from_query, parse_query
+from utils.docgrab import ingest_docs_into_chroma_client
+from utils.helpers import (
+    DELIMITER,
+    EXAMPLE_QUERIES,
+    GREETING_MESSAGE,
+    extract_chat_mode_from_query,
+    parse_query,
+)
 from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
-from utils.streamlit.helpers import show_sources, status_config, write_slowly
+from utils.streamlit.helpers import (
+    POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
+    POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
+    allowed_extensions,
+    show_sources,
+    status_config,
+    write_slowly,
+)
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import chat_modes_needing_llm
+from utils.type_utils import ChatMode, chat_modes_needing_llm
+
+
+def show_uploader(is_new_widget=False, border=True):
+    if is_new_widget:
+        st.session_state.uploader_placeholder.empty()
+        # Switch between one of the two possible keys (to avoid duplicate key error)
+        st.session_state.uploader_form_key = (
+            "uploader-form-alt"
+            if st.session_state.uploader_form_key == "uploader-form"
+            else "uploader-form"
+        )
+
+    # Show the uploader
+    st.session_state.uploader_placeholder = st.empty()
+    with st.session_state.uploader_placeholder:
+        with st.form(
+            st.session_state.uploader_form_key, clear_on_submit=True, border=border
+        ):
+            files = st.file_uploader(
+                "Upload your documents",
+                accept_multiple_files=True,
+                label_visibility="collapsed",
+            )
+            cols = st.columns([1, 1])
+            with cols[0]:
+                is_submitted = st.form_submit_button("Upload")
+            with cols[1]:
+                allow_all_ext = st.toggle("Allow all extensions", value=False)
+    return (files if is_submitted else []), allow_all_ext
+
 
 # Run just once
 if "chat_state" not in st.session_state:
     prepare_app()
-    is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
+    # Need to reference is_env_loaded to avoid unused import being removed
+    is_env_loaded = is_env_loaded  # more info at the end of docdocgo.py
 
 chat_state: ChatState = st.session_state.chat_state
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
-st.title("DocDocGo")
 
 # Sidebar
 with st.sidebar:
+    st.header("DocDocGo")
     # Set the env variable for the OpenAI API key.
     # Init value of text field is determined by the init value of the env variable.
     with st.expander(
@@ -81,7 +128,7 @@ with st.sidebar:
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
-            chat_state.user_id = openai_api_key_to_use # use the key as the user id
+            chat_state.user_id = openai_api_key_to_use  # use the key as the user id
 
         # If user (i.e. OpenAI API key) changed, reload the vectorstore
         is_auth = is_user_authorized_for_collection(
@@ -135,21 +182,25 @@ with st.sidebar:
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 # If no message has been entered yet, show the intro
-if not chat_state.chat_and_command_history:
-    welcome_placeholder = st.empty()
-    with welcome_placeholder.container():
-        for i in range(3):
-            st.write("")
-        st.write("Welcome! To see what I can do, type")
-        st.subheader("/help")
-        st.write("")
-        st.caption(
-            ":red[⮟]:grey[ Tip: See your current **doc collection** in the chat box]"
-        )
+# if len(chat_state.chat_and_command_history) == 0:
+#     welcome_placeholder = st.empty() # so we can remove it later (still needed?)
+#     with welcome_placeholder.container():
+# for i in range(2):
+#     st.write("")
+st.markdown(GREETING_MESSAGE)
+with st.expander("Want to see some example queries?"):
+    st.markdown(EXAMPLE_QUERIES)
+# NOTE: weirdly, if the following two lines are switched, a strange bug occurs
+# with a ghostly but still clickable "Upload" button (or the Tip) appearing within the newest
+# user message container, only as long as the AI response is being typed out
+with st.expander("Want to upload your own documents?"):
+    if st.session_state.idx_file_upload == -1:
+        files, allow_all_ext = show_uploader(border=False)
+    st.markdown("**Tip:** During chat, just say `/upload` to upload more docs!")
 
 # Show previous exchanges and sources
-for msg_pair, sources in zip(
-    chat_state.chat_and_command_history, chat_state.sources_history
+for i, (msg_pair, sources) in enumerate(
+    zip(chat_state.chat_and_command_history, chat_state.sources_history)
 ):
     full_query, answer = msg_pair
     if full_query is not None:
@@ -159,6 +210,72 @@ for msg_pair, sources in zip(
         with st.chat_message("assistant"):
             st.markdown(answer)
             show_sources(sources)
+    if i == st.session_state.idx_file_upload:
+        files, allow_all_ext = show_uploader()  # there can be only one
+
+
+# Check if the user has uploaded files
+if files:
+    # Ingest the files
+    docs = []
+    failed_files = []
+    for file in files:
+        try:
+            extension = os.path.splitext(file.name)[1]
+            if not allow_all_ext and extension not in allowed_extensions:
+                raise ValueError("Extension not allowed.")
+            text = file.getvalue().decode("utf-8")  # NOTE: can try other encodings
+            docs.append(Document(page_content=text, metadata={"source": file.name}))
+        except Exception:
+            failed_files.append(file.name)
+
+    # Display failed files, if any
+    if failed_files:
+        with st.chat_message("assistant"):
+            st.markdown(
+                "Apologies, the following files failed to process:\n```\n"
+                + "\n".join(failed_files)
+                + "\n```"
+            )
+
+    # Ingest the docs into the vectorstore, if any
+    if docs:
+        uploaded_docs_coll_name_as_shown = "uploaded-docs-rename-me"
+        uploaded_docs_coll_name_full = construct_full_collection_name(
+            chat_state.user_id, uploaded_docs_coll_name_as_shown
+        )
+        try:
+            ingest_docs_into_chroma_client(
+                docs,
+                collection_name=uploaded_docs_coll_name_full,
+                chroma_client=chat_state.vectorstore.client,
+                openai_api_key=chat_state.openai_api_key,
+                verbose=True,
+            )
+            if chat_state.vectorstore.name != uploaded_docs_coll_name_full:
+                # Switch to the newly created collection
+                chat_state.vectorstore = chat_state.get_new_vectorstore(
+                    uploaded_docs_coll_name_full
+                )
+                with st.chat_message("assistant"):
+                    st.markdown(
+                        POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL.format(
+                            coll_name=uploaded_docs_coll_name_as_shown
+                        )
+                    )
+            else:
+                with st.chat_message("assistant"):
+                    st.markdown(
+                        POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL.format(
+                            coll_name=uploaded_docs_coll_name_as_shown
+                        )
+                    )
+        except Exception as e:
+            with st.chat_message("assistant"):
+                st.markdown(
+                    f"Apologies, an error occurred during ingestion:\n```\n{e}\n```"
+                )
+
 
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
@@ -178,13 +295,9 @@ if not (full_query):
 # Display the user's query
 with st.chat_message("user"):
     st.markdown(full_query)
-    # Remove the intro message if this is the first query
-    if not chat_state.chat_and_command_history:
-        welcome_placeholder.empty()
 
 # Parse the query to extract command id & search params, if any
-adjusted_full_query = "/help" if full_query.strip().lower() == "help" else full_query
-query, chat_mode = extract_chat_mode_from_query(adjusted_full_query)
+query, chat_mode = extract_chat_mode_from_query(full_query)
 query, search_params = parse_query(query)
 chat_state.update(chat_mode=chat_mode, message=query, search_params=search_params)
 
@@ -273,13 +386,14 @@ with st.chat_message("assistant"):
         chat_state.chat_and_command_history.append((full_query, answer))
         chat_state.sources_history.append(sources)
 
+# Display the file uploader if needed
+if chat_mode == ChatMode.INGEST_COMMAND_ID:
+    st.session_state.idx_file_upload = len(chat_state.chat_and_command_history) - 1
+    files, allow_all_ext = show_uploader(is_new_widget=True)
+
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
-
-# If this was the first exchange, rerun to remove the intro messages
-if len(chat_state.chat_and_command_history) == 1:
-    st.rerun()
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
