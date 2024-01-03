@@ -13,7 +13,8 @@ from flask import Flask, jsonify, request
 from _prepare_env import is_env_loaded
 from docdocgo import do_intro_tasks, get_bot_response, get_source_links
 from utils.chat_state import ChatState
-from utils.helpers import DEFAULT_CHAT_MODE, DELIMITER, parse_query
+from utils.helpers import DEFAULT_CHAT_MODE, DELIMITER
+from utils.query_parsing import parse_query
 from utils.type_utils import ChatMode, JSONish, OperationMode, PairwiseChatHistory
 
 RETRY_COMMAND_ID = 1000  # unique to the flask server
@@ -82,7 +83,9 @@ def chat():
             chat_mode = ChatMode(command_id)
         except ValueError:
             chat_mode = DEFAULT_CHAT_MODE
-        message, search_params = parse_query(message)
+
+        parsed_query = parse_query(message, chat_mode)
+        message, search_params = parsed_query.message, parsed_query.search_params
 
         # Save the user's message (for the /retry command; will save response later)
         prev_input_by_user[username] = {
@@ -108,15 +111,12 @@ def chat():
         result = get_bot_response(
             # TODO: add ws_data and callbacks and bot_settings (if needed)
             ChatState(
-                OperationMode.FLASK,
-                chat_mode,
-                message,
-                chat_history,
-                None,  # sources_history (NOTE: not used in flask mode for now)
-                chat_history,  # chat_and_command_history is not used in flask mode
-                search_params,
-                vectorstore,
-                openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", "")
+                operation_mode=OperationMode.FLASK,
+                parsed_query=parsed_query,
+                chat_history=chat_history,
+                chat_and_command_history=chat_history,  # chat_and_command_history is not used in flask mode
+                vectorstore=vectorstore,
+                openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
             )
         )
 

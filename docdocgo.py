@@ -22,8 +22,6 @@ from utils.helpers import (
     HELP_MESSAGE,
     INTRO_ASCII_ART,
     MAIN_BOT_PREFIX,
-    extract_chat_mode_from_query,
-    parse_query,
     print_no_newline,
 )
 from utils.lang_utils import pairwise_chat_history_to_msg_list
@@ -39,6 +37,7 @@ from utils.prompts import (
     QA_PROMPT_QUOTES,
     QA_PROMPT_SUMMARIZE_KB,
 )
+from utils.query_parsing import parse_query
 from utils.type_utils import ChatMode, OperationMode
 
 
@@ -54,15 +53,17 @@ def get_bot_response(chat_state: ChatState):
         return get_websearcher_response(chat_state)
         # return {"answer": res_from_bot["answer"]}  # remove ws_data
     elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
-        if chat_state.message:
-            # Start new research
-            # chat_state.ws_data = WebsearcherData.from_query(chat_state.message)
-            pass
-        elif not chat_state.ws_data:
+        if not chat_state.message and not chat_state.ws_data:
             return {
                 "answer": "The /research prefix without a message is used to iterate "
-                "on the previous report. However, there is no previous report.",
+                "on the previous report. However, there is no previous "
+                "report associated with this collection."
+                "\n\nExample of a correct research command:\n"
+                "```\n/research What are the hardest tongue-twisters?\n```",
                 "needs_print": True,
+                "status.header": "Invalid input",
+                "status.body": "The `/research` prefix with no message used "
+                "despite no preexisting report.",
             }
         # Get response from iterative researcher
         res_from_bot = get_iterative_researcher_response(chat_state)
@@ -240,21 +241,17 @@ if __name__ == "__main__":
         print()
 
         # Parse the query to extract command id & search params, if any
-        query, command_id = extract_chat_mode_from_query(query)
-        query, search_params = parse_query(query)
+        parsed_query = parse_query(query)
 
         # Get response from the bot
         try:
             response = get_bot_response(
                 ChatState(
-                    OperationMode.CONSOLE,
-                    command_id,
-                    query,
-                    chat_history,
-                    None,  # sources_history (NOTE: not used in console mode for now)
-                    chat_history,  # chat_and_command_history is not used in console mode
-                    search_params,
-                    vectorstore,  # callbacks and bot_settings can be default here
+                    operation_mode=OperationMode.CONSOLE,
+                    parsed_query=parsed_query,
+                    chat_history=chat_history,
+                    chat_and_command_history=chat_history,  # not used in console mode
+                    vectorstore=vectorstore,  # callbacks and bot_settings can be default here
                     openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
                 )
             )
@@ -274,7 +271,7 @@ if __name__ == "__main__":
 
         # Update chat history if needed
         if answer:
-            chat_history.append((query, answer))
+            chat_history.append((parsed_query.message, answer))
 
         # Update vectorstore if needed
         if "vectorstore" in response:

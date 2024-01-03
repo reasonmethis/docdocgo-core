@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from utils.prepare import MODEL_NAME, TEMPERATURE
 
 JSONish = dict[str, Any] | list
+Props = dict[str, Any]
 PairwiseChatHistory = list[tuple[str, str]]
 CallbacksOrNone = list[BaseCallbackHandler] | None
 

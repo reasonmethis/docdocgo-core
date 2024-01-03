@@ -1,6 +1,3 @@
-from enum import Enum
-from typing import Any
-
 from chromadb import Collection
 
 from components.chroma_ddg import ChromaDDG
@@ -13,22 +10,15 @@ from utils.helpers import (
 )
 from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.prepare import DEFAULT_COLLECTION_NAME
-from utils.type_utils import JSONish, OperationMode
+from utils.query_parsing import DBCommand
+from utils.type_utils import JSONish, OperationMode, Props
 
-DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE EXIT")
 menu_main = {
     DBCommand.LIST: "List collections",
     DBCommand.USE: "Switch collection",
     DBCommand.RENAME: "Rename collection",
     DBCommand.DELETE: "Delete collection",
     DBCommand.EXIT: "I'm done here",
-}
-db_command_to_enum = {
-    "list": DBCommand.LIST,
-    "use": DBCommand.USE,
-    "rename": DBCommand.RENAME,
-    "delete": DBCommand.DELETE,
-    "exit": DBCommand.EXIT,
 }
 
 
@@ -107,16 +97,16 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
     while True:
         # Print the menu and get the user's choice
         print()
-        choice = get_choice_from_dict_menu(menu_main)
-        if choice == DBCommand.EXIT:
+        command = get_choice_from_dict_menu(menu_main)
+        if command == DBCommand.EXIT:
             print("OK, back to the chat.")
             return {"answer": ""}
-        elif choice == DBCommand.LIST:
+        elif command == DBCommand.LIST:
             collections = chat_state.vectorstore.client.list_collections()
             print("\nAvailable collections:")
             for i, collection in enumerate(collections):
                 print(f"{i+1}. {collection.name}")
-        elif choice == DBCommand.USE:
+        elif command == DBCommand.USE:
             collections = chat_state.vectorstore.client.list_collections()
             collection_names = [collection.name for collection in collections]
             print()
@@ -133,7 +123,7 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
                     "answer": "",
                     "vectorstore": chat_state.get_new_vectorstore(collection_name),
                 }
-        elif choice == DBCommand.RENAME:
+        elif command == DBCommand.RENAME:
             if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
                 print("You cannot rename the default collection.")
                 continue
@@ -153,7 +143,7 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
                 "answer": "",
                 "vectorstore": chat_state.get_new_vectorstore(new_name),
             }  # NOTE: can likely just return vectorstore without reinitializing
-        elif choice == DBCommand.DELETE:
+        elif command == DBCommand.DELETE:
             collections = chat_state.vectorstore.client.list_collections()
             collection_names = [collection.name for collection in collections]
             print()
@@ -185,9 +175,10 @@ def format_answer(answer):
     return {"skip_history": True, "answer": answer, "needs_print": True}
 
 
-def handle_db_command_with_subcommand(
-    chat_state: ChatState, choice: DBCommand, value: str
-) -> dict[str, Any]:
+def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
+    command = chat_state.parsed_query.db_command
+    value = chat_state.parsed_query.message
+
     collections = get_collections(chat_state.vectorstore, chat_state.user_id)
     coll_names_full = [c.name for c in collections]
     coll_names_as_shown = list(map(get_user_facing_collection_name, coll_names_full))
@@ -199,10 +190,10 @@ def handle_db_command_with_subcommand(
     def get_db_not_found_str(name: str) -> str:
         return f"Collection {name} not found. {get_available_dbs_str()}"
 
-    if choice == DBCommand.LIST:
+    if command == DBCommand.LIST:
         return format_answer(get_available_dbs_str())
 
-    if choice == DBCommand.USE:
+    if command == DBCommand.USE:
         if not value:
             return format_answer(
                 get_available_dbs_str()
@@ -228,7 +219,7 @@ def handle_db_command_with_subcommand(
             "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
         }
 
-    if choice == DBCommand.RENAME:
+    if command == DBCommand.RENAME:
         if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
             return format_answer("You cannot rename the default collection.")
         if not value:
@@ -253,7 +244,7 @@ def handle_db_command_with_subcommand(
             "vectorstore": chat_state.get_new_vectorstore(new_full_name),
         }
 
-    if choice == DBCommand.DELETE:
+    if command == DBCommand.DELETE:
         if not value:
             return format_answer(
                 get_available_dbs_str()
@@ -287,7 +278,7 @@ def handle_db_command_with_subcommand(
         return ans
 
     # Should never happen
-    raise ValueError(f"Invalid command: {choice}")
+    raise ValueError(f"Invalid /db subcommand: {command}")
 
     # Currently unused logic for switching to a db in a different directory
 
@@ -313,38 +304,18 @@ def handle_db_command_with_subcommand(
     # }
 
 
-def get_db_subcommand_from_split_message(words: list[str]) -> DBCommand | None:
-    """
-    Get the subcommand from a split message
-    """
-    try:
-        return db_command_to_enum[words[0]]
-    except (KeyError, IndexError):
-        return None
-
-
-def handle_db_command(chat_state: ChatState) -> JSONish:
+def handle_db_command(chat_state: ChatState) -> Props:
     """
     Handle a /db command
     """
 
-    words = chat_state.message.split()
-
-    # Handle /db with no arguments
-    if not words:
+    # Handle /db with no valid subcommand
+    if chat_state.parsed_query.db_command == DBCommand.NONE:
         if chat_state.operation_mode == OperationMode.CONSOLE:
             return manage_dbs_console(chat_state)
         return format_answer(
             DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)
         )
 
-    # Determine the command type and value
-    if not (choice := get_db_subcommand_from_split_message(words)):
-        return format_answer(
-            DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)
-        )
-
-    value = words[1] if len(words) > 1 else ""
-
     # Handle the command
-    return handle_db_command_with_subcommand(chat_state, choice, value)
+    return handle_db_command_with_subcommand(chat_state)

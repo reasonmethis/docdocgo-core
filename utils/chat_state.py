@@ -1,25 +1,25 @@
 from agents.websearcher_data import WebsearcherData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
+from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
     BotSettings,
     CallbacksOrNone,
     ChatMode,
-    JSONish,
     OperationMode,
     PairwiseChatHistory,
+    Props,
 )
 
 
 class ChatState:
     def __init__(
         self,
+        *,
         operation_mode: OperationMode,
-        chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID,
-        message: str = "",
+        parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
         chat_and_command_history: PairwiseChatHistory | None = None,
-        search_params: JSONish | None = None,
         vectorstore: ChromaDDG | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
@@ -27,17 +27,27 @@ class ChatState:
         openai_api_key: str | None = None,
     ) -> None:
         self.operation_mode = operation_mode
-        self.chat_mode = chat_mode
-        self.message = message
+        self.parsed_query = parsed_query or ParsedQuery()
         self.chat_history = chat_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now
         self.chat_and_command_history = chat_and_command_history or []
-        self.search_params = search_params or {}
         self.vectorstore = vectorstore
         self.callbacks = callbacks
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
         self.openai_api_key = openai_api_key
+
+    @property
+    def chat_mode(self) -> ChatMode:
+        return self.parsed_query.chat_mode
+
+    @property
+    def message(self) -> str:
+        return self.parsed_query.message
+
+    @property
+    def search_params(self) -> Props:
+        return self.parsed_query.search_params or {}
 
     def update(self, **kwargs) -> None:
         for k, v in kwargs.items():

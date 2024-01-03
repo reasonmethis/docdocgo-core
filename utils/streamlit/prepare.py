@@ -31,7 +31,7 @@ def prepare_app():
         st.stop()
 
     st.session_state.chat_state = ChatState(
-        OperationMode.STREAMLIT,
+        operation_mode=OperationMode.STREAMLIT,
         vectorstore=vectorstore,
         callbacks=[
             CallbackHandlerDDGConsole(),

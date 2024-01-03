@@ -17,11 +17,10 @@ from utils.helpers import (
     DELIMITER,
     EXAMPLE_QUERIES,
     GREETING_MESSAGE,
-    extract_chat_mode_from_query,
-    parse_query,
 )
 from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
+from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
@@ -76,7 +75,7 @@ chat_state: ChatState = st.session_state.chat_state
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
 
-# Sidebar
+####### Sidebar #######
 with st.sidebar:
     st.header("DocDocGo")
     # Set the env variable for the OpenAI API key.
@@ -181,12 +180,7 @@ with st.sidebar:
         "[Command Cheatsheet](https://github.com/reasonmethis/docdocgo-core/blob/main/docs/command-cheatsheet.md)"
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
-# If no message has been entered yet, show the intro
-# if len(chat_state.chat_and_command_history) == 0:
-#     welcome_placeholder = st.empty() # so we can remove it later (still needed?)
-#     with welcome_placeholder.container():
-# for i in range(2):
-#     st.write("")
+####### Main page #######
 st.markdown(GREETING_MESSAGE)
 with st.expander("Want to see some example queries?"):
     st.markdown(EXAMPLE_QUERIES)
@@ -281,7 +275,7 @@ if files:
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(coll_name_full)
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
-if not (full_query):
+if not full_query:
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_and_command_history and os.getenv(
         "INITIAL_TEST_QUERY_STREAMLIT"
@@ -297,9 +291,9 @@ with st.chat_message("user"):
     st.markdown(full_query)
 
 # Parse the query to extract command id & search params, if any
-query, chat_mode = extract_chat_mode_from_query(full_query)
-query, search_params = parse_query(query)
-chat_state.update(chat_mode=chat_mode, message=query, search_params=search_params)
+parsed_query = parse_query(full_query)
+chat_mode = parsed_query.chat_mode
+chat_state.update(parsed_query=parsed_query)
 
 # Get and display response from the bot
 with st.chat_message("assistant"):
@@ -327,23 +321,25 @@ with st.chat_message("assistant"):
             st.session_state.llm_api_key_ok_status = "RERUN_PLEASE"
 
         # Display non-streaming responses slowly (in particular avoids chat prompt flicker)
-        if chat_mode not in chat_modes_needing_llm:
+        if chat_mode not in chat_modes_needing_llm or "needs_print" in response:
             write_slowly(message_placeholder, answer)
 
         # Display sources if present
         sources = get_source_links(response) or None  # Cheaper to store None than []
         show_sources(sources)
 
-        # Display the "complete" status
+        # Display the "complete" status - custom or default
         if status:
+            default_status = status_config[chat_mode]
             status.update(
-                label=status_config[chat_mode]["complete.header"], state="complete"
+                label=response.get("status.header", default_status["complete.header"]),
+                state="complete",
             )
-            status.write(status_config[chat_mode]["complete.body"])
+            status.write(response.get("status.body", default_status["complete.body"]))
 
         # Add the response to the chat history if needed
-        if not response.get("skip_chat_history", False):
-            chat_state.chat_history.append((query, answer))
+        if not response.get("skip_chat_history"):
+            chat_state.chat_history.append((parsed_query.message, answer))
     except Exception as e:
         # Display the "error" status
         if status:
