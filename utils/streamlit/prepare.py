@@ -46,3 +46,4 @@ def prepare_app():
 
     st.session_state.idx_file_upload = -1
     st.session_state.uploader_form_key = "uploader-form"
+    st.session_state.scheduled_queries = []

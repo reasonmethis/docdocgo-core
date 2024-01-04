@@ -28,6 +28,7 @@ from utils.prompts import (
     QUERY_GENERATOR_PROMPT,
     WEBSEARCHER_PROMPT_INITIAL_REPORT,
 )
+from utils.query_parsing import ParsedQuery
 from utils.strings import extract_json
 from utils.type_utils import ChatMode, OperationMode
 from utils.web import (
@@ -396,6 +397,16 @@ NUM_NEW_OK_LINKS_TO_PROCESS = 2
 INIT_BATCH_SIZE = 4
 
 
+def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
+    research_params = chat_state.parsed_query.research_params
+    if research_params.num_iterations_left < 2:
+        return {}
+    new_parsed_query = chat_state.parsed_query.model_copy()
+    new_parsed_query.research_params.num_iterations_left -= 1
+    new_parsed_query.message = None
+    return {"new_parsed_query": new_parsed_query}
+
+
 def get_iterative_researcher_response(
     chat_state: ChatState,
 ) -> WebsearcherData:
@@ -413,7 +424,7 @@ def get_iterative_researcher_response(
     t_start = datetime.now()
     print("Current version of report:\n", ws_data.report)
     print(DELIMITER)
-    print("Processed links:\n- " + "\n- ".join(ws_data.processed_links))
+
     # Sanity check
     if (
         sum(
@@ -488,7 +499,7 @@ def get_iterative_researcher_response(
             "answer": "There are no more usable sources to incorporate into the report",
             "ws_data": ws_data,
             "needs_print": True,  # NOTE: this won't be streamed
-        }
+        } | prepare_next_iteration(chat_state)
 
     # Count tokens in texts to be processed; throw in the report text too
     print("Counting tokens in texts and current report...")
@@ -573,7 +584,11 @@ def get_iterative_researcher_response(
 
     # Save new ws_data in chat_state (which saves it in the database) and return
     chat_state.save_ws_data(ws_data)
-    return {"answer": answer, "ws_data": ws_data, "source_links": links_to_include}
+    return {
+        "answer": answer,
+        "ws_data": ws_data,
+        "source_links": links_to_include,
+    } | prepare_next_iteration(chat_state)
     # NOTE: look into removing ws_data from the response
 
 

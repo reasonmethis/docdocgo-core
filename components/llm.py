@@ -19,6 +19,7 @@ from utils.prepare import (
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
 )
+from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone
 
 
@@ -36,8 +37,8 @@ class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
         parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> None:
-        self.buffer += token.replace("\n", "  \n")
-        self.container.markdown(self.buffer)
+        self.buffer += token
+        self.container.markdown(fix_markdown(self.buffer))
 
 
 class CallbackHandlerDDGConsole(BaseCallbackHandler):

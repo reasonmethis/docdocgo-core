@@ -169,15 +169,23 @@ If you don't specify a mode, DocDocGo will use the default mode, which is set by
 
 Iterative Web Research Mode is a powerful feature of DocDocGo that allows you to perform iterative web research about your query, ingest retrieved content, and generate a report, which the bot will try to improve with every iteration. Use this mode in three steps:
 
-**Step 1.** Start the research by sending a message starting with `/research` and your query. For example:
+**Step 1.** Start the research by sending a message starting with `/research` and followed by your query. For example:
 
 ```markdown
-/research What are the best ways to improve my memory?
+/research What are the best ways to improve my memory? Just bullet points, please.
 ```
 
-**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply send the `/research` command without a query. DocDocGo will fetch more content from the web and use it to improve the report. You can continue this process as many times as you want.
+**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` or `/research for 42 iterations`.
 
-**Step 3.** All of the content retrieved during the research will be automatically ingested into a new document collection, which will become the current collection. You can then use it in the other response modes, e.g. by asking questions about the collected content.
+If you just type `/research`, DocDocGo will fetch more content from the web and use it to improve the report. If you add the `for x iterations` bit, DocDocGo will automatically do `x` repetitions of the `/research` command. Each repetition will fetch more content related to your original query and produce a new version of the report.
+
+If you change your mind and want to abort the research, simply reload the app.
+
+**Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
+
+You could even have it run overnight and come back to a huge knowledge base on your desired topic!
+
+> Each research iteration is very cheap (typically ~1-2 cents if using the default gpt-3.5 model), but even tiny costs can add up if you do thousands of iterations.
 
 ## Querying based on substrings
 

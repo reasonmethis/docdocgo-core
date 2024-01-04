@@ -25,6 +25,7 @@ from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
     allowed_extensions,
+    fix_markdown,
     show_sources,
     status_config,
     write_slowly,
@@ -182,7 +183,7 @@ with st.sidebar:
 
 ####### Main page #######
 st.markdown(GREETING_MESSAGE)
-with st.expander("Want to see some example queries?"):
+with st.expander("See a quick walkthrough"):
     st.markdown(EXAMPLE_QUERIES)
 # NOTE: weirdly, if the following two lines are switched, a strange bug occurs
 # with a ghostly but still clickable "Upload" button (or the Tip) appearing within the newest
@@ -199,10 +200,11 @@ for i, (msg_pair, sources) in enumerate(
     full_query, answer = msg_pair
     if full_query is not None:
         with st.chat_message("user"):
-            st.markdown(full_query)
+            st.markdown(fix_markdown(full_query))
     if answer is not None or sources is not None:
         with st.chat_message("assistant"):
-            st.markdown(answer)
+            if answer is not None:
+                st.markdown(fix_markdown(answer))
             show_sources(sources)
     if i == st.session_state.idx_file_upload:
         files, allow_all_ext = show_uploader()  # there can be only one
@@ -281,19 +283,29 @@ if not full_query:
         "INITIAL_TEST_QUERY_STREAMLIT"
     ):
         full_query = os.getenv("INITIAL_TEST_QUERY_STREAMLIT")
-    else:
-        st.stop()
 
-#### The rest will only run once the user has entered a query ####
-
-# Display the user's query
-with st.chat_message("user"):
-    st.markdown(full_query)
-
-# Parse the query to extract command id & search params, if any
-parsed_query = parse_query(full_query)
+# Parse the query or get the next scheduled query, if any
+if full_query:
+    parsed_query = parse_query(full_query)
+else:
+    parsed_query = chat_state.scheduled_queries.pop()
+    if not parsed_query:
+        st.stop()  # nothing to do
+    full_query = "AUTO-INSTRUCTION: Run scheduled query."
+    try:
+        num_iterations_left = parsed_query.research_params.num_iterations_left
+        full_query += f" {num_iterations_left} research iterations left."
+    except AttributeError:
+        pass
+    
+#### The rest will only run once there is a parsed query to run ####
 chat_mode = parsed_query.chat_mode
 chat_state.update(parsed_query=parsed_query)
+
+# Display the user message (or the auto-instruction)
+if full_query:
+    with st.chat_message("user"):
+        st.markdown(fix_markdown(full_query))
 
 # Get and display response from the bot
 with st.chat_message("assistant"):
@@ -340,6 +352,10 @@ with st.chat_message("assistant"):
         # Add the response to the chat history if needed
         if not response.get("skip_chat_history"):
             chat_state.chat_history.append((parsed_query.message, answer))
+
+        # If the response, contains instructions to auto-run a query, record it
+        if new_parsed_query := response.get("new_parsed_query"):
+            chat_state.scheduled_queries.add(new_parsed_query)
     except Exception as e:
         # Display the "error" status
         if status:
@@ -371,7 +387,7 @@ with st.chat_message("assistant"):
 
         # Display the response with the error message
         print(f"{answer}\n{DELIMITER}")
-        message_placeholder.markdown(answer)
+        message_placeholder.markdown(fix_markdown(answer))
 
         # Stop this run
         if os.getenv("RERAISE_EXCEPTIONS"):
@@ -390,6 +406,10 @@ if chat_mode == ChatMode.INGEST_COMMAND_ID:
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
+
+# If there are scheduled queries, rerun to run the next one
+if chat_state.scheduled_queries:
+    st.rerun()
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":

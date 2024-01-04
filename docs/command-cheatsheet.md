@@ -3,18 +3,30 @@
 You can enter your messages with or without a prefix. Different prefixes activate different response modes.
 By default, if a message is entered with no prefix, the `/docs` mode is used.
 
-Here's what each prefix does:
+Here's what each prefix does. Most important prefixes:
 
-- `/docs`: chat about your currently selected document collection (general topics are also ok)
-- `/details`: get details about the retrieved documents
-- `/quotes`: get quotes from the retrieved documents
-- `/web`: perform web searches and generate a report
-- `/research`: perform iterative research (no message = iterate on previous report)
-- `/chat`: regular chat, without retrieving docs or websites
-- `/db`: manage your document collections (select, rename, etc.)
-- `/help`: show a help message (similar to this cheatsheet)
+- `/research <your query>`: perform Internet research, generate a report, and ingest fetched sites
+  - `/research`: fetch more websites and iterate on the previous report
+  - `/research for 10 iterations`: repeat the process 10 times
+- `/ingest` or `/upload`: upload your documents and ingest them into a collection
+- `/docs <your query>`: chat with me about your currently selected doc collection (or a general topic)
+- `/db`: manage your doc collections (select, rename, etc.)
 
-Example query: `/research what special medical needs do cornish rexes have?`.
+Other prefixes:
+
+- `/help`: show this help message
+- `/details <your query>`: get details about the retrieved documents
+- `/quotes <your query>`: get quotes from the retrieved documents
+- `/web <your query>`: perform web searches and generate a report
+- `/chat <your query>`: regular chat, without retrieving docs or websites
+
+Example queries:
+
+- `/research What are this month's most important AI news?`
+- `/research` (to fetch more websites and iterate on the previous report)
+- `/research for 10 iterations` (to repeat the process 10 times)
+- `/docs Bullet point for me just the ones related to OpenAI`
+- `/db` (to manage collections)
 
 If you're in a reading mood, here's a [link to the full docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
 

@@ -55,7 +55,7 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
         if not chat_state.message and not chat_state.ws_data:
             return {
-                "answer": "The /research prefix without a message is used to iterate "
+                "answer": "The `/research` prefix without a message is used to iterate "
                 "on the previous report. However, there is no previous "
                 "report associated with this collection."
                 "\n\nExample of a correct research command:\n"

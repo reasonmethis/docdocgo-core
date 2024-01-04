@@ -1,3 +1,5 @@
+import os
+
 from chromadb import Collection
 
 from components.chroma_ddg import ChromaDDG
@@ -9,6 +11,7 @@ from utils.helpers import (
     PRIVATE_COLLECTION_USER_ID_LENGTH,
 )
 from utils.input import get_choice_from_dict_menu, get_menu_choice
+from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import DBCommand
 from utils.type_utils import JSONish, OperationMode, Props
@@ -227,18 +230,27 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
-        if value == DEFAULT_COLLECTION_NAME:
-            return format_answer("You cannot rename a collection to the default name.")
+        # if value == DEFAULT_COLLECTION_NAME:
+        #     return format_answer("You cannot rename a collection to the default name.")
         if not chat_state.user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
             return format_answer(
                 f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
             )
 
-        new_full_name = construct_full_collection_name(chat_state.user_id, value)
+        # Get the full name of the collection to rename to
+        if value == DEFAULT_COLLECTION_NAME:
+            # Will usually fail, but ok if admin has deleted the default collection
+            new_full_name = DEFAULT_COLLECTION_NAME
+        else:
+            new_full_name = construct_full_collection_name(chat_state.user_id, value)
+
+        # Rename the collection
         try:
             chat_state.vectorstore.rename_collection(new_full_name)
         except Exception as e:
-            return format_answer(f"Error renaming collection:\n```\n{e}\n```")
+            return format_answer(
+                f"Error renaming collection:\n```\n{format_exception(e)}\n```"
+            )
 
         return format_answer(f"Collection renamed to: {value}") | {
             "vectorstore": chat_state.get_new_vectorstore(new_full_name),
@@ -252,14 +264,20 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "the collection to delete. Example:\n"
                 "```\n/db delete my-temp-db\n```"
             )
-        if value == DEFAULT_COLLECTION_NAME:
-            return format_answer("You cannot delete the default collection.")
 
         curr_coll_name_as_shown = get_user_facing_collection_name(
             chat_state.vectorstore.name
         )
         if value == "-c" or value == "--current":
             value = curr_coll_name_as_shown
+
+        if value == DEFAULT_COLLECTION_NAME:
+            return format_answer("You cannot delete the default collection.")
+
+        # Admin can delete the default collection by providing the password
+        tmp = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+        if value == f"--default {tmp}" and tmp:
+            value = DEFAULT_COLLECTION_NAME
 
         # Get the full name of the collection to delete
         try:

@@ -1,3 +1,5 @@
+from pydantic import BaseModel, Field
+
 from agents.websearcher_data import WebsearcherData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.query_parsing import ParsedQuery
@@ -9,6 +11,25 @@ from utils.type_utils import (
     PairwiseChatHistory,
     Props,
 )
+
+
+class ScheduledQueries(BaseModel):
+    queue_: list[ParsedQuery] = Field(default_factory=list)
+
+    def add(self, query: ParsedQuery) -> None:
+        self.queue_.append(query)
+
+    def pop(self) -> ParsedQuery | None:
+        try:
+            return self.queue_.pop(0)
+        except IndexError:
+            return None
+
+    def __len__(self) -> int:
+        return len(self.queue_)
+
+    def __bool__(self) -> bool:
+        return bool(self.queue_)
 
 
 class ChatState:
@@ -25,6 +46,7 @@ class ChatState:
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,
         openai_api_key: str | None = None,
+        scheduled_queries: ScheduledQueries | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.parsed_query = parsed_query or ParsedQuery()
@@ -36,6 +58,7 @@ class ChatState:
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
         self.openai_api_key = openai_api_key
+        self.scheduled_queries = scheduled_queries or ScheduledQueries()
 
     @property
     def chat_mode(self) -> ChatMode:

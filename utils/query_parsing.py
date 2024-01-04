@@ -1,7 +1,7 @@
 import json
 import re
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel
 
@@ -16,12 +16,16 @@ db_command_to_enum = {
     "delete": DBCommand.DELETE,
 }
 
+ResearchCommand = Enum("ResearchCommand", "FOR NONE")
+research_commands_to_enum = {"for": ResearchCommand.FOR}
+
 
 class ResearchParams(BaseModel):
     num_iterations_left: int = 1
 
 
 class ParsedQuery(BaseModel):
+    # original_query: str | None = None
     chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID
     message: str = ""
     search_params: Props | None = None
@@ -58,6 +62,36 @@ def get_command(
     except IndexError:
         # If there's no remaining text, return the command and an empty string
         return command, ""
+
+
+def get_value(text: str, transform: Callable) -> tuple[Any, str]:
+    """
+    Extracts the first word from the given text and applies the specified transformation
+    function to it, returning the transformed value and the remaining text.
+
+    If transforming fails or the text is empty, the function returns (None, text). If there's no
+    remaining text, the second part of the returned tuple is an empty string.
+    """
+    # Split the text into the first word and the remaining part
+    split_text = text.split(maxsplit=1)
+
+    # Attempt to apply the transformation function to the first word
+    try:
+        value = transform(split_text[0])
+    except Exception:
+        # Return None and original text if transformation fails or text is empty
+        return None, text
+
+    # Return the resulting value and the remaining text (if any)
+    try:
+        return value, split_text[1]
+    except IndexError:
+        # If there's no remaining text, return the value and an empty string
+        return value, ""
+
+
+def get_int(text: str) -> tuple[int | None, str]:
+    return get_value(text, int)
 
 
 def extract_chat_mode(
@@ -123,7 +157,23 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
     return query, {"where_document": {"$and": filters}}
 
 
-def parse_query(query: str, predetermined_chat_mode: ChatMode | None = None) -> ParsedQuery:
+def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
+    command, query = get_command(orig_query, research_commands_to_enum)
+    if command is None:
+        return ResearchParams(), orig_query
+    if command == ResearchCommand.FOR:
+        num_iterations_left, query = get_int(query)
+        if num_iterations_left is None:
+            # No valid number, assume "for" is part of the query
+            return ResearchParams(), orig_query
+        
+        # Valid number, ignore the rest of the query
+        return ResearchParams(num_iterations_left=num_iterations_left), ""
+
+
+def parse_query(
+    query: str, predetermined_chat_mode: ChatMode | None = None
+) -> ParsedQuery:
     if predetermined_chat_mode:
         chat_mode = predetermined_chat_mode
     else:
@@ -134,11 +184,15 @@ def parse_query(query: str, predetermined_chat_mode: ChatMode | None = None) -> 
         ChatMode.DETAILS_COMMAND_ID,
         ChatMode.QUOTES_COMMAND_ID,
     }:
-        x, y = extract_search_params(query)
-        return ParsedQuery(chat_mode=chat_mode, message=x, search_params=y)
+        m, s = extract_search_params(query)
+        return ParsedQuery(chat_mode=chat_mode, message=m, search_params=s)
 
     if chat_mode == ChatMode.DB_COMMAND_ID:
-        x, y = get_command(query, db_command_to_enum, DBCommand.NONE)
-        return ParsedQuery(chat_mode=chat_mode, db_command=x, message=y)
+        c, m = get_command(query, db_command_to_enum, DBCommand.NONE)
+        return ParsedQuery(chat_mode=chat_mode, db_command=c, message=m)
+
+    if chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:
+        r, m = parse_research_command(query)
+        return ParsedQuery(chat_mode=chat_mode, research_params=r, message=m)
 
     return ParsedQuery(chat_mode=chat_mode, message=query)

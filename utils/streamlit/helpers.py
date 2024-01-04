@@ -1,3 +1,4 @@
+import re
 import time
 
 import streamlit as st
@@ -53,10 +54,23 @@ status_config = {
 }
 
 
+def escape_dollars(text: str) -> str:
+    """
+    Escape dollar signs in the text that come before numbers.
+    """
+    return re.sub(r'\$(?=\d)', r'\$', text)
+
+def fix_markdown(text: str) -> str:
+    """
+    Escape dollar signs in the text that come before numbers and add
+    two spaces before every newline.
+    """
+    return re.sub(r'\$(?=\d)', r'\$', text).replace('\n', '  \n')
+
 def write_slowly(message_placeholder, answer):
-    """Write a message to the message placeholder slowly, like a typewriter."""
+    """Write a message to the message placeholder slowly, character by character."""
     for i in range(1, len(answer) + 1):
-        message_placeholder.markdown(answer[:i])
+        message_placeholder.markdown(fix_markdown(answer[:i]))
         time.sleep(0.005)
 
 

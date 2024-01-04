@@ -41,23 +41,23 @@ DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
 GREETING_MESSAGE = """\
 🦉**Hi, I'm DocDocGo!** I can chat with you like ChatGPT, and also can:
-- research a topic on the web and write a report
-- keep fetching more sources and rewriting the report iteratively
-- answer follow-up questions using all the sources as a knowledge base
-- answer questions about documents you provide
+- research a topic on the web for as long as you want and generate a report
+- chat using all sources fetched during research as a knowledge base
+- similarly chat using documents you provide as a knowledge base
 
 For more details you can jusk ask me! (or type `/help`) \
 """
 
 EXAMPLE_QUERIES = """\
-Here are some example queries (you can try them out in sequence):
-- `/research What are this month's most important AI news?`
+To showcase some of my talents, feel free to try the following queries in sequence:
+- `/research Bullet point for me recent AI news`
 - `/research` (to fetch more websites and iterate on the previous report)
+- `/research for 3 iterations` (to repeat the process 3 times)
 - `Bullet point for me just the ones related to OpenAI`
+- `/db use docdocgo-documentation` (to switch to the default collection)
+- `How can I get more help using you? Write a haiku about it!`
 - `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
-- `/db use docdocgo-documentation` (to switch to the default collection)
-- `How can I get more help using you?`
 """
 
 HELP_MESSAGE = f"""\
@@ -77,21 +77,27 @@ response modes. Think of them like different subagents, each with a different jo
 The default mode is `{DEFAULT_MODE}`.
 
 Here's what each prefix does. Most important prefixes:
+
+- `/research <your query>`: perform Internet research, generate a report, and ingest fetched sites
+  - `/research`: fetch more websites and iterate on the previous report
+  - `/research for 10 iterations`: repeat the process 10 times
 - `/ingest` or `/upload`: upload your documents and ingest them into a collection
-- `/research`: perform iterative Internet research (no message = iterate on previous report)
-- `/docs`: chat with me about your currently selected doc collection (or a general topic)
+- `/docs <your query>`: chat with me about your currently selected doc collection (or a general topic)
 - `/db`: manage your doc collections (select, rename, etc.)
 
 Other prefixes:
-- `/help`: show this help message
-- `/details`: get details about the retrieved documents
-- `/quotes`: get quotes from the retrieved documents
-- `/web`: perform web searches and generate a report
-- `/chat`: regular chat, without retrieving docs or websites
 
-Example queries: 
+- `/help`: show this help message
+- `/details <your query>`: get details about the retrieved documents
+- `/quotes <your query>`: get quotes from the retrieved documents
+- `/web <your query>`: perform web searches and generate a report
+- `/chat <your query>`: regular chat, without retrieving docs or websites
+
+Example queries:
+
 - `/research What are this month's most important AI news?`
 - `/research` (to fetch more websites and iterate on the previous report)
+- `/research for 10 iterations` (to repeat the process 10 times)
 - `/docs Bullet point for me just the ones related to OpenAI`
 - `/db` (to manage collections)
 

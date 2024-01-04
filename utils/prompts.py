@@ -18,7 +18,7 @@ Last Query from Human: {question}
 Standalone version of Last Query: """
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(condense_question_template)
 
-just_chat_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base and the ability to do Internet research. For this part of the conversation you won't be retrieving any information from your knowledge base or the Internet. Instead, you will just chat with the user, keeping in mind that you may have used your knowledge base and/or the Internet earlier in the conversation."""
+just_chat_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base and the ability to do Internet research. For this part of the conversation you won't be retrieving any information from your knowledge base or the Internet. Instead, you will just chat with the user, keeping in mind that you may have used your knowledge base and/or the Internet earlier in the conversation. Use Markdown syntax for your reply."""
 JUST_CHAT_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", just_chat_system_template),
@@ -32,7 +32,7 @@ chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI wh
 {context}
 
 END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
-Use them for your response ONLY if relevant."""
+Use them for your response ONLY if relevant. Use Markdown syntax for your reply."""
 CHAT_WITH_DOCS_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", chat_with_docs_system_template),
@@ -64,7 +64,7 @@ END OF PARTS OF YOUR KNOWLEDGE BASE YOU RETRIEVED.
 
 USER'S QUERY: {question}
 
-YOUR TASK: print any quotes from your knowledge base relevant to user's query, if there are any.
+YOUR TASK: print any quotes from your knowledge base relevant to user's query, if there are any. Use Markdown syntax for your reply.
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
 
