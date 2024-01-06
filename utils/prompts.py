@@ -182,29 +182,6 @@ WEBSEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
     [("user", websearcher_template_initial_report)]
 )
 
-iterative_report_improver_template0 = """\
-You are AIRIA, Advanced Iterative Report Improvement Assistant. 
-
-USER's query: {query}
-
-MISSION: improve the report you generated on your previous iteration, with the help of the following additional information you retrieved:
-
-{new_info}
-
-END OF NEW INFORMATION YOU RETRIEVED
-
-Your previous iteration's report: 
-
-{previous_report}
-
-END OF PREVIOUS ITERATION'S REPORT
-
-If the new information you retrieved is useful to improve the report to best serve USER's information need, please output the improved report, followed immediately by "REPORT ASSESSMENT: X%, where X is your estimate of how well the report serves USER's information need on a scale from 0% to 100%, based on their query: 
-
-{query}
-
-If the new information isn't useful to improve previous report then don't output a report, simply output "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT: X%", where X is your estimate of how well the previous report serves USER's information need. Output: """
-
 iterative_report_improver_template = """\
 You are ARIA, Advanced Report Improvement Assistant. 
 
@@ -224,19 +201,21 @@ END OF QUERY. REPORT/ANSWER TO ANALYZE:
 
 END OF REPORT
 
-Please decide how specifically the RETRIEVED INFORMATION you were provided at the beginning can address any areas of improvement in the report: additions, corrections, deletions, perhaps even a complete rewrite.
+That report was prepared using information from elsewhere. Your task: combine all of the provided information into a new report. Specifically:
 
-Please write: "ACTION ITEMS FOR IMPROVEMENT:" then provide a numbered list of the individual SOURCEs in the RETRIEVED INFORMATION: first the URL, then specific instructions, in imperative form, for how to use **that particular** URL's CONTENT from above to enhance the report - use word economy, no filler words, and if that particular content is not useful then just write "NOT RELEVANT".
+Please write: "ACTION ITEMS FOR IMPROVEMENT:" then provide a numbered list of the individual SOURCEs in the RETRIEVED INFORMATION: first the URL, then specific instructions, in imperative form, for how to use **that particular** URL's CONTENT from above to enhance the report - use word economy, no filler words, and if that particular content is not useful then just write "NOT RELEVANT". Be brief, one numbered list item per SOURCE, with just one or two sentences per item.
 
-Add one more item in your numbered list - any additional instructions you can think of for improving the report/answer, independent of the RETRIEVED INFORMATION, particularly as related to the overall structure of the report, for example how to rearrange sections, what parts to remove, reword, etc.
+Add one more item in your numbered list - any additional instructions you can think of for improving the report/answer, independent of the RETRIEVED INFORMATION, particularly as related to the overall structure of the report, for example how to rearrange sections, what parts to remove, reword, etc. Again, be brief.
 
 After that, write: "NEW REPORT:" and write a new report from scratch in Markdown format, starting with a title. Important: any action items you listed must be **fully** implemented in your report, in which case your report must necessarily be different from the original report. In fact, the new report can be completely different if needed, the only concern is to craft an informative, no-fluff answer to the user's query:
 
 {query}
 
-END OF QUERY. This new report/answer should be: {report_type}.
+END OF QUERY. This new report/answer should be: {report_type}. (in case of conflict, user's query takes precedence)
 
 Finish with: "REPORT ASSESSMENT: X%", where X is your estimate of how well your new report serves user's information need on a scale from 0% to 100%, based on their query. Don't use Markdown here, only for the new report/answer.
+
+**Important**: don't delete information from the report only because it can't be verified using the provided sources! The information in the report was obtained from previously retrieved sources!
 """
 
 ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(

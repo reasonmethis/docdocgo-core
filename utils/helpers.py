@@ -45,12 +45,12 @@ GREETING_MESSAGE = """\
 - chat using all sources fetched during research as a knowledge base
 - similarly chat using documents you provide as a knowledge base
 
-For more details you can jusk ask me! (or type `/help`) \
+How? jusk ask me! (or type `/help`) \
 """
 
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
-- `/research Bullet point for me recent AI news`
+- `/research What are some unique traditional Ukrainian dishes?`
 - `/research` (to fetch more websites and iterate on the previous report)
 - `/research for 3 iterations` (to repeat the process 3 times)
 - `Bullet point for me just the ones related to OpenAI`
@@ -58,6 +58,9 @@ To showcase some of my talents, feel free to try the following queries in sequen
 - `How can I get more help using you? Write a haiku about it!`
 - `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
+
+:grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance **a lot**. \
+You'll need your own OpenAI API key for that.]\
 """
 
 HELP_MESSAGE = f"""\

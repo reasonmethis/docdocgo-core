@@ -145,7 +145,7 @@ with st.sidebar:
             chat_state.chat_and_command_history.append(
                 (
                     None,
-                    "I see that the user key has changed. Good to see you!"
+                    "I see that the user key has changed. Welcome!"
                     if is_auth
                     else "The user has changed, so I switched to the default collection. Welcome!",
                 )
@@ -157,9 +157,14 @@ with st.sidebar:
         model_options = ["gpt-3.5-turbo-1106", "gpt-4-1106-preview"]
         if is_community_key:
             model_options = model_options[:1]
+            index = 0
+        else:
+            if chat_state.bot_settings.llm_model_name not in model_options:
+                model_options.append(chat_state.bot_settings.llm_model_name)
+            index = model_options.index(chat_state.bot_settings.llm_model_name)
         # TODO: adjust context length (for now assume 16k)
         chat_state.bot_settings.llm_model_name = st.selectbox(
-            "Language model", model_options, disabled=is_community_key
+            "Language model", model_options, disabled=is_community_key, index=index
         )
 
         # Temperature
@@ -191,7 +196,7 @@ with st.expander("See a quick walkthrough"):
 with st.expander("Want to upload your own documents?"):
     if st.session_state.idx_file_upload == -1:
         files, allow_all_ext = show_uploader(border=False)
-    st.markdown("**Tip:** During chat, just say `/upload` to upload more docs!")
+    st.markdown(":grey[**Tip:** During chat, just say `/upload` to upload more docs!]")
 
 # Show previous exchanges and sources
 for i, (msg_pair, sources) in enumerate(
@@ -297,7 +302,7 @@ else:
         full_query += f" {num_iterations_left} research iterations left."
     except AttributeError:
         pass
-    
+
 #### The rest will only run once there is a parsed query to run ####
 chat_mode = parsed_query.chat_mode
 chat_state.update(parsed_query=parsed_query)

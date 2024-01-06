@@ -1,0 +1,306 @@
+You are ARIA, Advanced Report Improvement Assistant.
+
+For this task, you can use the following information retrieved from the Internet:
+
+SOURCE: https://www.kickresume.com/en/help-center/best-ai-resume-builders/
+CONTENT:
+Everybody is now using Artificial Intelligence (AI) to make their lives easier — from ordering groceries and finding your lost keys to writing the perfect resume. AI resume builders are amazing tools, but choosing the right one can be a challenge.
+The market for AI resume writing tools is rapidly expanding and becoming more and more accessible to job seekers. These tools can help applicants build their resume from scratch, enhance their current one with AI-generated content, and even optimize it for specific job postings.
+Trying to sift through all of the options can, however, be pretty time-consuming.
+That's why we've taken the hard work off your hands and rounded up the top 5 AI resume builder tools available.
+Our aim? To make sure you have all the knowledge at your fingertips to make an informed decision about which AI resume writer is right for you.
+In this review, we're looking at different features, ease of use, their pros and cons, and, of course, pricing. No sugar coating here.
+This way, you can confidently choose the AI resume builder that fits your needs without any guesswork.
+First, what is an AI resume builder?
+AI resume builders (or writers) are tools powered by artificial intelligence (AI) algorithms designed to automatically generate resumes and other job-related documents (like cover letters).
+Based on user input, these algorithms analyze relevant job postings, candidates’ experience and qualifications, and look for relevant keywords and skills to help users build a
+[ tailored resume](https://blog.kickresume.com/tailor-your-resume-to-a-specific-job/).
+And what are the benefits of using one?
+- It saves you time.
+- It writes personalized content for you.
+- It formats the resume.
+Without further ado, let’s find the best one for you!
+1.
+[Kickresume's AI Resume Writer](/en/ai-resume-writer/)
+Let's address the elephant in the room — I work for Kickresume. However, I tested our tool the same way as the others, step-by-step, and objectively.
+Kickresume’s AI Resume Builder is powered by OpenAI's GPT-3 NLP model. This model is the world’s most powerful natural language processing model, which is very well-suited for creating structured documents like resumes.
+All you need to do is enter a job title — and it generates a unique and personalized work experience section. To create a full resume using AI, you simply fill in a 2-minute questionnaire.
+How does it work?
+After logging in to your account, on the dashboard in Your documents, click on New resume with AI. This takes you straight into a short questionnaire which takes 2 minutes to complete (you can check the preview in the GIF above). It includes questions about your personal information, your most recent work experience, your education, skills, and hobbies.
+Your resume will then be generated. You can customize the final resume if you want to — for example, I added some personal details and changed the template. But you can also re-order the sections, change the icons, or add any additional sections (10+ optional sections available).
+Alternatively, you can also use AI to write only bullet points for your work experience section. You can either import your existing resume, build it from a resume sample from our database, import your LinkedIn profile, or create one from scratch manually. Then, AI generates bullet points for your work experience section based simply on your job title. It took about 5 seconds.
+You can edit these if you want them to have a more personalized feel, add new ones, or regenerate them if you don't like them. Then you can customize the final resume (the design, template, font, re-order sections, etc.).
+Pros & cons of Kickresume's AI Resume Builder
+The good:
+- Relevant content. If you create your whole resume using AI, it does a great job of writing a brief yet strong resume summary and bullet points with relevant keywords for the work experience and education section. For example, here are the bullet points the AI generated for the job of a Copywriter:
+- Increased web traffic by 25% through innovative SEO techniques
+- Wrote and edited compelling copy for the website, blog, and social media
+- Edited and proofread documents for grammar, style, and content
+- Resume design. Kickresume also specializes in resume design, so all of its 35+ resume templates are designed by a team of professional typographers and recruiters. You can customize and adjust every design aspect, like fonts, spacing, colors, and more. What I really like is that you can change the icons for sections and personal information. It made my creative soul very happy.
+- Easy to use. One of the most straightforward AI resume-writing tools out there. All of the steps are very intuitive and are complemented by helpful tips and links to comprehensive guides throughout the process. The developers are clearly no strangers to UX design.
+- You can re-order sections. Depending on which section you want to highlight and place at the top, you can re-order the sections simply by dragging. This comes very handy since by
+[choosing a suitable resume format](https://blog.kickresume.com/how-to-choose-resume-format-2020/), you can easily steer attention to certain sections and away from others.
+- Free option. You can create a full resume using AI for free.
+The not so good:
+- May require personalization. Given that the text has been written by AI rather than you and had limited information as input, you might still need to make some adjustments and tweak the details to make it more personal in the end. For instance, since this tool only uses your latest job title as input, it has no knowledge of your previous work experience or quantifiable achievements.
+Kickresume’s pricing
+- Free: With a free account you can create 1 complete resume using AI. Alternatively, you can generate bullet points for multiple work experience sections.
+- Premium users can create 30+ career documents (including resumes & cover letters) monthly. Premium subscription starts at $5/month.
+- Bonus: Option to get 6 months of free premium for students and teachers
+- Bonus #2: If you choose the yearly subscription, up to 5 of your friends get a month of Kickresume Premium for free!
+By the way, Kickresume also has an
+[AI Resume Checker tool](/en/resume-checker/) that offers feedback to help you improve it and an [AI Cover Letter Writer](/en/ai-cover-letter-writer/) that produces a rock-solid cover letter in seconds.
+2.
+[Resumaker.ai](https://resumaker.ai/)
+Resumaker.ai is a simple resume-building tool that helps you craft a resume in minutes thanks to pre-written phrases.
+How does it work?
+This resume builder is easy to use and requires minimal effort. You start by picking a resume template design you like. Then you fill in your personal information, your job title, and keywords.
+In the last stage, the AI technology helps auto-fill certain resume sections (resume summary, work experience, and skills) with pre-written phrases. You can add more phrases or edit them. These phrases are very complex and high-quality.
+In the work experience section, you can add multiple jobs and job titles, each with its unique pre-written description in bullet points. Then you need to manually fill in details like company names or dates, and other sections, including education.
+Pros & cons of Resumaker.ai
+The good:
+- High-quality suggested phrases. This tool provides very complex and relevant suggested phrases and paragraphs that fit the given job position. You can also choose from multiple options to ensure the description is fitting.
+- To give you an example, this is a suggested sentence for a Data Scientist resume summary: “Data Scientist with a deep understanding of analysis and programming, proficient in Python and R. Experienced in building machine learning models and data visualization.”   
+- Interactive assistant. The built-in assistant interactively guides you through the application in a few steps.
+The not so good:
+- No free option. There's no option to create a resume for free.
+- Limited number of phrases. For the resume summary, the tool suggests 5 phrases to choose from, and for the work experience section, you can choose from 10.
+- Limited customization. You can choose one of the 10 templates. However, you then have very limited options for customization. Line spacing and color are the only things you can change.
+Resumaker’s pricing
+- No option to create a resume for free.
+- Subscription starts at $0.99 for a 7-day access. You must cancel this trial before it ends, otherwise, it automatically renews and you'll be charged $29.70 every 4 weeks.
+- Alternatively, a 3-month premium subscription costs $23.75 and a 6-month subscription costs $45.75
+3.
+[Resume Genius](https://resumegenius.com/)
+Resume Genius is a resume-building tool featuring a very effective resume generator software that can help you quickly create customized career documents.
+How does it work?
+You start by answering a few questions about your past work experience and the highest attained education level. In the next step, you're presented with 6 recommended templates, though you can choose to “view all templates.”
+In the next step, you'll complete and fill in all these sections in this order: contact information, experience, education, certifications, skills, career objective, references, and optional additional sections.
+In the work experience section, you get 25+ recommended bullet points for your chosen job title (see this stage in the picture above). You can also choose from 60+ recommended skills. Finally, you can choose from 15+ recommended career objectives.
+Pros & cons of Resume Genius
+The good:
+- Brief but relevant phrases. Though on the succinct side, the suggested phrases were to the point and persuasive.
+- For example, this is a suggested work experience bullet point for the job of Data Scientist: “Monitored products from statistical programs for accuracy, consistency and statistical validity.”
+- Provides tips. This tool is very user-friendly, guiding you through every step as well as providing tips for writing and improvement.
+- A lot of phrases to choose from. The exact number of suggested phrases depends on the specific job title. However, for all of the occupations we tested, there was a pretty lengthy selection (usually 25+, but for some even 99+).
+- Nice templates. The templates are all very sleek and look professional.
+The not so good:
+- Step-by-step editor. As mentioned before, when filling in your information, you have to fill them in a pre-defined order and can't jump from section to section or skip them.
+- Very limited customization. Both in terms of customizing the templates (as you can only change the font size and color of the template) and ordering the resume sections. For instance, if you're a fresh graduate and would rather use a functional resume format highlighting your skills at the top of the resume, you wouldn't be able to. Unfortunately, the sections can't be re-ordered.
+- No free option. No option to create a resume for free; you can only start a 14-day trial period for $2.95.
+Resume Genius pricing
+- No option to create a resume for free.
+- 14-day trial plan: $2.90 (you have to cancel, otherwise it will auto-renew and you’ll be billed $23.90 every 30 days)
+- 1-month plan for $6.40 (you'll be billed annually at $76.80)
+4.
+[Rezi.ai](https://www.rezi.ai/)
+With this AI resume builder tool, you can automatically generate descriptions for certain resume sections. All descriptions are tailored for specific jobs in your field and optimized for applicant tracking systems (ATS) by targeting keywords.
+How does it work?
+At first, you're asked whether you want to create a resume from scratch, import an existing one from LinkedIn, or create one from a sample resume. Next, you select whether you want a job-tailored resume or a general-purpose one.
+Then you need to select the job title you're interested in, a company (if applicable), and you can paste the specific job description, too. You also fill in the name of the field and your experience level.
+At the final stage, you have to fill in details for different resume sections manually (check out the picture above). Rezi's AI writer tool can generate relevant and convincing descriptions for selected sections of your resume (experience, projects, involvement, skills, and summary). Finally, you can tweak and edit your AI-generated resume as much as you need to get the ideal final result.       
+Pros & cons of Rezi.ai
+The good:
+- AI keyword targeting. Rezi is content-focused — it suggests the right keywords and details that best fit the role you're targeting. The AI picks keywords from the job ad (which you can paste in the first stage) and suggests bullet points that contain these.       
+- Gives improvement tips & points out mistakes. This tool also assigns your resume a score based on its current design and content and gives you personalized suggestions for improving both the content and formatting. It also points out any obvious mistakes.
+- Can complete 1 resume for free. With a free account, you'll receive enough credits to create one standard-formatted resume using AI.
+- Auto-adjust to fit one page. Depending on how much content you provide, the auto-adjust feature will re-adjust the content to fit one page and ensure there's either enough or not too much white space.
+The not so good:
+- It's a bit time-consuming. Compared to other tools mentioned in this review, this tool takes a bit more time to complete a full resume. There are a lot of sections that require manual completion and the first stage of the process also requires more input.
+- Poor selection of templates. There was only 1 free template which was very basic. The other 5 templates were only for Pro subscription users and were also mediocre at best.
+- No option to re-order sections. Similar to Resume Genius, with this AI resume writer you don't have the option to choose your own order of resume sections.
+Rezi's pricing
+- Free: With a free account you get limited credits for the AI tool (enough for 1-2 full resumes using AI tools). Each use of the AI builder subtracts credits.
+- Additional AI credits are available as a one-time purchase for $10.
+- For $3 per month you get 1 resume limit, a limited access to keyword targeting and content analysis, and can access only standard resume templates.
+- For $29 per month you get full access to all features and 100,000 AI credits which renew every month.
+5.
+[Skillroads](https://skillroads.com/)
+Skillroads is a fairly advanced AI resume builder that can not only generate a resume for you but also assess and review your current one. It relies on the completion of a pretty lengthy, though intuitive questionnaire.
+How does it work?
+First, you must provide your personal information like name, email, and phone number. What comes next is a 6-step questionnaire containing questions regarding your desired job, your objectives, highlights, experience, skills, and education.
+While in some of these steps, you'll only need to click on provided options, some require a bit more time to complete.
+Once you get to the last step, your resume will be generated. You can then edit it (to some extent) and preview the final result.    
+Pros & cons of Skillroads
+The good:
+- Creates a full resume based on the questionnaire. Though you should personalize some of the details, the AI takes care of everything else.
+- 1 resume generated for free by AI. You can create and download 1 PDF resume for free.
+- Online 24/7 help available. Even though other resume builders also had online chat support (like Kickresume), Skillroads' employee replied in under 2 minutes and was very helpful. Cheers Valery!
+- AI-written resume summary was satisfactory. In the words of Comrade Dyatlov, not great, not terrible. It used the “highlights section” as input, so pay extra attention if you want your summary to be relevant.
+The not so good:
+- Can't leave the phone number blank. It required entering a phone number even though I wanted to leave that field blank.
+- The website is lagging. Moving on to the next steps in the questionnaire took way more than it should have — both when trying different browsers and using different devices & wifi networks.
+- No possibility of adding your own content. You can only fill in certain sections with the pre-defined content available. For example, in the skills section, I could only click on the provided skill and not add any of my own. The same happens in the highlights section.
+- Only one available template and no customization. There's no selection of templates to choose from. The pre-defined one is very bland and basic. Plus, there are no customization options at all. The text size is also very small and you can't change it.
+- Can't re-order sections. After the resume is generated, you can't edit the order of the sections, which is not ideal for job seekers who don't want a chronological resume format.
+Skillroads' pricing
+- Free: You can create 1 resume using AI for free and download it in PDF or .doc format.
+- For a one-time payment of $9.99, you can have an unlimited number of resumes (though it doesn't mention whether you can also use the AI tool without limits).
+Final thoughts
+Choosing the right AI resume builder for your needs comes down to what you hope to get out of it.
+Some can generate a full resume using AI, and some focus on generating relevant phrases for specific questions. And some can do both.
+At Kickresume, our AI Resume Writer leverages a world-class machine-learning model to ensure you receive optimal and relevant results when generating a resume.
+Plus, you can even access a limited number of free resume generations when you create a free account.
+=====
+
+SOURCE: https://www.tealhq.com/tools/resume-builder
+CONTENT:
+- Add your information once by either uploading an existing resume or importing your LinkedIn profile to our free online AI-powered resume builder. Then, use our AI resume builder to select which work experiences to include in each resume.
+[Create Your Resume Today](https://app.tealhq.com/sign-up)
+Make your resume stand out by quickly customizing it to each application and applying to more jobs.
+- Add your information once by either uploading an existing resume or importing your LinkedIn profile to our free online AI-powered resume builder. Then, use our AI resume builder to select which work experiences to include in each resume.
+- Put your best foot forward with our ATS-compliant professional resume templates. All the resume templates have countless settings so you can add your personal style with our free resume maker.
+- Make your job search more impactful with AI-generated resume summaries, achievements, and cover letters. Speed up your resume creation process and land your dream job faster.
+- Get real-time feedback and expert tips with our resume checker. Just follow our step by step guidance to improve your resume quality.
+- Strengthen your resume with your keywords from job descriptions and format recommendations. Attach your desired position and we will highlight the job posting keywords so you can customize the perfect resume.
+- Use AI to merge your resume and a job description to quickly create cover letters for each job application.
+- Teal’s resume generator tool lets you create multiple versions of your resume so you can include job specific content in each one. Just download your applicant tracking systems approved resume template and apply.
+Join over 100,000 professionals to enhance your resume, track your job search, and land a job you love.
+Jennifer Dalby
+Chief Operating Officer
+No more manually splicing resume content together from a giant source document. Load your content and check the boxes to select components to include in each customized resume. You can keep every version you write of each bullet point and description and simply select which to include when you compile a new resume. Improvement suggestions are right there in your face, not trapped in some influencer's top 10 tips post. You will be motivated to find metrics and accomplishments. It is so easy to manipulate the content to fix the page length or formatting. Selectable content is in the left pane with the PDF view updating in real-time on the right.
+January 24, 2023
+Michelle McRory
+E-learning Developer & Instructional Designer
+This is my go-to for keeping up with my job search. Not only does it keep track in an easy to read spreadsheet, but there are so many features - like breaking down a job description into key words, resume writing help, job search advice, reminders and suggestions for following up, and much more
+January 19, 2023
+Devesh Sharma
+SVP Strategy
+Fantastic tool! Helps search for jobs, save them, customize your resume to the job posting and keep track of all your applications. It identifies the keywords in the posting and whether they are in your resume, making it a cinch to customize your resume. There are also a lot of useful templates for cover letters, follow-ups, and a support website with tool nuggets galore. Highly recommended for any job seeker!
+October 25, 2022
+Upgrade to unlock Teal's premium features and turbocharge your job search.
+- Unlimited Resumes
+- Unlimited Resumes Templates
+- Unlimited Job Tracking
+- Top 5 Keywords
+- 1 Email Template Per job stage
+- Limited AI Usage for Resume Achievements (5), Professional Summaries (2) and Cover Letter (1)
+- Basic analysis in the resume builder
+- Basic Resume Keyword Matching
+Free
+Forever
+- Everything in Teal Free
+- Unlimited Advanced Resume Analysis
+- Unlimited Resume Keyword Matching
+- Unlimited AI Usage for Resume Achievements, Professional Summaries and Cover Letter
+- Unlimited keywords (hard and soft skills) listed in the job tracker
+- Unlimited Email Templates
+- No ads across the entire platform
+- 24/7 Email Support
+$9 / Week
+Billed every week, month or 3 months
+Get Started for Free
+No credit card required, ever.
+Build a resume for free using our resume template and speed up your job application process.
+Choose from applicant tracking system friendly, professionally designed resume templates and customize your fonts, colors, and much more.
+Use our AI features to get pre-written content for achievements, professional summaries, and even a cover letter to customize resumes quickly and create a custom resume quickly.
+Use our analysis tool built by resume experts to improve your resume writing skills.
+No need to start from scratch when you import your resume data from an existing resume or use your LinkedIn profile directly into Teal’s AI Resume Builder.
+Attach a job description to the AI-powered resume builder and include the best keywords to stand out and quickly create resumes for each job application.
+Build as many versions of ATS friendly resume as you’d like with the free resume creator and customize a new resume easily.
+Generate a custom cover letter faster with our AI features designed to help you stand out to a hiring manager.
+Not sure what to write? Leverage our personalized guidance and recommendations to help you build an impressive resume for free.      
+Get Started - It's Free
+A professional resume is a carefully crafted summary of your skills, experiences, and accomplishments to demonstrate your value to potential employers. They are designed to catch the attention of hiring managers and help you stand out from other applicants. Professional resumes should always be tailored according to the job requirements so that YOU can highlight what makes you well-suited for the position.
+A resume builder is an invaluable tool for constructing a professional and engaging resume. With a few clicks, these robust programs provide templates, pre-filled content, editable sections, and helpful tips to craft a professional-looking document that accurately reflects your qualifications and experience. Additionally, many resume builders come with tools to easily import existing resumes and fill them out quickly, helping save time and energy.
+Creating an eye-catching resume using an online builder is a great way to develop a professional-grade document without needing special software.
+[Teal’s resume builder is a great place to start.](https://app.tealhq.com/sign-up) Look for an online resume maker that allows you to get started with a basic format but is flexible enough to customize it and add elements to make it stand out. With a resume builder, you'll likely be able to choose from various free templates and designs to craft the perfect document for you. Please ensure to give your resume a final read-through before you download your resume so that it doesn’t have any grammatical errors and accurately reflects your work history. Having a ready-to-go resume template will help job seekers apply to jobs faster.
+Absolutely.
+There are, of course, free resume builder options available with a tool like Teal. Starting with the base product is an excellent way to get used to the process and create a free professional resume. However, with
+[Teal+](https://www.tealhq.com/post/whats-ahead-a-look-at-teal), you can get even deeper with the AI-powered resume builder functionality, unlimited advanced resume analysis, resume keyword matching, and more. Job seekers who leverage Teal are getting out applications faster and landing more interviews.
+There are, of course, free resume builder options available with a tool like Teal. Starting with the base product is an excellent way to get used to the process and create a free professional resume. However, with
+Crafting an effective resume is no small feat - much thought and creativity are required to get it right.
+We developed
+[hundreds of resume examples](/resume-examples) to help you tailor your resume to the individual job and industry you are pursuing. A tailored resume can be the difference between a generic, forgettable submission and a standout application that lands you an interview. A professionally developed resumé sample provides structure, formatting tips, and often includes helpful examples of skills or experience relevant to the job field. By leveraging these assets and considering your unique skills and accomplishments, you will create an eye-catching resumé that demonstrates your passion and readiness for the position.
+We developed
+Teal's AI resume builder uses OpenAI's GPT technology. ChatGPT is a revolutionary technology that uses Natural Language Processing (NLP) to generate human-like answers. When you save a resume and job to Teal, the AI-powered resume builder can analyze your experience and the job at hand and create a resume with achievements, a professional summary, and a cover letter.
+There are three main formats: chronological, functional, and combination/hybrid. Chronological resumes list previous job experience in reverse-chronological order and present related skills beneath each job title. Functional resumes focus on attributes that are relevant to the role. Finally, the combination/hybrid approach is a blend of both methods: job titles and companies mentioned, emphasizing skills you can bring to that type of position. Teal is designed to help you build a resume in whichever style you’d like with professional templates that have built in flexibility and formatting.
+Aside from Teal’s free AI resume builder, the platform also offers a
+[Job Application Tracker ](https://www.tealhq.com/tools/job-tracker)and a [LinkedIn Profile Review](https://www.tealhq.com/tools/linkedin-review) tool. These tools work incredibly well together and will complement each other during your job search. For example, if you save a job within the tracker, you can re-access the requisite in your AI resume builder and customize your current resume to meet that role's needs. You can also use the LinkedIn profile review tool to [optimize your LinkedIn](https://www.tealhq.com/post/five-ways-to-optimize-your-linkedin-profile) so it’s ready for the hiring manager’s eyes after they’ve read your resume, cover letter, and application.
+=====
+
+END OF RETRIEVED INFORMATION
+
+Your task: pinpoint areas of improvement in the report/answer prepared in response to the following query:
+
+AI-powered resume builders - simple numbered list of as many as possible
+
+END OF QUERY. REPORT/ANSWER TO ANALYZE:
+
+1. **Kickresume**
+   - Offers comprehensive features with a variety of templates, including AI-assisted resume and cover letter creation powered by OpenAI's GPT-3 model.
+
+2. **Resumaker.ai**
+   - Quick resume crafting with pre-written content and AI-optimized suggestions for a polished resume in minutes.
+
+3. **Resume Genius**
+   - Simplifies the resume-building process with HR-approved professional templates and a user-friendly interface.
+
+4. **Rezi's AI Writer Tool**
+   - Optimizes resumes for Applicant Tracking Systems (ATS) with AI-generated content and suggestions.
+
+5. **Enhancv**
+   - Provides personalized resumes and career counseling services with a user-friendly drag-and-drop interface and customizable templates.
+
+6. **Resume.io**
+   - Allows for the creation of well-crafted resumes quickly with AI tools that generate specialized descriptions or text based on job advertisements.
+
+7. **Zety AI Resume Builder**
+   - Offers a good user interface with easily customizable AI-generated content and the ability to switch between templates at any time.
+
+8. **Skillroads AI Resume Generator**
+   - Provides a free AI resume using a questionnaire format and offers premium services overseen by professional writers.
+
+9. **Jasper Resume Generator**
+   - Known for helping users with different forms of writing, including resumes, with generative artificial intelligence.
+
+10. **Novorésumé**
+    - Features an intelligent, user-friendly interface with AI to help format and tailor resumes, offering real-time content optimization.
+
+11. **Enchancv**
+    - Uses data-driven insights and AI to personalize resumes with stylish templates and an easy-to-use editor.
+
+12. **Resume.com**
+    - Blends user-friendliness with extensive customization options and AI-backed guidance for creating resumes.
+
+13. **MyPerfectResume**
+    - Offers intelligent optimization features with a user-friendly design and AI technology for content suggestions.
+
+14. **Resume Worded**
+    - Provides robust AI-powered features for creating impactful resumes, including detailed feedback and strategic insights.        
+
+15. **Rezi**
+    - Designed specifically for getting past the ATS with proprietary technology and AI-powered content improvement.
+
+16. **Resume Genius AI Builder**
+    - A free-to-use builder that formats everything for you and provides useful suggestions based on job titles.
+
+17. **Teal**
+    - Includes a job tracking dashboard and an AI resume creator with flexible tools for generating work experience bullet points.   
+
+18. **Enhancv AI Builder**
+    - Highly customizable with AI to provide tailored suggestions and spell check for improving resumes.
+
+19. **Resumaker.ai**
+    - Simplifies the process with AI algorithms that analyze job descriptions and offer customized suggestions.
+
+20. **Jobscan**
+    - Uses AI to optimize resumes for specific positions by identifying keyword matches and offering improvement suggestions.        
+
+END OF REPORT
+
+That report was prepared using information from elsewhere. Your task: combine all of the provided information into a new report. Specifically:
+
+Please write: "ACTION ITEMS FOR IMPROVEMENT:" then provide a numbered list of the individual SOURCEs in the RETRIEVED INFORMATION: first the URL, then specific instructions, in imperative form, for how to use **that particular** URL's CONTENT from above to enhance the report - use word economy, no filler words, and if that particular content is not useful then just write "NOT RELEVANT". Be brief, one numbered list item per SOURCE, with just one or two sentences per item.
+
+Add one more item in your numbered list - any additional instructions you can think of for improving the report/answer, independent of the RETRIEVED INFORMATION, particularly as related to the overall structure of the report, for example how to rearrange sections, what parts to remove, reword, etc. Again, be brief.
+
+After that, write: "NEW REPORT:" and write a new report from scratch in Markdown format, starting with a title. Important: any action items you listed must be **fully** implemented in your report, in which case your report must necessarily be different from the original report. In fact, the new report can be completely different if needed, the only concern is to craft an informative, no-fluff answer to the user's query:
+
+AI-powered resume builders - simple numbered list of as many as possible
+
+END OF QUERY. This new report/answer should be: simple numbered list of AI-powered resume builders with brief descriptions, likely less than 1000 words. (in case of conflict, user's query takes precedence)
+
+Finish with: "REPORT ASSESSMENT: X%", where X is your estimate of how well your new report serves user's information need on a scale from 0% to 100%, based on their query. Don't use Markdown here, only for the new report/answer.
+
+**Important**: don't delete information from the report only because it can't be verified using the provided sources! The information in the report was obtained from previously retrieved sources!
