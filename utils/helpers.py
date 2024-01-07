@@ -55,11 +55,11 @@ To showcase some of my talents, feel free to try the following queries in sequen
 - `/research for 3 iterations` (to repeat the process 3 times)
 - `What legal scholars have argued for disqualification?`
 - `/db use docdocgo-documentation` (to switch to the default collection)
-- `How can I get more help using you? Write a haiku about it!`
+- `How can I get more help using you? Tell me in the style of prof. Dumbledore.`
 - `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
 
-:grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance **a lot**. \
+:grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance. \
 You'll need your own OpenAI API key for that.]\
 """
 
