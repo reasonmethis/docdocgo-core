@@ -356,7 +356,9 @@ with st.chat_message("assistant"):
 
         # Add the response to the chat history if needed
         if not response.get("skip_chat_history"):
-            chat_state.chat_history.append((parsed_query.message, answer))
+            chat_state.chat_history.append((full_query, answer))
+            # TODO: check if this is better than parsed_query.messag, if so, change
+            # things in other modes. Also, handle parsed_query.message being None 
 
         # If the response, contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):

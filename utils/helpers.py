@@ -50,10 +50,10 @@ How? jusk ask me! (or type `/help`) \
 
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
-- `/research What are some unique traditional Ukrainian dishes?`
+- `/research legal arguments for and against disqualifying Trump from running`
 - `/research` (to fetch more websites and iterate on the previous report)
 - `/research for 3 iterations` (to repeat the process 3 times)
-- `Bullet point for me just the ones related to OpenAI`
+- `What legal scholars have argued for disqualification?`
 - `/db use docdocgo-documentation` (to switch to the default collection)
 - `How can I get more help using you? Write a haiku about it!`
 - `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
