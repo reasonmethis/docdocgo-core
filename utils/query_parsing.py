@@ -168,7 +168,7 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             return ResearchParams(), orig_query
 
         # Valid number, ignore the rest of the query
-        return ResearchParams(num_iterations_left=min(num_iterations_left, 3)), ""
+        return ResearchParams(num_iterations_left=num_iterations_left), ""
 
 
 def parse_query(

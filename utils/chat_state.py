@@ -37,6 +37,7 @@ class ChatState:
         self,
         *,
         operation_mode: OperationMode,
+        is_community_key: bool = False,
         parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
@@ -49,6 +50,7 @@ class ChatState:
         scheduled_queries: ScheduledQueries | None = None,
     ) -> None:
         self.operation_mode = operation_mode
+        self.is_community_key = is_community_key
         self.parsed_query = parsed_query or ParsedQuery()
         self.chat_history = chat_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now

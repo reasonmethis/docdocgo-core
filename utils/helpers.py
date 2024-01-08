@@ -177,3 +177,6 @@ def clamp(value, min_value, max_value):
 def utc_timestamp_int() -> int:
     """Returns the current UTC timestamp as an integer (seconds since epoch)"""
     return int(datetime.utcnow().timestamp())
+
+def format_nonstreaming_answer(answer):
+    return {"answer": answer, "needs_print": True}
