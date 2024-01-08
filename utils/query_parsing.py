@@ -16,11 +16,18 @@ db_command_to_enum = {
     "delete": DBCommand.DELETE,
 }
 
-ResearchCommand = Enum("ResearchCommand", "FOR NONE")
-research_commands_to_enum = {"for": ResearchCommand.FOR}
+ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE FOR NONE")
+research_commands_to_enum = {
+    "for": ResearchCommand.FOR,
+    "iterate": ResearchCommand.FOR,
+    "new": ResearchCommand.NEW,
+    "more": ResearchCommand.MORE,
+    "combine": ResearchCommand.COMBINE,
+}
 
 
 class ResearchParams(BaseModel):
+    task_type: ResearchCommand
     num_iterations_left: int = 1
 
 
@@ -159,16 +166,28 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
 
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     command, query = get_command(orig_query, research_commands_to_enum)
-    if command is None:
-        return ResearchParams(), orig_query
+    if command in {ResearchCommand.NEW, ResearchCommand.MORE}:
+        return ResearchParams(task_type=command), query
+    
+    if command == ResearchCommand.COMBINE:
+        return ResearchParams(task_type=command), ""
+
     if command == ResearchCommand.FOR:
         num_iterations_left, query = get_int(query)
         if num_iterations_left is None:
-            # No valid number, assume "for" is part of the query
-            return ResearchParams(), orig_query
-        
+            if not query:
+                # "/research iterate" or "/research for"
+                num_iterations_left = 1
+            else:
+                # No valid number, assume "for" is part of the query
+                return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         # Valid number, ignore the rest of the query
-        return ResearchParams(num_iterations_left=num_iterations_left), ""
+        return ResearchParams(
+            task_type=ResearchCommand.FOR,
+            num_iterations_left=num_iterations_left,
+        ), ""
+    
+    return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 
 
 def parse_query(

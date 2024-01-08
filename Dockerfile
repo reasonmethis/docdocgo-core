@@ -11,7 +11,8 @@ FROM python:3.11-bookworm
 # Install Python package dependencies
 RUN pip install langchain chromadb openai tiktoken beautifulsoup4 trafilatura \
     fake-useragent python-dotenv streamlit playwright Flask unstructured waitress \
-    beautifulsoup4 Pillow pytesseract docx2txt pdf2image xlrd reportlab svglib
+    beautifulsoup4 Pillow pytesseract docx2txt pdf2image xlrd reportlab svglib \
+    google-cloud-firestore
 
 # Copy all application files into the container
 COPY . .

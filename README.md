@@ -219,6 +219,7 @@ python-dotenv==1.0.0
 streamlit==1.29.0
 playwright==1.40.0
 Flask==3.0.0
+google-cloud-firestore==2.14.0
 ```
 
 ### Running the Containerized Application

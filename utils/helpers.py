@@ -35,6 +35,7 @@ command_ids = {
     "/help": ChatMode.HELP_COMMAND_ID,
     "/ingest": ChatMode.INGEST_COMMAND_ID,
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
+    "/browse": ChatMode.BROWSE_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
@@ -130,6 +131,16 @@ Remember, you can always ask me for help in using me - you just need to make sur
 the default collection (`{DEFAULT_COLLECTION_NAME}`) is selected.
 """
 
+RESEARCH_COMMAND_HELP_TEMPLATE = """\
+You can use the following commands for research tasks:
+
+- `/research new <your query>`: start new Internet research, generate a report, and ingest fetched sites
+- `/research more <your new query>`: same as above, but ingest into current collection
+- `/research more`: keep original query, but fetch more websites and create a new report version
+- `/research combine`: combine previous two reports into one
+- `/research iterate`: fetch more websites and iterate on the previous report
+- `/research iterate 10`: repeat the above process 10 times
+"""
 
 def print_no_newline(*args, **kwargs):
     """
