@@ -16,7 +16,7 @@ from components.llm import get_prompt_llm_chain
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma_client
-from utils.helpers import DELIMITER, print_no_newline
+from utils.helpers import DELIMITER, format_nonstreaming_answer, print_no_newline
 from utils.lang_utils import (
     get_num_tokens,
     get_num_tokens_in_texts,
@@ -30,7 +30,7 @@ from utils.prompts import (
 )
 from utils.query_parsing import ParsedQuery
 from utils.strings import extract_json
-from utils.type_utils import ChatMode, OperationMode
+from utils.type_utils import ChatMode, OperationMode, Props
 from utils.web import (
     LinkData,
     afetch_urls_in_parallel_aiohttp,
@@ -313,7 +313,7 @@ SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
 
 def get_initial_iterative_researcher_response(
     chat_state: ChatState,
-) -> WebsearcherData:
+) -> Props:
     response = get_websearcher_response_medium(chat_state)
     ws_data: WebsearcherData = response["ws_data"]
 
@@ -409,7 +409,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
 
 def get_iterative_researcher_response(
     chat_state: ChatState,
-) -> WebsearcherData:
+) -> Props:
     if chat_state.message:
         # No need to get ws_data from the database, since we are starting a new research
         ws_data = None
@@ -420,6 +420,28 @@ def get_iterative_researcher_response(
     # Special handling for first iteration
     if not ws_data or not ws_data.report:
         return get_initial_iterative_researcher_response(chat_state)
+
+    # Validate request
+    MAX_ITERATIONS_IF_COMMUNITY_KEY = 3
+    MAX_ITERATIONS_IF_OWN_KEY = 100
+    if chat_state.is_community_key:
+        if (
+            chat_state.parsed_query.research_params.num_iterations_left
+            > MAX_ITERATIONS_IF_COMMUNITY_KEY
+        ):
+            return format_nonstreaming_answer(
+                f"Apologies, a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
+                "allowed when using a community OpenAI API key."
+            )
+    else:
+        if (
+            chat_state.parsed_query.research_params.num_iterations_left
+            > MAX_ITERATIONS_IF_OWN_KEY
+        ):
+            return format_nonstreaming_answer(
+                f"For your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} iterations is "
+                "allowed."
+            )
 
     t_start = datetime.now()
     print("Current version of report:\n", ws_data.report)

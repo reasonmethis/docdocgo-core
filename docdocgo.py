@@ -67,11 +67,11 @@ def get_bot_response(chat_state: ChatState):
             }
         # Get response from iterative researcher
         res_from_bot = get_iterative_researcher_response(chat_state)
-        ws_data = res_from_bot["ws_data"]  # res_from_bot also contains "answer"
+        ws_data = res_from_bot.get("ws_data")
 
         # Load the new vectorstore if needed
         partial_res = {}
-        if ws_data.collection_name != chat_state.vectorstore.name:
+        if ws_data and ws_data.collection_name != chat_state.vectorstore.name:
             vectorstore = chat_state.get_new_vectorstore(ws_data.collection_name)
             partial_res["vectorstore"] = vectorstore
 

@@ -174,13 +174,13 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
 
     if command == ResearchCommand.FOR:
         num_iterations_left, query = get_int(query)
-        if num_iterations_left is None:
-            if not query:
-                # "/research iterate" or "/research for"
-                num_iterations_left = 1
-            else:
-                # No valid number, assume "for" is part of the query
-                return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+        if num_iterations_left is None and not query:
+            # "/research iterate" or "/research for"
+            num_iterations_left = 1
+        if num_iterations_left is None or num_iterations_left < 1:
+            # No valid number, assume "for" is part of the query
+            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+
         # Valid number, ignore the rest of the query
         return ResearchParams(
             task_type=ResearchCommand.FOR,

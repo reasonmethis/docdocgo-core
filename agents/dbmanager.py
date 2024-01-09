@@ -9,6 +9,7 @@ from utils.helpers import (
     PRIVATE_COLLECTION_FULL_PREFIX_LENGTH,
     PRIVATE_COLLECTION_PREFIX,
     PRIVATE_COLLECTION_USER_ID_LENGTH,
+    format_nonstreaming_answer,
 )
 from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.output import format_exception
@@ -173,11 +174,6 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
 
-
-def format_answer(answer):
-    return {"skip_history": True, "answer": answer, "needs_print": True}
-
-
 def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     command = chat_state.parsed_query.db_command
     value = chat_state.parsed_query.message
@@ -194,11 +190,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         return f"Collection {name} not found. {get_available_dbs_str()}"
 
     if command == DBCommand.LIST:
-        return format_answer(get_available_dbs_str())
+        return format_nonstreaming_answer(get_available_dbs_str())
 
     if command == DBCommand.USE:
         if not value:
-            return format_answer(
+            return format_nonstreaming_answer(
                 get_available_dbs_str()
                 + "\n\nTo switch collections, you must provide the name or number "
                 "of the collection to switch to. Example:\n"
@@ -216,24 +212,24 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                     raise ValueError
                 value = coll_names_as_shown[idx]
             except ValueError:
-                return format_answer(get_db_not_found_str(value))
+                return format_nonstreaming_answer(get_db_not_found_str(value))
 
-        return format_answer(f"Switched to collection: `{value}`.") | {
+        return format_nonstreaming_answer(f"Switched to collection: `{value}`.") | {
             "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
         }
 
     if command == DBCommand.RENAME:
         if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
-            return format_answer("You cannot rename the default collection.")
+            return format_nonstreaming_answer("You cannot rename the default collection.")
         if not value:
-            return format_answer(
+            return format_nonstreaming_answer(
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
         # if value == DEFAULT_COLLECTION_NAME:
-        #     return format_answer("You cannot rename a collection to the default name.")
+        #     return format_nonstreaming_answer("You cannot rename a collection to the default name.")
         if not chat_state.user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
-            return format_answer(
+            return format_nonstreaming_answer(
                 f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
             )
 
@@ -248,17 +244,17 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         try:
             chat_state.vectorstore.rename_collection(new_full_name)
         except Exception as e:
-            return format_answer(
+            return format_nonstreaming_answer(
                 f"Error renaming collection:\n```\n{format_exception(e)}\n```"
             )
 
-        return format_answer(f"Collection renamed to: {value}") | {
+        return format_nonstreaming_answer(f"Collection renamed to: {value}") | {
             "vectorstore": chat_state.get_new_vectorstore(new_full_name),
         }
 
     if command == DBCommand.DELETE:
         if not value:
-            return format_answer(
+            return format_nonstreaming_answer(
                 get_available_dbs_str()
                 + "\n\nTo delete a collection, you must provide the name of "
                 "the collection to delete. Example:\n"
@@ -272,7 +268,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             value = curr_coll_name_as_shown
 
         if value == DEFAULT_COLLECTION_NAME:
-            return format_answer("You cannot delete the default collection.")
+            return format_nonstreaming_answer("You cannot delete the default collection.")
 
         # Admin can delete the default collection by providing the password
         tmp = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
@@ -283,13 +279,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         try:
             full_name = coll_names_full[coll_names_as_shown.index(value)]
         except ValueError:
-            return format_answer(get_db_not_found_str(value))
+            return format_nonstreaming_answer(get_db_not_found_str(value))
 
         # Delete the collection
         chat_state.vectorstore.delete_collection(full_name)
 
         # Form answer, and - if the current collection was deleted - initiate a switch
-        ans = format_answer(f"Collection `{value}` deleted.")
+        ans = format_nonstreaming_answer(f"Collection `{value}` deleted.")
         if full_name == chat_state.vectorstore.name:
             ans["vectorstore"] = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
 
@@ -331,7 +327,7 @@ def handle_db_command(chat_state: ChatState) -> Props:
     if chat_state.parsed_query.db_command == DBCommand.NONE:
         if chat_state.operation_mode == OperationMode.CONSOLE:
             return manage_dbs_console(chat_state)
-        return format_answer(
+        return format_nonstreaming_answer(
             DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)
         )
 

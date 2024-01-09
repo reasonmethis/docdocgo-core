@@ -115,6 +115,7 @@ with st.sidebar:
             and not user_openai_api_key
             and not st.session_state.allow_all_settings_for_default_key
         )
+        chat_state.is_community_key = is_community_key # in case it changed
         if is_community_key:
             st.caption(
                 "Using the default OpenAI API key (some settings are restricted, "
