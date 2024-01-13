@@ -21,7 +21,7 @@ class ChatMode(Enum):
     DETAILS_COMMAND_ID = 2
     QUOTES_COMMAND_ID = 3
     WEB_COMMAND_ID = 4
-    ITERATIVE_RESEARCH_COMMAND_ID = 5
+    RESEARCH_COMMAND_ID = 5
     JUST_CHAT_COMMAND_ID = 6
     DB_COMMAND_ID = 7
     HELP_COMMAND_ID = 8
@@ -31,7 +31,7 @@ class ChatMode(Enum):
 
 chat_modes_needing_llm = {
     ChatMode.WEB_COMMAND_ID,
-    ChatMode.ITERATIVE_RESEARCH_COMMAND_ID,
+    ChatMode.RESEARCH_COMMAND_ID,
     ChatMode.JUST_CHAT_COMMAND_ID,
     ChatMode.DETAILS_COMMAND_ID,
     ChatMode.QUOTES_COMMAND_ID,

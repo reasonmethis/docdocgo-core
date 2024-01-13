@@ -16,13 +16,14 @@ db_command_to_enum = {
     "delete": DBCommand.DELETE,
 }
 
-ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE FOR NONE")
+ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE ITERATE VIEW NONE")
 research_commands_to_enum = {
-    "for": ResearchCommand.FOR,
-    "iterate": ResearchCommand.FOR,
+    "for": ResearchCommand.ITERATE,
+    "iterate": ResearchCommand.ITERATE,
     "new": ResearchCommand.NEW,
     "more": ResearchCommand.MORE,
     "combine": ResearchCommand.COMBINE,
+    "view": ResearchCommand.VIEW,
 }
 
 
@@ -168,11 +169,11 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     command, query = get_command(orig_query, research_commands_to_enum)
     if command in {ResearchCommand.NEW, ResearchCommand.MORE}:
         return ResearchParams(task_type=command), query
-    
-    if command == ResearchCommand.COMBINE:
+
+    if command in {ResearchCommand.COMBINE, ResearchCommand.VIEW}:
         return ResearchParams(task_type=command), ""
 
-    if command == ResearchCommand.FOR:
+    if command == ResearchCommand.ITERATE:
         num_iterations_left, query = get_int(query)
         if num_iterations_left is None and not query:
             # "/research iterate" or "/research for"
@@ -183,10 +184,10 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
 
         # Valid number, ignore the rest of the query
         return ResearchParams(
-            task_type=ResearchCommand.FOR,
+            task_type=ResearchCommand.ITERATE,
             num_iterations_left=num_iterations_left,
         ), ""
-    
+
     return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 
 
@@ -210,7 +211,7 @@ def parse_query(
         c, m = get_command(query, db_command_to_enum, DBCommand.NONE)
         return ParsedQuery(chat_mode=chat_mode, db_command=c, message=m)
 
-    if chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:
+    if chat_mode == ChatMode.RESEARCH_COMMAND_ID:
         r, m = parse_research_command(query)
         return ParsedQuery(chat_mode=chat_mode, research_params=r, message=m)
 

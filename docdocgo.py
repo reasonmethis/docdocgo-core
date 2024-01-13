@@ -6,10 +6,7 @@ from langchain.vectorstores.base import VectorStoreRetriever
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import handle_db_command
-from agents.websearcher import (
-    get_iterative_researcher_response,
-    get_websearcher_response,
-)
+from agents.researcher import get_researcher_response, get_websearcher_response
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
@@ -51,28 +48,15 @@ def get_bot_response(chat_state: ChatState):
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif chat_mode == ChatMode.WEB_COMMAND_ID:  # /web command
         return get_websearcher_response(chat_state)
-        # return {"answer": res_from_bot["answer"]}  # remove ws_data
-    elif chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID:  # /research command
-        if not chat_state.message and not chat_state.ws_data:
-            return {
-                "answer": "The `/research` prefix without a message is used to iterate "
-                "on the previous report. However, there is no previous "
-                "report associated with this collection."
-                "\n\nExample of a correct research command:\n"
-                "```\n/research What are the hardest tongue-twisters?\n```",
-                "needs_print": True,
-                "status.header": "Invalid input",
-                "status.body": "The `/research` prefix with no message used "
-                "despite no preexisting report.",
-            }
+    elif chat_mode == ChatMode.RESEARCH_COMMAND_ID:  # /research command
         # Get response from iterative researcher
-        res_from_bot = get_iterative_researcher_response(chat_state)
-        ws_data = res_from_bot.get("ws_data")
+        res_from_bot = get_researcher_response(chat_state)
+        rr_data = res_from_bot.get("rr_data")
 
         # Load the new vectorstore if needed
         partial_res = {}
-        if ws_data and ws_data.collection_name != chat_state.vectorstore.name:
-            vectorstore = chat_state.get_new_vectorstore(ws_data.collection_name)
+        if rr_data and rr_data.collection_name != chat_state.vectorstore.name:
+            vectorstore = chat_state.get_new_vectorstore(rr_data.collection_name)
             partial_res["vectorstore"] = vectorstore
 
         # Return response, including the new vectorstore if needed
@@ -278,7 +262,7 @@ if __name__ == "__main__":
             vectorstore = response["vectorstore"]
 
         # Get sources
-        # TODO: also get sources from the websearcher
+        # TODO: also get sources from the researcher
         source_links = get_source_links(response)
         if source_links:
             print("Sources:")

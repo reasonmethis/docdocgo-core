@@ -9,14 +9,19 @@ from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
 from agents.dbmanager import construct_full_collection_name
-from agents.websearcher_data import WebsearcherData
+from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma_client
-from utils.helpers import DELIMITER, format_nonstreaming_answer, print_no_newline
+from utils.helpers import (
+    DELIMITER,
+    format_invalid_input_answer,
+    format_nonstreaming_answer,
+    print_no_newline,
+)
 from utils.lang_utils import (
     get_num_tokens,
     get_num_tokens_in_texts,
@@ -26,9 +31,11 @@ from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
-    WEBSEARCHER_PROMPT_INITIAL_REPORT,
+    REPORT_COMBINER_PROMPT,
+    RESEARCHER_PROMPT_INITIAL_REPORT,
 )
-from utils.query_parsing import ParsedQuery
+from utils.query_parsing import ParsedQuery, ResearchCommand
+from utils.researcher_utils import get_links
 from utils.strings import extract_json
 from utils.type_utils import ChatMode, OperationMode, Props
 from utils.web import (
@@ -36,7 +43,6 @@ from utils.web import (
     afetch_urls_in_parallel_aiohttp,
     afetch_urls_in_parallel_playwright,
 )
-from utils.websearcher_utils import get_links
 
 
 def get_batch_fetcher():
@@ -123,7 +129,7 @@ def parse_iterative_report(answer: str) -> tuple[str, str | None]:
 
     # Determine the start of the report (and end of suggestions if present)
     if -1 < idx_suggestions < idx_new_report:
-        # SUGGESTIONS and NEW REPORT found
+        # Suggestions for improvement and NEW REPORT found
         idx_start_report = idx_new_report + len(NEW_REPORT_MSG)
     else:
         # No suggestions found. Identify the start of the report by "#" if present
@@ -161,14 +167,14 @@ def parse_iterative_report(answer: str) -> tuple[str, str | None]:
 
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
-DEFAULT_MAX_TOTAL_LINKS = round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600)
+NUM_OK_LINKS_NEW_REPORT = min(7, round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600))
 # TODO: experiment with reducing the number of sources (gpt-3.5 may have trouble with 7)
 
 
-def get_websearcher_response_medium(
+def get_initial_researcher_response(
     chat_state: ChatState,
-    max_queries: int = 7,
-    max_total_links: int = DEFAULT_MAX_TOTAL_LINKS,
+    max_queries: int = 20,  # not that important (as long as it's not too small)
+    num_ok_links: int = NUM_OK_LINKS_NEW_REPORT,
     max_tokens_final_context: int = DEFAULT_MAX_TOKENS_FINAL_CONTEXT,
 ):
     query = chat_state.message
@@ -212,9 +218,7 @@ def get_websearcher_response_medium(
         # Do a Google search for each query
         print("Fetching search result links for each query...")
         num_search_results = (
-            100
-            if chat_state.chat_mode == ChatMode.ITERATIVE_RESEARCH_COMMAND_ID
-            else 10
+            100 if chat_state.chat_mode == ChatMode.RESEARCH_COMMAND_ID else 10
         )  # default is 10; 20-100 costs 2 credits per query
         search = GoogleSerperAPIWrapper(k=num_search_results)
         search_tasks = [search.aresults(query) for query in queries]
@@ -224,8 +228,8 @@ def get_websearcher_response_medium(
         all_links = get_links(search_results)
         print(
             f"Got {len(all_links)} links in total, "
-            f"will fetch *at least* {min(max_total_links, len(all_links))}:\n-",
-            "\n- ".join(all_links[:max_total_links]),
+            f"will try to fetch at least {min(num_ok_links, len(all_links))} successfully:\n-",
+            "\n- ".join(all_links[:num_ok_links]),  # will fetch more if some fail
         )
         t_get_links_end = datetime.now()
     except Exception as e:
@@ -238,27 +242,41 @@ def get_websearcher_response_medium(
         link_data_dict = get_content_from_urls_with_top_up(
             all_links,
             batch_fetcher=get_batch_fetcher(),
-            min_ok_urls=round(max_total_links * 0.75),
-            init_batch_size=max_total_links,
+            min_ok_urls=num_ok_links,
+            init_batch_size=min(
+                10, round(num_ok_links * 1.2)
+            ),  # NOTE: might want to look into best value
         )
         print()
     except Exception as e:
         raise ValueError(f"Failed to fetch content from URLs: {e}")
 
+    # Determine which links to include in the context (num_ok_links good links)
+    processed_links = []  # NOTE: might want to rename to links_to_process
+    links = []  # NOTE: might want to rename to links_to_include
+    for link, data in link_data_dict.items():
+        # If we have enough ok links, stop gathering processed links and links to include
+        if len(links) == num_ok_links:
+            break
+        processed_links.append(link)
+        if not data.error:
+            links.append(link)
+
     # Initialize data object
-    processed_links = list(link_data_dict.keys())
-    ws_data = WebsearcherData(
+    num_obtained_ok_links = sum(1 for data in link_data_dict.values() if not data.error)
+    rr_data = ResearchReportData(
         query=query,
         generated_queries=queries,
         report_type=report_type,
         unprocessed_links=all_links[len(processed_links) :],
         processed_links=processed_links,
+        num_obtained_unprocessed_links=len(link_data_dict) - len(processed_links),
+        num_obtained_unprocessed_ok_links=num_obtained_ok_links - len(links),
         link_data_dict=link_data_dict,
         max_tokens_final_context=max_tokens_final_context,
     )
 
-    # Get a list of acceptably fetched links and their texts
-    links = [link for link, data in link_data_dict.items() if not data.error]
+    # Get a list of acceptably fetched texts
     texts = [link_data_dict[link].text for link in links]
     t_process_texts_end = datetime.now()
 
@@ -275,8 +293,10 @@ def get_websearcher_response_medium(
         final_context = "\n\n".join(final_texts)
         t_final_context = datetime.now()
 
-        print("Number of obtained links:", len(all_links))
-        print("Number of processed links:", len(ws_data.processed_links))
+        print("Number of discovered links:", len(all_links))
+        print("Number of obtained links:", len(link_data_dict))
+        print("Number of successfully obtained links:", num_obtained_ok_links)
+        print("Number of processed links:", len(rr_data.processed_links))
         print("Number of links after removing unsuccessfully fetched ones:", len(links))
         print("Time taken to process links:", t_process_texts_end - t_get_links_end)
         print("Time taken to shorten texts:", t_final_context - t_process_texts_end)
@@ -284,24 +304,38 @@ def get_websearcher_response_medium(
 
         print("\nGenerating report...\n")
         chain = get_prompt_llm_chain(
-            WEBSEARCHER_PROMPT_INITIAL_REPORT,
-            # WEBSEARCHER_PROMPT_DYNAMIC_REPORT,
+            RESEARCHER_PROMPT_INITIAL_REPORT,
+            # RESEARCHER_PROMPT_DYNAMIC_REPORT,
             llm_settings=chat_state.bot_settings,
             api_key=chat_state.openai_api_key,
-            print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
+            print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
             callbacks=chat_state.callbacks,
             stream=True,
         )
         answer = chain.invoke(
             {"texts_str": final_context, "query": query, "report_type": report_type}
         )
-        ws_data.report, ws_data.evaluation = parse_iterative_report(answer)
+        rr_data.report, rr_data.evaluation = parse_iterative_report(answer)
 
-        return {"answer": answer, "ws_data": ws_data, "source_links": links}
+        return {"answer": answer, "rr_data": rr_data, "source_links": links}
     except Exception as e:
         texts_str = "\n\n".join(x[:200] for x in texts)
         print(f"Failed to get report: {e}, texts:\n\n{texts_str}")
         raise ValueError(f"Failed to generate report: {e}")
+
+
+WebsearcherMode = Enum("WebsearcherMode", "QUICK MEDIUM TEST")
+
+
+def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
+    if mode == WebsearcherMode.QUICK:
+        return get_websearcher_response_quick(chat_state)
+    elif mode == WebsearcherMode.MEDIUM:
+        return get_initial_researcher_response(chat_state)
+    elif mode == WebsearcherMode.TEST:
+        return get_initial_researcher_response(chat_state)
+        # return get_web_test_response(chat_state)
+    raise ValueError(f"Invalid mode: {mode}")
 
 
 SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
@@ -311,22 +345,30 @@ SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could
 SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
 
 
-def get_initial_iterative_researcher_response(
-    chat_state: ChatState,
-) -> Props:
-    response = get_websearcher_response_medium(chat_state)
-    ws_data: WebsearcherData = response["ws_data"]
+def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
+    response = get_initial_researcher_response(chat_state)
+    rr_data: ResearchReportData = response["rr_data"]
+
+    # Initialize preliminary reports
+    # NOTE: might want to store the main report in the same format (Report)
+    rr_data.preliminary_reports.append(
+        Report(
+            report=rr_data.report,
+            sources=response["source_links"],
+            evaluation=rr_data.evaluation,
+        )
+    )
 
     # Determine which links to include in the db
     links_to_include = [
-        link for link, data in ws_data.link_data_dict.items() if not data.error
+        link for link, data in rr_data.link_data_dict.items() if not data.error
     ]
     # if not links_to_include:
-    #     return ws_data
+    #     return rr_data
     # NOTE: should work even if there are no links to include, but might want to test
 
     # Decide on the collection name consistent with ChromaDB's naming rules
-    query_words = [x.lower() for x in ws_data.query.split()]
+    query_words = [x.lower() for x in rr_data.query.split()]
     words = []
     words_excluding_small = []
     for word in query_words:
@@ -346,21 +388,21 @@ def get_initial_iterative_researcher_response(
         # Can only happen for a public collection (no prefixed user_id)
         new_coll_name = f"collection-{new_coll_name}".rstrip("-")
 
-    ws_data.collection_name = new_coll_name
+    rr_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
     chroma_client: ClientAPI = chat_state.vectorstore._client
     for i in range(2, 1000000):
-        if not exists_collection(ws_data.collection_name, chroma_client):
+        if not exists_collection(rr_data.collection_name, chroma_client):
             break
-        ws_data.collection_name = f"{new_coll_name}-{i}"
+        rr_data.collection_name = f"{new_coll_name}-{i}"
 
     # Convert website content into documents for ingestion
     print()  # we just printed the report, so add a newline
     print_no_newline("Ingesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
-        link_data = ws_data.link_data_dict[link]
+        link_data = rr_data.link_data_dict[link]
         metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
@@ -369,12 +411,12 @@ def get_initial_iterative_researcher_response(
     # Ingest documents into ChromaDB
     for i in range(2):
         try:
-            collection_metadata = {"ws_data": ws_data.json()}
+            collection_metadata = {"rr_data": rr_data.model_dump_json()}
             # NOTE: might want to remove collection_name from collection_metadata
             # since the user can rename the collection without updating the metadata
             ingest_docs_into_chroma_client(
                 docs,
-                collection_name=ws_data.collection_name,
+                collection_name=rr_data.collection_name,
                 openai_api_key=chat_state.openai_api_key,
                 chroma_client=chroma_client,
                 collection_metadata=collection_metadata,
@@ -385,12 +427,12 @@ def get_initial_iterative_researcher_response(
                 raise e  # i == 1 means tried normal name and random name, give up
 
             # Create a random valid collection name and try again
-            ws_data.collection_name = construct_full_collection_name(
+            rr_data.collection_name = construct_full_collection_name(
                 chat_state.user_id,
                 "collection-" + "".join(random.sample("abcdefghijklmnopqrstuvwxyz", 6)),
             )
     print("Done!")
-    return response  # has answer, ws_data
+    return response  # has answer, rr_data
 
 
 NUM_NEW_OK_LINKS_TO_PROCESS = 2
@@ -407,77 +449,93 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
     return {"new_parsed_query": new_parsed_query}
 
 
-def get_iterative_researcher_response(
-    chat_state: ChatState,
-) -> Props:
-    if chat_state.message:
-        # No need to get ws_data from the database, since we are starting a new research
-        ws_data = None
-    else:
-        ws_data: WebsearcherData = chat_state.ws_data  # NOTE: might want to convert to
-        # chat_state.get_ws_data() for readability
+MAX_ITERATIONS_IF_COMMUNITY_KEY = 3
+MAX_ITERATIONS_IF_OWN_KEY = 100
 
-    # Special handling for first iteration
-    if not ws_data or not ws_data.report:
+
+def get_iterative_researcher_response(chat_state: ChatState) -> Props:
+    # Assign task type and get rr_data
+    task_type = chat_state.parsed_query.research_params.task_type
+    if task_type == ResearchCommand.NEW:
         return get_initial_iterative_researcher_response(chat_state)
 
-    # Validate request
-    MAX_ITERATIONS_IF_COMMUNITY_KEY = 3
-    MAX_ITERATIONS_IF_OWN_KEY = 100
+    rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
+    # chat_state.get_rr_data() for readability
+
+    if not rr_data or not rr_data.report:
+        return format_invalid_input_answer(
+            "Apologies, this command is only valid when there is an existing report.",
+            "You can generate a new report using `/research new <query>`.",
+        )
+
+    # Fix for older style collections
+    if not rr_data.preliminary_reports:
+        ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
+        rr_data.preliminary_reports.append(
+            Report(
+                report=rr_data.report,
+                sources=ok_links[: -rr_data.num_obtained_unprocessed_ok_links],
+                evaluation=rr_data.evaluation,
+            )
+        )
+
+    # Validate number of iterations
+    num_iterations_left = chat_state.parsed_query.research_params.num_iterations_left
     if chat_state.is_community_key:
-        if (
-            chat_state.parsed_query.research_params.num_iterations_left
-            > MAX_ITERATIONS_IF_COMMUNITY_KEY
-        ):
-            return format_nonstreaming_answer(
+        if num_iterations_left > MAX_ITERATIONS_IF_COMMUNITY_KEY:
+            return format_invalid_input_answer(
                 f"Apologies, a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
-                "allowed when using a community OpenAI API key."
+                "allowed when using a community OpenAI API key.",
+                "Please try a lower number of iterations or use your OpenAI API key.",
             )
     else:
-        if (
-            chat_state.parsed_query.research_params.num_iterations_left
-            > MAX_ITERATIONS_IF_OWN_KEY
-        ):
-            return format_nonstreaming_answer(
+        if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
+            return format_invalid_input_answer(
                 f"For your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} iterations is "
-                "allowed."
+                "allowed.",
+                "Please try a lower number of iterations.",
             )
 
     t_start = datetime.now()
-    print("Current version of report:\n", ws_data.report)
+    print("Current version of report:\n", rr_data.report)
     print(DELIMITER)
 
     # Sanity check
     if (
         sum(
             1
-            for link in ws_data.unprocessed_links[
-                : ws_data.num_obtained_unprocessed_links
+            for link in rr_data.unprocessed_links[
+                : rr_data.num_obtained_unprocessed_links
             ]
-            if not ws_data.link_data_dict[link].error
+            if not rr_data.link_data_dict[link].error
         )
-        != ws_data.num_obtained_unprocessed_ok_links
+        != rr_data.num_obtained_unprocessed_ok_links
     ):
         raise ValueError("Mismatch in the number of obtained unprocessed good links")
 
     # Get content from more links if needed
+    num_new_ok_links_to_process = (
+        NUM_NEW_OK_LINKS_TO_PROCESS
+        if task_type == ResearchCommand.ITERATE
+        else NUM_OK_LINKS_NEW_REPORT  # "/research more"
+    )
     num_ok_new_links_to_fetch = (
-        NUM_NEW_OK_LINKS_TO_PROCESS - ws_data.num_obtained_unprocessed_ok_links
+        num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
     )
     if num_ok_new_links_to_fetch > 0:
         link_data_dict = get_content_from_urls_with_top_up(
-            ws_data.unprocessed_links[ws_data.num_obtained_unprocessed_links :],
+            rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
             batch_fetcher=get_batch_fetcher(),
             min_ok_urls=num_ok_new_links_to_fetch,
             init_batch_size=INIT_BATCH_SIZE,
         )
 
-        # Update ws_data
-        ws_data.link_data_dict.update(link_data_dict)
-        ws_data.num_obtained_unprocessed_links += len(link_data_dict)
+        # Update rr_data
+        rr_data.link_data_dict.update(link_data_dict)
+        rr_data.num_obtained_unprocessed_links += len(link_data_dict)
 
         tmp = sum(1 for data in link_data_dict.values() if not data.error)
-        ws_data.num_obtained_unprocessed_ok_links += tmp
+        rr_data.num_obtained_unprocessed_ok_links += tmp
         print()
     t_fetch_end = datetime.now()
 
@@ -486,62 +544,62 @@ def get_iterative_researcher_response(
     links_to_count_tokens_for = []
     num_links_to_include = 0
     num_new_processed_links = 0
-    for link in ws_data.unprocessed_links:
+    for link in rr_data.unprocessed_links:
         # Stop if have enough links; consider only *obtained* links
         if (
-            num_links_to_include == NUM_NEW_OK_LINKS_TO_PROCESS
-            or num_new_processed_links == ws_data.num_obtained_unprocessed_links
+            num_links_to_include == num_new_ok_links_to_process
+            or num_new_processed_links == rr_data.num_obtained_unprocessed_links
         ):
             break
         num_new_processed_links += 1
 
         # Include link if it's good
-        if ws_data.link_data_dict[link].error:
+        if rr_data.link_data_dict[link].error:
             continue
         links_to_include.append(link)
         num_links_to_include += 1
 
         # Check if we need to count tokens for this link
-        if ws_data.link_data_dict[link].num_tokens is None:
+        if rr_data.link_data_dict[link].num_tokens is None:
             links_to_count_tokens_for.append(link)
 
-    texts_to_include = [ws_data.link_data_dict[x].text for x in links_to_include]
+    texts_to_include = [rr_data.link_data_dict[x].text for x in links_to_include]
 
-    # Update ws_data once again to reflect the links about to be processed
-    ws_data.processed_links += ws_data.unprocessed_links[:num_new_processed_links]
-    ws_data.unprocessed_links = ws_data.unprocessed_links[num_new_processed_links:]
-    ws_data.num_obtained_unprocessed_links -= num_new_processed_links
-    ws_data.num_obtained_unprocessed_ok_links -= num_links_to_include
+    # Update rr_data once again to reflect the links about to be processed
+    rr_data.processed_links += rr_data.unprocessed_links[:num_new_processed_links]
+    rr_data.unprocessed_links = rr_data.unprocessed_links[num_new_processed_links:]
+    rr_data.num_obtained_unprocessed_links -= num_new_processed_links
+    rr_data.num_obtained_unprocessed_ok_links -= num_links_to_include
 
     # If no links to include, don't submit to LLM
     if not links_to_include:
-        # Save new ws_data in chat_state (which saves it in the database) and return
-        chat_state.save_ws_data(ws_data)
+        # Save new rr_data in chat_state (which saves it in the database) and return
+        chat_state.save_rr_data(rr_data)
         return {
             "answer": "There are no more usable sources to incorporate into the report",
-            "ws_data": ws_data,
+            "rr_data": rr_data,
             "needs_print": True,  # NOTE: this won't be streamed
         } | prepare_next_iteration(chat_state)
 
     # Count tokens in texts to be processed; throw in the report text too
     print("Counting tokens in texts and current report...")
     texts_to_count_tokens_for = [
-        ws_data.link_data_dict[x].text for x in links_to_count_tokens_for
-    ] + [ws_data.report]
+        rr_data.link_data_dict[x].text for x in links_to_count_tokens_for
+    ] + [rr_data.report]
     token_counts = get_num_tokens_in_texts(texts_to_count_tokens_for)
 
     num_tokens_report = token_counts[-1]
     for link, num_tokens in zip(links_to_count_tokens_for, token_counts):
-        ws_data.link_data_dict[link].num_tokens = num_tokens
+        rr_data.link_data_dict[link].num_tokens = num_tokens
 
     # Shorten texts that are too long and construct combined sources text
     # TODO consider chunking and/or reducing num of included links instead
     print("Constructing final context...")
     final_texts, final_token_counts = limit_tokens_in_texts(
         texts_to_include,
-        ws_data.max_tokens_final_context - num_tokens_report,
+        rr_data.max_tokens_final_context - num_tokens_report,
         cached_token_counts=[
-            ws_data.link_data_dict[x].num_tokens for x in links_to_include
+            rr_data.link_data_dict[x].num_tokens for x in links_to_include
         ],
     )
     final_texts = [
@@ -561,36 +619,64 @@ def get_iterative_researcher_response(
             num_tokens_report + num_tokens_final_context,
         )
 
-    # Submit to LLM to generate report
+    # Assign the correct prompt and inputs
     print("Generating report...\n")
-    chain = get_prompt_llm_chain(
-        ITERATIVE_REPORT_IMPROVER_PROMPT,
+    if task_type == ResearchCommand.ITERATE:
+        prompt = ITERATIVE_REPORT_IMPROVER_PROMPT
+        inputs = {
+            "new_info": final_context,
+            "query": rr_data.query,
+            "previous_report": rr_data.preliminary_reports[-1].report,
+        }
+    else:
+        prompt = RESEARCHER_PROMPT_INITIAL_REPORT
+        inputs = {"texts_str": final_context, "query": rr_data.query}
+
+    if "report_type" in prompt.input_variables:
+        inputs["report_type"] = rr_data.report_type
+
+    # Submit to LLM to generate report
+    answer = get_prompt_llm_chain(
+        prompt,
         llm_settings=chat_state.bot_settings,
         api_key=chat_state.openai_api_key,
-        print_prompt=bool(os.getenv("PRINT_WEBSEARCHER_PROMPT")),
+        print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
-    )
-    inputs = {
-        "new_info": final_context,
-        "query": ws_data.query,
-        "previous_report": ws_data.report,
-    }
-    if "report_type" in ITERATIVE_REPORT_IMPROVER_PROMPT.input_variables:
-        inputs["report_type"] = ws_data.report_type
-
-    answer = chain.invoke(inputs)
+    ).invoke(inputs)
 
     # Extract and record the report and the LLM's assessment of the report
-    ws_data.report, ws_data.evaluation = parse_iterative_report(answer)
+    report, evaluation = parse_iterative_report(answer)
+
+    # Update rr_data
+    if task_type == ResearchCommand.ITERATE:
+        # Update the report that was just iteratively improved
+        report_obj = Report(
+            report=report,
+            sources=rr_data.preliminary_reports[-1].sources + links_to_include,
+            evaluation=evaluation,
+        )
+        rr_data.preliminary_reports[-1] = report_obj
+
+        # Update the final report, if the "root" report is the one that was improved
+        if len(rr_data.preliminary_reports) == 1:
+            rr_data.report = report
+            rr_data.evaluation = evaluation
+
+    else:  # "/research more"
+        # Append the new report to the list of preliminary reports
+        report_obj = Report(
+            report=report, sources=links_to_include, evaluation=evaluation
+        )
+        rr_data.preliminary_reports.append(report_obj)
 
     # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
     print()  # we just printed the report, so add a newline
-    print("Ingesting new documents into ChromaDB...")
+    print_no_newline("Ingesting new documents into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
-        link_data = ws_data.link_data_dict[link]
+        link_data = rr_data.link_data_dict[link]
         metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
@@ -599,77 +685,127 @@ def get_iterative_researcher_response(
     # Ingest documents into ChromaDB
     ingest_docs_into_chroma_client(
         docs,
-        collection_name=ws_data.collection_name,
+        collection_name=rr_data.collection_name,
         chroma_client=chat_state.vectorstore.client,
         openai_api_key=chat_state.openai_api_key,
     )
 
-    # Save new ws_data in chat_state (which saves it in the database) and return
-    chat_state.save_ws_data(ws_data)
+    # Save new rr_data in chat_state (which saves it in the database) and return
+    chat_state.save_rr_data(rr_data)
+    print("Done")
     return {
         "answer": answer,
-        "ws_data": ws_data,
+        "rr_data": rr_data,
         "source_links": links_to_include,
     } | prepare_next_iteration(chat_state)
-    # NOTE: look into removing ws_data from the response
+    # NOTE: look into removing rr_data from the response
 
 
-class WebsearcherMode(Enum):
-    QUICK = 1
-    MEDIUM = 2
-    TEST = 3
+def get_report_combiner_response(chat_state: ChatState) -> Props:
+    rr_data: ResearchReportData | None = chat_state.rr_data
+    reports = rr_data.preliminary_reports
+    if not rr_data or len(reports) < 2:
+        return format_invalid_input_answer(
+            "Apologies, this command is only valid when there are at least two reports in "
+            "the collection. You can start a new research using `/research new <query>`. To "
+            "generate more reports, so that you can combine them, use `/research more`."
+        )
+    answer = get_prompt_llm_chain(
+        REPORT_COMBINER_PROMPT,
+        llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
+        print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
+        callbacks=chat_state.callbacks,
+        stream=True,
+    ).invoke(
+        {
+            "query": rr_data.query,
+            "report_1": reports[-2].report,
+            "report_2": reports[-1].report,
+        }
+    )
+
+    # Replace the last two reports with the combined report
+    sources = reports[-2].sources + reports[-1].sources
+    del reports[-2:]
+    reports.append(Report(report=answer, sources=sources, evaluation=None))
+
+    # If needed, update the main report
+    if len(reports) == 1:
+        rr_data.report = answer
+        rr_data.evaluation = reports[0].evaluation
+
+    # Save new rr_data in chat_state (which saves it in the database) and return
+    chat_state.save_rr_data(rr_data)
+    return {"answer": answer, "rr_data": rr_data, "source_links": sources}
 
 
-def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
-    if mode == WebsearcherMode.QUICK:
-        return get_websearcher_response_quick(chat_state)
-    elif mode == WebsearcherMode.MEDIUM:
-        return get_websearcher_response_medium(chat_state)
-    elif mode == WebsearcherMode.TEST:
-        return get_websearcher_response_medium(chat_state)
-        # return get_web_test_response(chat_state)
-    raise ValueError(f"Invalid mode: {mode}")
+def get_researcher_response(chat_state: ChatState) -> Props:
+    task_type = chat_state.parsed_query.research_params.task_type
+    if task_type in {
+        ResearchCommand.NEW,
+        ResearchCommand.ITERATE,
+        ResearchCommand.MORE,
+    }:
+        return get_iterative_researcher_response(chat_state)
 
-    # Snippet for contextual compression
+    if task_type == ResearchCommand.COMBINE:
+        return get_report_combiner_response(chat_state)
 
-    # if False:  # skip contextual compression (loses info, at least with GPT-3.5)
-    #     print("Counting tokens in texts...")
-    #     max_tokens_per_text, token_counts = get_max_token_allowance_for_texts(
-    #         texts, max_tokens_final_context
-    #     )  # final context will include extra tokens for separators, links, etc.
+    if task_type == ResearchCommand.VIEW:
+        rr_data: ResearchReportData | None = chat_state.rr_data
+        if rr_data and (num_reports := len(rr_data.preliminary_reports)):
+            answer = f"There are {num_reports} existing reports in this collection."
+            for i, report in enumerate(rr_data.preliminary_reports):
+                answer += f"\n\n{i + 1}/{num_reports}:\n{report.report}\n\n"
+                answer += "SOURCES:\n- " + "\n- ".join(report.sources)
+        else:
+            answer = "There are no existing reports in this collection."
+        return format_nonstreaming_answer(answer)
 
-    #     print(
-    #         f"Removing irrelevant parts from texts that have over {max_tokens_per_text} tokens..."
-    #     )
-    #     new_texts = []
-    #     new_token_counts = []
-    #     for text, link, num_tokens in zip(texts, links, token_counts):
-    #         if num_tokens <= max_tokens_per_text:
-    #             # Don't summarize short texts
-    #             print("KEEPING:", link, "(", num_tokens, "tokens )")
-    #             new_texts.append(text)
-    #             new_token_counts.append(num_tokens)
-    #             continue
-    #         # If it's way too long, first just shorten it mechanically
-    #         # NOTE: can instead chunk it
-    #         if num_tokens > max_tokens_final_context:
-    #             text = limit_tokens_in_text(
-    #                 text, max_tokens_final_context, slow_down_factor=0
-    #             )
-    #         print("SHORTENING:", link)
-    #         print("CONTENT:", text)
-    #         print(DELIMITER)
-    #         chain = get_prompt_llm_chain(
-    #             SUMMARIZER_PROMPT, init_str=f"SHORTENED TEXT FROM {link}: ", stream=True
-    #         )
-    #         try:
-    #             new_text = chain.invoke({"text": text, "query": query})
-    #         except Exception as e:
-    #             new_text = "<ERROR WHILE GENERATING CONTENT>"
-    #         num_tokens = get_num_tokens(new_text)
-    #         new_texts.append(new_text)
-    #         new_token_counts.append(num_tokens)
-    #         print(DELIMITER)
-    #     texts, token_counts = new_texts, new_token_counts
-    # else:
-    #     token_counts = None  # to make limit_tokens_in_texts() work either way
+    raise ValueError(f"Invalid task type: {task_type}")
+
+
+########### Snippet for contextual compression ############
+
+# if False:  # skip contextual compression (loses info, at least with GPT-3.5)
+#     print("Counting tokens in texts...")
+#     max_tokens_per_text, token_counts = get_max_token_allowance_for_texts(
+#         texts, max_tokens_final_context
+#     )  # final context will include extra tokens for separators, links, etc.
+
+#     print(
+#         f"Removing irrelevant parts from texts that have over {max_tokens_per_text} tokens..."
+#     )
+#     new_texts = []
+#     new_token_counts = []
+#     for text, link, num_tokens in zip(texts, links, token_counts):
+#         if num_tokens <= max_tokens_per_text:
+#             # Don't summarize short texts
+#             print("KEEPING:", link, "(", num_tokens, "tokens )")
+#             new_texts.append(text)
+#             new_token_counts.append(num_tokens)
+#             continue
+#         # If it's way too long, first just shorten it mechanically
+#         # NOTE: can instead chunk it
+#         if num_tokens > max_tokens_final_context:
+#             text = limit_tokens_in_text(
+#                 text, max_tokens_final_context, slow_down_factor=0
+#             )
+#         print("SHORTENING:", link)
+#         print("CONTENT:", text)
+#         print(DELIMITER)
+#         chain = get_prompt_llm_chain(
+#             SUMMARIZER_PROMPT, init_str=f"SHORTENED TEXT FROM {link}: ", stream=True
+#         )
+#         try:
+#             new_text = chain.invoke({"text": text, "query": query})
+#         except Exception as e:
+#             new_text = "<ERROR WHILE GENERATING CONTENT>"
+#         num_tokens = get_num_tokens(new_text)
+#         new_texts.append(new_text)
+#         new_token_counts.append(num_tokens)
+#         print(DELIMITER)
+#     texts, token_counts = new_texts, new_token_counts
+# else:
+#     token_counts = None  # to make limit_tokens_in_texts() work either way

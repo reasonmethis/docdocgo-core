@@ -68,7 +68,7 @@ YOUR TASK: print any quotes from your knowledge base relevant to user's query, i
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
 
-websearcher_template_gpt_researcher = (
+researcher_template_gpt_researcher = (
     'Information: """{texts_str}"""\n\n'
     "Using the above information, answer the following"
     ' query or task: "{query}" in a detailed report --'
@@ -87,12 +87,12 @@ websearcher_template_gpt_researcher = (
     "Assume that the current date is {datetime}"
 )
 
-websearcher_template_simple = """<sources>{texts_str}</sources>
+researcher_template_simple = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 
 <query>{query}</query>
 Write a report, which should be: 1500-2000 words long, in markdown syntax, in apa format. List the references used.
 """
-WEBSEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(websearcher_template_simple)
+RESEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(researcher_template_simple)
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
@@ -163,13 +163,13 @@ timestamp: {timestamp}
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
 
-websearcher_template_initial_report0 = """<sources>{texts_str}</sources>
+researcher_template_initial_report0 = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 
 <query>{query}</query>
 Write a report in Markdown syntax, which should be: {report_type}.
 """
 
-websearcher_template_initial_report = """<sources>{texts_str}</sources>
+researcher_template_initial_report = """<sources>{texts_str}</sources>
 The above information has been retrieved from various websites. Please use it to \
 answer the following query: 
 <query>{query}</query>
@@ -178,8 +178,31 @@ Write your report in Markdown syntax, which should be: {report_type}.
 Please write **only** the report, followed by "REPORT ASSESSMENT: X%, where X is your estimate of how well the information serves USER's information need on a scale from 0% to 100%.
 """
 
-WEBSEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
-    [("user", websearcher_template_initial_report)]
+RESEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
+    [("user", researcher_template_initial_report)]
+)
+
+report_combiner_template = """\
+Here are two reports.
+
+1/2:
+{report_1}
+
+END OF REPORT 1/2
+
+2/2:
+{report_2}
+
+END OF REPORT 2/2
+
+Both reports/answers were written using different online sources, with the aim to best respond to the following query:
+
+<query>{query}</query>
+
+Use the above two reports to write a new report/answer to try to respond even better to the query. Use Markdown syntax (unless clearly not needed).
+"""
+REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
+    [("user", report_combiner_template)]
 )
 
 iterative_report_improver_template = """\
@@ -226,6 +249,7 @@ if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"
     import os
+
     from components.llm import get_prompt_llm_chain
     from eval.ai_news_1 import ai_news_1
     from eval.openai_news import openai_news
@@ -247,7 +271,9 @@ if __name__ == "__main__":
         print("-" * 50)
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
-            chain = get_prompt_llm_chain(prompt, BotSettings(), os.getenv("DEFAULT_OPENAI_API_KEY"),stream=True)
+            chain = get_prompt_llm_chain(
+                prompt, BotSettings(), os.getenv("DEFAULT_OPENAI_API_KEY"), stream=True
+            )
             print("Prompt", i)
             try:
                 chain.invoke({"query": query, "text": query_to_context[query]})

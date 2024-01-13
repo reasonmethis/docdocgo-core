@@ -50,7 +50,7 @@ status_config = {
     ChatMode.DETAILS_COMMAND_ID: default_status_config,
     ChatMode.QUOTES_COMMAND_ID: default_status_config,
     ChatMode.WEB_COMMAND_ID: research_status_config,
-    ChatMode.ITERATIVE_RESEARCH_COMMAND_ID: research_status_config,
+    ChatMode.RESEARCH_COMMAND_ID: research_status_config,
 }
 
 
@@ -58,20 +58,23 @@ def escape_dollars(text: str) -> str:
     """
     Escape dollar signs in the text that come before numbers.
     """
-    return re.sub(r'\$(?=\d)', r'\$', text)
+    return re.sub(r"\$(?=\d)", r"\$", text)
+
 
 def fix_markdown(text: str) -> str:
     """
     Escape dollar signs in the text that come before numbers and add
     two spaces before every newline.
     """
-    return re.sub(r'\$(?=\d)', r'\$', text).replace('\n', '  \n')
+    return re.sub(r"\$(?=\d)", r"\$", text).replace("\n", "  \n")
+
 
 def write_slowly(message_placeholder, answer):
     """Write a message to the message placeholder slowly, character by character."""
+    delay = min(0.005, 2 / (len(answer) + 1))
     for i in range(1, len(answer) + 1):
         message_placeholder.markdown(fix_markdown(answer[:i]))
-        time.sleep(0.005)
+        time.sleep(delay)
 
 
 def show_sources(sources: list[str] | None):

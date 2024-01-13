@@ -30,7 +30,7 @@ command_ids = {
     "/details": ChatMode.DETAILS_COMMAND_ID,
     "/quotes": ChatMode.QUOTES_COMMAND_ID,
     "/web": ChatMode.WEB_COMMAND_ID,
-    "/research": ChatMode.ITERATIVE_RESEARCH_COMMAND_ID,
+    "/research": ChatMode.RESEARCH_COMMAND_ID,
     "/db": ChatMode.DB_COMMAND_ID,
     "/help": ChatMode.HELP_COMMAND_ID,
     "/ingest": ChatMode.INGEST_COMMAND_ID,
@@ -142,6 +142,7 @@ You can use the following commands for research tasks:
 - `/research iterate 10`: repeat the above process 10 times
 """
 
+
 def print_no_newline(*args, **kwargs):
     """
     Print without adding a newline at the end
@@ -189,5 +190,15 @@ def utc_timestamp_int() -> int:
     """Returns the current UTC timestamp as an integer (seconds since epoch)"""
     return int(datetime.utcnow().timestamp())
 
+
 def format_nonstreaming_answer(answer):
     return {"answer": answer, "needs_print": True}
+
+
+def format_invalid_input_answer(answer, status_body):
+    return {
+        "answer": answer,
+        "needs_print": True,
+        "status.header": "Invalid input",
+        "status.body": status_body,
+    }

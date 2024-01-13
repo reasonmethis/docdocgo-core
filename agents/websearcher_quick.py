@@ -7,13 +7,13 @@ from utils.async_utils import gather_tasks_sync, make_sync
 from utils.chat_state import ChatState
 from utils.lang_utils import get_num_tokens, limit_tokens_in_texts
 from utils.prepare import CONTEXT_LENGTH
-from utils.prompts import WEBSEARCHER_PROMPT_SIMPLE
+from utils.prompts import RESEARCHER_PROMPT_SIMPLE
+from utils.researcher_utils import get_links
 from utils.web import (
     afetch_urls_in_parallel_playwright,
     get_text_from_html,
     remove_failed_fetches,
 )
-from utils.websearcher_utils import get_links
 
 
 def get_related_websearch_queries(message: str):
@@ -87,7 +87,7 @@ def get_websearcher_response_quick(
     print("Number of resulting tokens:", get_num_tokens(texts_str))
 
     chain = get_prompt_llm_chain(
-        WEBSEARCHER_PROMPT_SIMPLE,
+        RESEARCHER_PROMPT_SIMPLE,
         llm_settings=chat_state.bot_settings,
         api_key=chat_state.openai_api_key,
         callbacks=chat_state.callbacks,

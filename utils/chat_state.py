@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from agents.websearcher_data import WebsearcherData
+from agents.researcher_data import ResearchReportData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
@@ -78,18 +78,18 @@ class ChatState:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def save_ws_data(self, ws_data: WebsearcherData) -> None:
+    def save_rr_data(self, rr_data: ResearchReportData) -> None:
         """
         Update the currently selected collection's metadata with the given WebsearcherData
         """
         if self.vectorstore is None:
             raise ValueError("No vectorstore selected")
         coll_metadata = self.vectorstore.get_collection_metadata() or {}
-        coll_metadata["ws_data"] = ws_data.model_dump_json()
+        coll_metadata["rr_data"] = rr_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
     @property
-    def ws_data(self) -> WebsearcherData | None:
+    def rr_data(self) -> ResearchReportData | None:
         """
         Extract WebsearcherData from the currently selected collection's metadata
         """
@@ -98,10 +98,10 @@ class ChatState:
         if not (coll_metadata := self.vectorstore.get_collection_metadata()):
             return None
         try:
-            ws_data_json = coll_metadata["ws_data"]
+            rr_data_json = coll_metadata["rr_data"]
         except KeyError:
             return None
-        return WebsearcherData.model_validate_json(ws_data_json)
+        return ResearchReportData.model_validate_json(rr_data_json)
 
     def get_new_vectorstore(self, collection_name: str) -> ChromaDDG:
         """

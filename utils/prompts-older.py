@@ -65,7 +65,7 @@ YOUR TASK: print any quotes from your knowledge base relevant to user's query, i
 YOUR RESPONSE: """
 QA_PROMPT_QUOTES = PromptTemplate.from_template(qa_template_quotes)
 
-simple_websearcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
+simple_researcher_template = """You are an expert at converting raw google search results that come in a JSON format into a nicely formatted human-friendly response. 
 
 RAW GOOGLE SEARCH RESULTS:
 
@@ -74,9 +74,9 @@ RAW GOOGLE SEARCH RESULTS:
 USER SEARCHED FOR: {query}
 
 YOUR RESPONSE: """
-SIMPLE_WEBSEARCHER_PROMPT = PromptTemplate.from_template(simple_websearcher_template)
+SIMPLE_RESEARCHER_PROMPT = PromptTemplate.from_template(simple_researcher_template)
 
-websearcher_template0 = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
+researcher_template0 = """You are a friendly Assistant AI who has been equipped with the tool to search the web. In response to the user's query you have conducted web searches and retrieved these results:
 
 {texts_str}
 
@@ -88,7 +88,7 @@ YOUR TASK: throw out irrelevant info and write a LONG well-crafted, well-formatt
 
 YOUR RESPONSE: """
 
-websearcher_template_gpt_researcher = (
+researcher_template_gpt_researcher = (
     'Information: """{texts_str}"""\n\n'
     "Using the above information, answer the following"
     ' query or task: "{query}" in a detailed report --'
@@ -107,22 +107,22 @@ websearcher_template_gpt_researcher = (
     "Assume that the current date is {datetime}"
 )
 
-websearcher_template_short_and_sweet = """<sources>{texts_str}</sources>
+researcher_template_short_and_sweet = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 
 <query>{query}</query>
 Write a report, which should be: 1500-2000 words long, in markdown syntax, in apa format. List the references used.
 """
-WEBSEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(
-    websearcher_template_short_and_sweet
+RESEARCHER_PROMPT_SIMPLE = PromptTemplate.from_template(
+    researcher_template_short_and_sweet
 )
 
-websearcher_template_dynamic_report = """<sources>{texts_str}</sources>
+researcher_template_dynamic_report = """<sources>{texts_str}</sources>
 Please extract all information relevant to the following query: 
 <query>{query}</query>
 Write a report in Markdown syntax, which should be: {report_type}. List the references used, with URLs if available.
 """
-WEBSEARCHER_PROMPT_DYNAMIC_REPORT = PromptTemplate.from_template(
-    websearcher_template_dynamic_report
+RESEARCHER_PROMPT_DYNAMIC_REPORT = PromptTemplate.from_template(
+    researcher_template_dynamic_report
 )
 
 summarizer_template = """<source>{text}</source>
