@@ -174,6 +174,18 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
 
+
+def sort_collection_names(
+    coll_names_as_shown: list[str], coll_names_full: list[str]
+) -> tuple[list[str], list[str]]:
+    # Sort the collections by name as shown, but put the default collection first
+    coll_name_pairs = sorted(
+        zip(coll_names_as_shown, coll_names_full),
+        key=lambda pair: (pair[1] != DEFAULT_COLLECTION_NAME, pair[0]),
+    )
+    return tuple(zip(*coll_name_pairs))
+
+
 def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     command = chat_state.parsed_query.db_command
     value = chat_state.parsed_query.message
@@ -181,6 +193,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     collections = get_collections(chat_state.vectorstore, chat_state.user_id)
     coll_names_full = [c.name for c in collections]
     coll_names_as_shown = list(map(get_user_facing_collection_name, coll_names_full))
+    coll_names_as_shown, coll_names_full = sort_collection_names(
+        coll_names_as_shown, coll_names_full
+    )
 
     def get_available_dbs_str() -> str:
         tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(coll_names_as_shown)])
@@ -220,7 +235,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
     if command == DBCommand.RENAME:
         if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
-            return format_nonstreaming_answer("You cannot rename the default collection.")
+            return format_nonstreaming_answer(
+                "You cannot rename the default collection."
+            )
         if not value:
             return format_nonstreaming_answer(
                 "To rename the current collection, you must provide a new name. Example:\n"
@@ -268,7 +285,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             value = curr_coll_name_as_shown
 
         if value == DEFAULT_COLLECTION_NAME:
-            return format_nonstreaming_answer("You cannot delete the default collection.")
+            return format_nonstreaming_answer(
+                "You cannot delete the default collection."
+            )
 
         # Admin can delete the default collection by providing the password
         tmp = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
