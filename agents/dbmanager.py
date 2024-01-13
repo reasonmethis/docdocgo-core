@@ -274,15 +274,14 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             return format_nonstreaming_answer(
                 get_available_dbs_str()
                 + "\n\nTo delete a collection, you must provide the name of "
-                "the collection to delete. Example:\n"
-                "```\n/db delete my-temp-db\n```"
+                "the collection to delete, a list of collection numbers, or "
+                "the --current (-c) flag to delete the current collection. Examples:\n"
+                "```\n/db delete my-temp-db\n/db delete 2, 4, 19\n"
+                "/db delete 19\n/db delete -c\n```"
             )
 
-        curr_coll_name_as_shown = get_user_facing_collection_name(
-            chat_state.vectorstore.name
-        )
         if value == "-c" or value == "--current":
-            value = curr_coll_name_as_shown
+            value = get_user_facing_collection_name(chat_state.vectorstore.name)
 
         if value == DEFAULT_COLLECTION_NAME:
             return format_nonstreaming_answer(
@@ -290,22 +289,57 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         # Admin can delete the default collection by providing the password
-        tmp = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
-        if value == f"--default {tmp}" and tmp:
+        pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+        if value == f"--default {pwd}" and pwd:
             value = DEFAULT_COLLECTION_NAME
 
-        # Get the full name of the collection to delete
+        # Get the full name(s) of the collection(s) to delete
         try:
-            full_name = coll_names_full[coll_names_as_shown.index(value)]
+            full_names = [coll_names_full[coll_names_as_shown.index(value)]]
         except ValueError:
-            return format_nonstreaming_answer(get_db_not_found_str(value))
+            try:
+                # See if the user provided index(es) directly instead of a name
+                if "-" in value:
+                    # Admin can delete a range of collections by providing the password
+                    if not value.endswith(f" {pwd}") or not pwd:
+                        raise ValueError
+                    leftright = value[: -len(pwd) - 1].split("-")
+                    if len(leftright) != 2:
+                        raise ValueError
+                    min_idx, max_idx = int(leftright[0]) - 1, int(leftright[1]) - 1
+                    if min_idx < 1 or max_idx >= len(coll_names_as_shown):
+                        raise ValueError
+                    idxs = list(range(min_idx, max_idx + 1))
+                else:
+                    # Usual case: see if we got a comma-separated list of indexes
+                    idxs = [int(s) - 1 for s in value.split(",")]
 
-        # Delete the collection
-        chat_state.vectorstore.delete_collection(full_name)
+                    # Check that all idxs are valid
+                    if any(idx < 1 or idx >= len(coll_names_as_shown) for idx in idxs):
+                        raise ValueError  # idx == 0 not allowed, it's the default collection
+
+                # One last check:
+                if not idxs:
+                    raise ValueError
+                
+                # Get the full names of the collections
+                full_names = [coll_names_full[idx] for idx in idxs]
+            except ValueError:
+                return format_nonstreaming_answer(get_db_not_found_str(value))
+
+        # Delete the collection(s)
+        for full_name in full_names:
+            chat_state.vectorstore.delete_collection(full_name)
 
         # Form answer, and - if the current collection was deleted - initiate a switch
-        ans = format_nonstreaming_answer(f"Collection `{value}` deleted.")
-        if full_name == chat_state.vectorstore.name:
+        names_as_shown = [
+            get_user_facing_collection_name(full_name) for full_name in full_names
+        ]
+        s_or_no_s = "s" if len(names_as_shown) > 1 else ""
+        ans = format_nonstreaming_answer(
+            f"Collection{s_or_no_s} `{', '.join(names_as_shown)}` deleted."
+        )
+        if any(full_name == chat_state.vectorstore.name for full_name in full_names):
             ans["vectorstore"] = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
 
         return ans
