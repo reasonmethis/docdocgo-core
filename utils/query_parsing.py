@@ -16,13 +16,14 @@ db_command_to_enum = {
     "delete": DBCommand.DELETE,
 }
 
-ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE ITERATE VIEW NONE")
+ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE AUTO ITERATE VIEW NONE")
 research_commands_to_enum = {
     "for": ResearchCommand.ITERATE,
     "iterate": ResearchCommand.ITERATE,
     "new": ResearchCommand.NEW,
     "more": ResearchCommand.MORE,
     "combine": ResearchCommand.COMBINE,
+    "auto": ResearchCommand.AUTO,
     "view": ResearchCommand.VIEW,
 }
 research_view_subcommands = {"main", "base", "combined"} # could do an enum here too

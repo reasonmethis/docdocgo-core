@@ -464,6 +464,8 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
     if task_type == ResearchCommand.NEW:
         return get_initial_iterative_researcher_response(chat_state)
+    if task_type == ResearchCommand.AUTO:
+        task_type = ResearchCommand.MORE # we were routed here from main handler
 
     rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
     # chat_state.get_rr_data() for readability
@@ -856,6 +858,20 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.COMBINE:
         return get_report_combiner_response(chat_state)
 
+    if task_type == ResearchCommand.AUTO:
+        response = get_report_combiner_response(chat_state)
+
+        # If no error, return the response
+        is_error = response.get("status.body") == INVALID_COMBINE_STATUS
+        if not response.get("needs_print") and not is_error:
+            return response
+        
+        # Sanity check
+        assert is_error == bool(response.get("needs_print"))
+
+        # We can't combine reports, so generate a new report instead
+        return get_iterative_researcher_response(chat_state)        
+        
     if task_type == ResearchCommand.VIEW:
         return get_research_view_response(chat_state)
 
