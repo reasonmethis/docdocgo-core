@@ -175,11 +175,15 @@ Iterative Web Research Mode is a powerful feature of DocDocGo that allows you to
 /research What are the best ways to improve my memory? Just bullet points, please.
 ```
 
-**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` or `/research for 42 iterations`.
+**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main options are: `/research more`, `/research iterate` or `/research for 42 iterations`.
 
-If you just type `/research`, DocDocGo will fetch more content from the web and use it to improve the report. If you add the `for x iterations` bit, DocDocGo will automatically do `x` repetitions of the `/research` command. Each repetition will fetch more content related to your original query and produce a new version of the report.
+If you type `/research iterate`, DocDocGo will fetch more content from the web and use it to improve the report. If you use the `for x iterations` command, DocDocGo will automatically do `x` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report.
 
-If you change your mind and want to abort the research, simply reload the app.
+If you are doing multiple iterations and want to abort, simply reload the app.
+
+The above approach sound neat, but it doesn't always work in practice, especially if you use a not-so-smart model, like GPT-3.5. That's why we have the `/research more` command. It allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
+
+Such separate reports are called _base reports_. If you'd like to combine base reports into one "super" report, you can use the `/research combine` command.
 
 **Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
 

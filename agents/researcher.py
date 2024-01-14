@@ -8,7 +8,10 @@ from chromadb import ClientAPI
 from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
-from agents.dbmanager import construct_full_collection_name
+from agents.dbmanager import (
+    construct_full_collection_name,
+    get_user_facing_collection_name,
+)
 from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.chroma_ddg import exists_collection
@@ -18,6 +21,7 @@ from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma_client
 from utils.helpers import (
     DELIMITER,
+    RESEARCH_COMMAND_HELP_MESSAGE,
     format_invalid_input_answer,
     format_nonstreaming_answer,
     print_no_newline,
@@ -315,7 +319,7 @@ def get_initial_researcher_response(
         answer = chain.invoke(
             {"texts_str": final_context, "query": query, "report_type": report_type}
         )
-        rr_data.report, rr_data.evaluation = parse_iterative_report(answer)
+        rr_data.main_report, rr_data.evaluation = parse_iterative_report(answer)
 
         return {"answer": answer, "rr_data": rr_data, "source_links": links}
     except Exception as e:
@@ -340,9 +344,11 @@ def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM)
 
 SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
 SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
-SMALL_WORDS |= {"which", "who", "whom", "whose", "where", "when", "how"}
+SMALL_WORDS |= {"what", "which", "who", "whom", "whose", "where", "when", "how"}
 SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could"}
 SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
+SMALL_WORDS |= {"my", "your", "his", "her", "its", "our", "their", "mine", "yours"}
+SMALL_WORDS |= {"some", "any"}
 
 
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
@@ -351,9 +357,9 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
 
     # Initialize preliminary reports
     # NOTE: might want to store the main report in the same format (Report)
-    rr_data.preliminary_reports.append(
+    rr_data.base_reports.append(
         Report(
-            report=rr_data.report,
+            report_text=rr_data.main_report,
             sources=response["source_links"],
             evaluation=rr_data.evaluation,
         )
@@ -462,18 +468,18 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
     # chat_state.get_rr_data() for readability
 
-    if not rr_data or not rr_data.report:
+    if not rr_data or not rr_data.main_report:
         return format_invalid_input_answer(
             "Apologies, this command is only valid when there is an existing report.",
             "You can generate a new report using `/research new <query>`.",
         )
 
     # Fix for older style collections
-    if not rr_data.preliminary_reports:
+    if not rr_data.base_reports:
         ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
-        rr_data.preliminary_reports.append(
+        rr_data.base_reports.append(
             Report(
-                report=rr_data.report,
+                report_text=rr_data.main_report,
                 sources=ok_links[: -rr_data.num_obtained_unprocessed_ok_links],
                 evaluation=rr_data.evaluation,
             )
@@ -497,7 +503,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             )
 
     t_start = datetime.now()
-    print("Current version of report:\n", rr_data.report)
+    print("Current version of report:\n", rr_data.main_report)
     print(DELIMITER)
 
     # Sanity check
@@ -585,7 +591,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     print("Counting tokens in texts and current report...")
     texts_to_count_tokens_for = [
         rr_data.link_data_dict[x].text for x in links_to_count_tokens_for
-    ] + [rr_data.report]
+    ] + [rr_data.main_report]
     token_counts = get_num_tokens_in_texts(texts_to_count_tokens_for)
 
     num_tokens_report = token_counts[-1]
@@ -626,7 +632,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         inputs = {
             "new_info": final_context,
             "query": rr_data.query,
-            "previous_report": rr_data.preliminary_reports[-1].report,
+            "previous_report": rr_data.base_reports[-1].report_text,
         }
     else:
         prompt = RESEARCHER_PROMPT_INITIAL_REPORT
@@ -652,23 +658,23 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.ITERATE:
         # Update the report that was just iteratively improved
         report_obj = Report(
-            report=report,
-            sources=rr_data.preliminary_reports[-1].sources + links_to_include,
+            report_text=report,
+            sources=rr_data.base_reports[-1].sources + links_to_include,
             evaluation=evaluation,
         )
-        rr_data.preliminary_reports[-1] = report_obj
+        rr_data.base_reports[-1] = report_obj
 
         # Update the final report, if the "root" report is the one that was improved
-        if len(rr_data.preliminary_reports) == 1:
-            rr_data.report = report
+        if len(rr_data.base_reports) == 1:
+            rr_data.main_report = report
             rr_data.evaluation = evaluation
 
     else:  # "/research more"
         # Append the new report to the list of preliminary reports
         report_obj = Report(
-            report=report, sources=links_to_include, evaluation=evaluation
+            report_text=report, sources=links_to_include, evaluation=evaluation
         )
-        rr_data.preliminary_reports.append(report_obj)
+        rr_data.base_reports.append(report_obj)
 
     # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
@@ -701,15 +707,65 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # NOTE: look into removing rr_data from the response
 
 
+NUM_REPORTS_TO_COMBINE = 2
+INVALID_COMBINE_MSG = (
+    "Apologies, there are no reports in this collection that can be combined. "
+    "You can start a new research using `/research <query>`. To "
+    "generate more reports, so that you can combine them, use `/research more`."
+)
+INVALID_COMBINE_STATUS = "There are no reports in this collection that can be combined."
+
+
 def get_report_combiner_response(chat_state: ChatState) -> Props:
+    def get_ids_to_combine(id_list: list[str]) -> list[str] | None:
+        # Check if there are enough uncombined reports at this level
+        if len(id_list) < NUM_REPORTS_TO_COMBINE or not rr_data.is_report_childless(
+            id_list[-NUM_REPORTS_TO_COMBINE]
+        ):
+            return None
+
+        # Determine the earliest uncombined report at this level
+        earliest_uncombined_idx = len(id_list) - NUM_REPORTS_TO_COMBINE
+        while earliest_uncombined_idx:
+            if rr_data.is_report_childless(id_list[earliest_uncombined_idx - 1]):
+                earliest_uncombined_idx -= 1
+            else:
+                break
+
+        # Determine ids of reports to combine
+        return id_list[
+            earliest_uncombined_idx : earliest_uncombined_idx + NUM_REPORTS_TO_COMBINE
+        ]
+
     rr_data: ResearchReportData | None = chat_state.rr_data
-    reports = rr_data.preliminary_reports
-    if not rr_data or len(reports) < 2:
-        return format_invalid_input_answer(
-            "Apologies, this command is only valid when there are at least two reports in "
-            "the collection. You can start a new research using `/research new <query>`. To "
-            "generate more reports, so that you can combine them, use `/research more`."
-        )
+    if not rr_data:
+        return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
+
+    # See if there are enough uncombined reports at the highest level to combine them.
+    # If not, go to the next level down, etc.
+    depth = 0
+    for i, id_list in enumerate(reversed(rr_data.combined_report_id_levels)):
+        if ids_to_combine := get_ids_to_combine(id_list):
+            depth = len(rr_data.combined_report_id_levels) - i
+            break
+
+    # If we didn't find enough higher level reports to combine, use base reports
+    if depth == 0:
+        id_list = [str(i) for i in range(len(rr_data.base_reports))]
+        if not (ids_to_combine := get_ids_to_combine(id_list)):
+            # If we still didn't find enough reports to combine, return
+            return format_invalid_input_answer(
+                INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS
+            )
+
+    # Form input for the LLM
+    inputs = {"query": rr_data.query}
+    reports_to_combine = [rr_data.get_report_by_id(id) for id in ids_to_combine]
+    for i, r in enumerate(reports_to_combine):
+        # TODO: currently prompt doesn't support more than 2 reports
+        inputs[f"report_{i+1}"] = r.report_text
+
+    # Submit to LLM to generate combined report
     answer = get_prompt_llm_chain(
         REPORT_COMBINER_PROMPT,
         llm_settings=chat_state.bot_settings,
@@ -717,27 +773,75 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
         print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
-    ).invoke(
-        {
-            "query": rr_data.query,
-            "report_1": reports[-2].report,
-            "report_2": reports[-1].report,
-        }
-    )
+    ).invoke(inputs)
 
-    # Replace the last two reports with the combined report
-    sources = reports[-2].sources + reports[-1].sources
-    del reports[-2:]
-    reports.append(Report(report=answer, sources=sources, evaluation=None))
+    # Record the combined report and parent-child relationships
+    new_id = f"c{len(rr_data.combined_reports)}"
+    new_report = Report(report_text=answer, parent_report_ids=ids_to_combine)
+    rr_data.combined_reports.append(new_report)
+    for r in reports_to_combine:
+        r.child_report_id = new_id
 
-    # If needed, update the main report
-    if len(reports) == 1:
-        rr_data.report = answer
-        rr_data.evaluation = reports[0].evaluation
+    # Record the combined report id at the correct level
+    try:
+        rr_data.combined_report_id_levels[depth].append(new_id)
+    except IndexError:
+        # Add a new level
+        rr_data.combined_report_id_levels.append([new_id])
+
+        # Also, in this case, update the main report
+        rr_data.main_report = answer
+        rr_data.evaluation = new_report.evaluation
 
     # Save new rr_data in chat_state (which saves it in the database) and return
     chat_state.save_rr_data(rr_data)
+    sources = rr_data.get_sources(new_report)
     return {"answer": answer, "rr_data": rr_data, "source_links": sources}
+
+
+def get_research_view_response(chat_state: ChatState) -> Props:
+    def report_str_with_sources(report: Report) -> str:
+        return f"{report.report_text}\n\nSOURCES:\n- " + "\n- ".join(
+            rr_data.get_sources(report)
+        )
+
+    rr_data: ResearchReportData | None = chat_state.rr_data
+    if not rr_data or not (num_reports := len(rr_data.base_reports)):
+        return format_nonstreaming_answer(
+            "There are no existing reports in this collection."
+        )
+
+    coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
+    answer = (
+        f"Research result stats for collection `{coll_name_as_shown}`:\n"
+        f"- There are {num_reports} base reports.\n"
+        f"- There are {len(rr_data.combined_reports)} combined reports.\n"
+        f"- There are {len(rr_data.processed_links)} processed links.\n"
+        f"- There are {len(rr_data.unprocessed_links)} unprocessed links.\n"
+        f"- Report levels breakdown: {[len(x) for x in rr_data.combined_report_id_levels]}"
+    )
+
+    sub_task = chat_state.parsed_query.research_params.sub_task
+    if sub_task == "main":
+        answer += f"\n\nMAIN REPORT:\n\n{rr_data.main_report}"
+    elif sub_task == "base":
+        answer += "\n\nBASE REPORTS:"
+        for i, report in enumerate(rr_data.base_reports):
+            answer += f"\n\n{i + 1}/{num_reports}:\n{report_str_with_sources(report)}"
+    elif sub_task == "combined":
+        answer += "\n\nCOMBINED REPORTS:"
+        if not rr_data.combined_reports:
+            answer += "\n\nThere are no combined reports."
+        else:
+            num_levels = len(rr_data.combined_report_id_levels)
+            for i, id_list in enumerate(reversed(rr_data.combined_report_id_levels)):
+                answer += f"\n\nLEVEL {num_levels - i}: {len(id_list)} REPORTS"
+                for i, id in enumerate(id_list):
+                    report = rr_data.get_report_by_id(id)
+                    answer += f"\n\n{i + 1}/{len(id_list)}:\n{report_str_with_sources(report)}"
+    else:
+        raise ValueError(f"Invalid sub_task: {sub_task}")
+    return format_nonstreaming_answer(answer)
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:
@@ -753,15 +857,10 @@ def get_researcher_response(chat_state: ChatState) -> Props:
         return get_report_combiner_response(chat_state)
 
     if task_type == ResearchCommand.VIEW:
-        rr_data: ResearchReportData | None = chat_state.rr_data
-        if rr_data and (num_reports := len(rr_data.preliminary_reports)):
-            answer = f"There are {num_reports} existing reports in this collection."
-            for i, report in enumerate(rr_data.preliminary_reports):
-                answer += f"\n\n{i + 1}/{num_reports}:\n{report.report}\n\n"
-                answer += "SOURCES:\n- " + "\n- ".join(report.sources)
-        else:
-            answer = "There are no existing reports in this collection."
-        return format_nonstreaming_answer(answer)
+        return get_research_view_response(chat_state)
+
+    if task_type == ResearchCommand.NONE:
+        return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
 
     raise ValueError(f"Invalid task type: {task_type}")
 

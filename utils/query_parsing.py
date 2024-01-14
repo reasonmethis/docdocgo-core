@@ -1,7 +1,7 @@
 import json
 import re
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Container
 
 from pydantic import BaseModel
 
@@ -25,10 +25,12 @@ research_commands_to_enum = {
     "combine": ResearchCommand.COMBINE,
     "view": ResearchCommand.VIEW,
 }
+research_view_subcommands = {"main", "base", "combined"} # could do an enum here too
 
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
+    sub_task: str | None = None
     num_iterations_left: int = 1
 
 
@@ -42,24 +44,29 @@ class ParsedQuery(BaseModel):
 
 
 def get_command(
-    text: str, command_dict: dict[str, Any], default_command=None
+    text: str, commands: dict[str, Any] | Container[str], default_command=None
 ) -> tuple[Any, str]:
     """
-    Extracts a command from the given text and finds its corresponding value in a dictionary,
-    returning the value and the remaining text.
+    Extract a command from the given text and finds its corresponding value in a dictionary,
+    if provided, returning the value and the remaining text. If instead of a dictionary, a list,
+    set, or other container of command strings is provided, return the command string and the
+    remaining text.
 
     The function splits the text into two parts (command and the remaining text). It then
-    looks up the command in the provided command dictionary. If the command isn't found,
-    it returns the default command (if provided, otherwise None) and the original text.
+    determines the command value from the provided command dictionary or container. If the 
+    command isn't found, it returns the default command (or None) and the original text.
     If the command is found but there is no additional text, an empty string is returned
     as the second part of the tuple.
     """
     # Split the text into command and the remaining part (if any)
     split_text = text.split(maxsplit=1)
 
-    # Attempt to find the command in the command dictionary
+    # Attempt to find the command in the command dictionary or container
     try:
-        command = command_dict[split_text[0]]
+        if isinstance(commands, dict):
+            command = commands[split_text[0]]
+        elif (command := split_text[0]) not in commands:
+            return default_command, text
     except (KeyError, IndexError):
         # Return default command and original text if command not found or text is empty
         return default_command, text
@@ -170,8 +177,12 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     if command in {ResearchCommand.NEW, ResearchCommand.MORE}:
         return ResearchParams(task_type=command), query
 
-    if command in {ResearchCommand.COMBINE, ResearchCommand.VIEW}:
-        return ResearchParams(task_type=command), ""
+    if command == ResearchCommand.COMBINE:
+        return ResearchParams(task_type=command), query
+    
+    if command == ResearchCommand.VIEW:
+        sub_task, query = get_command(query, research_view_subcommands, "main")
+        return ResearchParams(task_type=command, sub_task=sub_task), query
 
     if command == ResearchCommand.ITERATE:
         num_iterations_left, query = get_int(query)
@@ -187,6 +198,10 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             task_type=ResearchCommand.ITERATE,
             num_iterations_left=num_iterations_left,
         ), ""
+    
+    if not orig_query:
+        # "/research" with no additional text
+        return ResearchParams(task_type=ResearchCommand.NONE), ""
 
     return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 

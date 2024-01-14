@@ -52,7 +52,7 @@ How? jusk ask me! (or type `/help`) \
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
 - `/research legal arguments for and against disqualifying Trump from running`
-- `/research` (to fetch more websites and iterate on the previous report)
+- `/research iterate` (to fetch more websites and iterate on the previous report)
 - `/research for 3 iterations` (to repeat the process 3 times)
 - `What legal scholars have argued for disqualification?`
 - `/db use docdocgo-documentation` (to switch to the default collection)
@@ -82,9 +82,7 @@ The default mode is `{DEFAULT_MODE}`.
 
 Here's what each prefix does. Most important prefixes:
 
-- `/research <your query>`: perform Internet research, generate a report, and ingest fetched sites
-  - `/research`: fetch more websites and iterate on the previous report
-  - `/research for 10 iterations`: repeat the process 10 times
+- `/research`: perform "infinite" Internet research, ingesting websites into a collection
 - `/ingest` or `/upload`: upload your documents and ingest them into a collection
 - `/docs <your query>`: chat with me about your currently selected doc collection (or a general topic)
 - `/db`: manage your doc collections (select, rename, etc.)
@@ -100,8 +98,8 @@ Other prefixes:
 Example queries:
 
 - `/research What are this month's most important AI news?`
-- `/research` (to fetch more websites and iterate on the previous report)
-- `/research for 10 iterations` (to repeat the process 10 times)
+- `/research` (to see research options, including the "infinite" research)
+- `/research for 3 iterations` (to perform 3 more iterations of research)
 - `/docs Bullet point for me just the ones related to OpenAI`
 - `/db` (to manage collections)
 
@@ -118,28 +116,39 @@ DB_COMMAND_HELP_TEMPLATE = f"""\
 Your current document collection is: `{{current_db}}`
 
 You can use the following commands to manage your collections:
+
 - `/db list`: list all your collections
 - `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
 - `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
 - `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
 
-Here are some additional shorthands:
+Additional shorthands:
+
 - `/db use 3`: switch to collection #3 in the list
+- `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
 
 Remember, you can always ask me for help in using me - you just need to make sure that \
-the default collection (`{DEFAULT_COLLECTION_NAME}`) is selected.
+the default collection (`{DEFAULT_COLLECTION_NAME}`) is selected. If it isn't, type \
+`/db use 1`.\
 """
 
-RESEARCH_COMMAND_HELP_TEMPLATE = """\
+RESEARCH_COMMAND_HELP_MESSAGE = """\
 You can use the following commands for research tasks:
 
-- `/research new <your query>`: start new Internet research, generate a report, and ingest fetched sites
+- `/research <your query>`: start new Internet research, generate a report, and ingest fetched sites
+- `/research new <your query>`: same as above
 - `/research more <your new query>`: same as above, but ingest into current collection
 - `/research more`: keep original query, but fetch more websites and create a new report version
-- `/research combine`: combine previous two reports into one
+- `/research combine`: combine base reports into a single report
 - `/research iterate`: fetch more websites and iterate on the previous report
-- `/research iterate 10`: repeat the above process 10 times
+- `/research iterate 10`: repeat the above process 10 times (10 is just an example)
+
+You can also view the reports:
+
+- `/research view main`: view the main report (`main` can be omitted)
+- `/research view base`: view the base reports
+- `/research view combined`: view the combined reports
 """
 
 

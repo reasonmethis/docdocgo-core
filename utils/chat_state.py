@@ -91,7 +91,7 @@ class ChatState:
     @property
     def rr_data(self) -> ResearchReportData | None:
         """
-        Extract WebsearcherData from the currently selected collection's metadata
+        Extract ResearchReportData from the currently selected collection's metadata
         """
         if self.vectorstore is None:
             return None
