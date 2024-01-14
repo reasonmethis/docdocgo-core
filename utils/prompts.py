@@ -170,12 +170,16 @@ Write a report in Markdown syntax, which should be: {report_type}.
 """
 
 researcher_template_initial_report = """<sources>{texts_str}</sources>
-The above information has been retrieved from various websites. Please use it to \
+The above information has been retrieved from online sources. Please use it to \
 answer the following query: 
+
 <query>{query}</query>
-Please act as an expert in writing well-researched, clear and highly useful reports/answers. \
-Write your report in Markdown syntax, which should be: {report_type}.
-Please write **only** the report, followed by "REPORT ASSESSMENT: X%, where X is your estimate of how well the information serves USER's information need on a scale from 0% to 100%.
+
+Your answer/report type must be: {report_type}. 
+
+Use Markdown syntax for your answer. Start with a title.
+
+Please write **only** the report, followed by "REPORT ASSESSMENT: X%, where X is your estimate of how well the generated report serves USER's information need on a scale from 0% to 100%.
 """
 
 RESEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(

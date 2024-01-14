@@ -26,7 +26,7 @@ research_commands_to_enum = {
     "auto": ResearchCommand.AUTO,
     "view": ResearchCommand.VIEW,
 }
-research_view_subcommands = {"main", "base", "combined"} # could do an enum here too
+research_view_subcommands = {"main", "base", "combined"}  # could do an enum here too
 
 
 class ResearchParams(BaseModel):
@@ -54,7 +54,7 @@ def get_command(
     remaining text.
 
     The function splits the text into two parts (command and the remaining text). It then
-    determines the command value from the provided command dictionary or container. If the 
+    determines the command value from the provided command dictionary or container. If the
     command isn't found, it returns the default command (or None) and the original text.
     If the command is found but there is no additional text, an empty string is returned
     as the second part of the tuple.
@@ -174,18 +174,15 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
 
 
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
-    command, query = get_command(orig_query, research_commands_to_enum)
-    if command in {ResearchCommand.NEW, ResearchCommand.MORE}:
-        return ResearchParams(task_type=command), query
+    task_type, query = get_command(
+        orig_query, research_commands_to_enum, default_command=ResearchCommand.NEW
+    )
 
-    if command == ResearchCommand.COMBINE:
-        return ResearchParams(task_type=command), query
-    
-    if command == ResearchCommand.VIEW:
+    if task_type == ResearchCommand.VIEW:
         sub_task, query = get_command(query, research_view_subcommands, "main")
-        return ResearchParams(task_type=command, sub_task=sub_task), query
+        return ResearchParams(task_type=task_type, sub_task=sub_task), query
 
-    if command == ResearchCommand.ITERATE:
+    if task_type == ResearchCommand.ITERATE:
         num_iterations_left, query = get_int(query)
         if num_iterations_left is None and not query:
             # "/research iterate" or "/research for"
@@ -199,12 +196,11 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             task_type=ResearchCommand.ITERATE,
             num_iterations_left=num_iterations_left,
         ), ""
-    
-    if not orig_query:
-        # "/research" with no additional text
+
+    if not orig_query: # "/research" wih no additional text
         return ResearchParams(task_type=ResearchCommand.NONE), ""
 
-    return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+    return ResearchParams(task_type=task_type), query
 
 
 def parse_query(
