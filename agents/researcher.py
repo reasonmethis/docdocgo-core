@@ -487,23 +487,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             )
         )
 
-    # Validate number of iterations
-    num_iterations_left = chat_state.parsed_query.research_params.num_iterations_left
-    if chat_state.is_community_key:
-        if num_iterations_left > MAX_ITERATIONS_IF_COMMUNITY_KEY:
-            return format_invalid_input_answer(
-                f"Apologies, a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
-                "allowed when using a community OpenAI API key.",
-                "Please try a lower number of iterations or use your OpenAI API key.",
-            )
-    else:
-        if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
-            return format_invalid_input_answer(
-                f"For your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} iterations is "
-                "allowed.",
-                "Please try a lower number of iterations.",
-            )
-
     t_start = datetime.now()
     print("Current version of report:\n", rr_data.main_report)
     print(DELIMITER)
@@ -881,6 +864,23 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:
+    # Validate number of iterations
+    num_iterations_left = chat_state.parsed_query.research_params.num_iterations_left
+    if chat_state.is_community_key:
+        if num_iterations_left > MAX_ITERATIONS_IF_COMMUNITY_KEY:
+            return format_invalid_input_answer(
+                f"Apologies, a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
+                "allowed when using a community OpenAI API key.",
+                "Please try a lower number of iterations or use your OpenAI API key.",
+            )
+    else:
+        if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
+            return format_invalid_input_answer(
+                f"For your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} iterations is "
+                "allowed.",
+                "Please try a lower number of iterations.",
+            )
+
     return get_researcher_response_single_iter(chat_state) | prepare_next_iteration(
         chat_state
     )  # contains parsed query for next iteration, if any
