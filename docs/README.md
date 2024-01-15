@@ -149,25 +149,26 @@ The script will show you the ingestion settings and ask for confirmation before 
 
 DocDocGo has several response modes:
 
-- Chat with Docs Mode - the main mode, used for chatting about your ingested documents or any other topic.
+- Chat with Docs Mode - the default mode, used for chatting about your ingested documents or any other topic.
 - Regular Chat Mode - chat with DocDocGo without using your ingested documents.
 - Detailed Report Mode - a detailed report on all of the content from your documents retrieved in response to your query.
 - Quotes Mode - generate a list of quotes from the documents retrieved in response to the query.
-- Iterative Web Research Mode - perform iterative web research about your query, ingest retrieved content, and generate a report (see [below](#iterative-web-research-mode) for details).
-- Basic Web Research Mode - perform web research about your query and generate a report without ingesting the retrieved content.
+- "Infinite" Web Research Mode - perform in-depth Internet research about your query, ingest retrieved content, and generate report(s) (see [below](#infinite-web-research-mode) for details).
+- Basic Web Research Mode - perform quick web research about your query and generate a report without ingesting the retrieved content.
 - Database Management Mode - manage your document collections: switch between them, rename, delete, etc.
+- Help Mode - see the help message.
 
 To select a mode, start your message with the corresponding slash command: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/db`, or `/help`. For example:
 
 ```markdown
-/details When is the conference?
+/research What are the ELO ratings of the top chess engines?
 ```
 
-If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (initially set to `/docs`). For the Database Management Mode, start by sending the `/db` command without any arguments. DocDocGo will then show you the available options.
+If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (defaulting to `/docs`). For the Database Management Mode, start by sending the `/db` command without any arguments. DocDocGo will then show you the available options.
 
-### Iterative Web Research Mode
+### "Infinite" Web Research Mode
 
-Iterative Web Research Mode is a powerful feature of DocDocGo that allows you to perform iterative web research about your query, ingest retrieved content, and generate a report, which the bot will try to improve with every iteration. Use this mode in three steps:
+This is a powerful feature of DocDocGo that allows you to perform iterative web research about your query, ingest retrieved content, and generate a report, which the bot will try to improve iteratively by using more and more sources, for as many steps as you specify. Use this mode in three steps:
 
 **Step 1.** Start the research by sending a message starting with `/research` and followed by your query. For example:
 
@@ -175,15 +176,9 @@ Iterative Web Research Mode is a powerful feature of DocDocGo that allows you to
 /research What are the best ways to improve my memory? Just bullet points, please.
 ```
 
-**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main options are: `/research more`, `/research iterate` or `/research for 42 iterations`.
+**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research auto N`, where `N` is the number of research iteration steps you want DocDocGo to automatically perform. Each research step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
 
-If you type `/research iterate`, DocDocGo will fetch more content from the web and use it to improve the report. If you use the `for x iterations` command, DocDocGo will automatically do `x` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report.
-
-If you are doing multiple iterations and want to abort, simply reload the app.
-
-The above approach sound neat, but it doesn't always work in practice, especially if you use a not-so-smart model, like GPT-3.5. That's why we have the `/research more` command. It allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
-
-Such separate reports are called _base reports_. If you'd like to combine base reports into one "super" report, you can use the `/research combine` command.
+> Example: `/research auto 2` would result in one more fetch step and one combine step, producing a report that is based on twice as many sources as the original report (about a dozen sources). If you want to double this number again, you can type `/research auto 4` afterwards (or use 2 + 4 = 6 in the first place), and so on.
 
 **Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
 

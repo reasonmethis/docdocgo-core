@@ -18,7 +18,6 @@ db_command_to_enum = {
 
 ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE AUTO ITERATE VIEW NONE")
 research_commands_to_enum = {
-    "for": ResearchCommand.ITERATE,
     "iterate": ResearchCommand.ITERATE,
     "new": ResearchCommand.NEW,
     "more": ResearchCommand.MORE,

@@ -22,9 +22,10 @@ Example queries:
 
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
-- `/research for 3 iterations` (to perform 3 more iterations of research)
-- `/docs Bullet point for me just the ones related to OpenAI`
-- `/db` (to manage collections)
+- `/research auto 42` (to perform 42 iterations of research automatically)
+- `/re auto 3` (same - first two letters of a command are enough)
+- `/docs Tell me just the ones related to OpenAI`
+- `/chat Reformat your previous answer as a list of short bullet points`
 
 If you're in a reading mood, here's a [link to the full docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
 

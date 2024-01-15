@@ -26,16 +26,24 @@ SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
 
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
+    "/ch": ChatMode.JUST_CHAT_COMMAND_ID,
     "/docs": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
+    "/do": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
     "/details": ChatMode.DETAILS_COMMAND_ID,
+    "/de": ChatMode.DETAILS_COMMAND_ID,
     "/quotes": ChatMode.QUOTES_COMMAND_ID,
+    "/qu": ChatMode.QUOTES_COMMAND_ID,
     "/web": ChatMode.WEB_COMMAND_ID,
+    "/we": ChatMode.WEB_COMMAND_ID,
     "/research": ChatMode.RESEARCH_COMMAND_ID,
+    "/re": ChatMode.RESEARCH_COMMAND_ID,
     "/db": ChatMode.DB_COMMAND_ID,
     "/help": ChatMode.HELP_COMMAND_ID,
     "/ingest": ChatMode.INGEST_COMMAND_ID,
+    "/in": ChatMode.INGEST_COMMAND_ID,  
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
-    "/browse": ChatMode.BROWSE_COMMAND_ID,
+    "/up": ChatMode.INGEST_COMMAND_ID,  
+    # "/browse": ChatMode.BROWSE_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
@@ -52,13 +60,20 @@ How? jusk ask me! (or type `/help`) \
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
 - `/research legal arguments for and against disqualifying Trump from running`
-- `/research iterate` (to fetch more websites and iterate on the previous report)
-- `/research for 3 iterations` (to repeat the process 3 times)
+- `/research more` (to fetch more sites and create an alternative report with new sources)
+- `/research combine` (to create a report using information from both reports)
+- `/research auto 4` (to perform 2 "more" + 2 "combine" iterations automatically)
 - `What legal scholars have argued for disqualification?`
 - `/db use docdocgo-documentation` (to switch to the default collection)
 - `How can I get more help using you? Tell me in the style of prof. Dumbledore.`
 - `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
+
+After performing the "auto" command above, you will end up with a report that uses \
+information from 4x as many sources as the original report. 
+
+You can set an even higher number of iterations. If you get dizzy from all the iterations, \
+use `/research view` to view the current main, most comprehensive report.
 
 :grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance. \
 You'll need your own OpenAI API key for that.]\
@@ -99,9 +114,10 @@ Example queries:
 
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
-- `/research for 3 iterations` (to perform 3 more iterations of research)
-- `/docs Bullet point for me just the ones related to OpenAI`
-- `/db` (to manage collections)
+- `/research auto 42` (to perform 42 iterations of research automatically)
+- `/re auto 3` (same - first two letters of a command are enough)
+- `/docs Tell me just the ones related to OpenAI`
+- `/chat Reformat your previous answer as a list of short bullet points`
 
 If you're in a reading mood, here's a [link to my full docs]\
 (https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
@@ -138,11 +154,11 @@ You can use the following commands for research tasks:
 
 - `/research <your query>`: start new Internet research, generate a report, and ingest fetched sites
 - `/research new <your query>`: same as above
-- `/research more <your new query>`: same as above, but ingest into current collection
 - `/research more`: keep original query, but fetch more websites and create a new report version
-- `/research combine`: combine base reports into a single report
+- `/research combine`: combine reports to get a report that takes more sources into account
+- `/research auto 42`: performs 42 iterationso of "more"/"combine"
 - `/research iterate`: fetch more websites and iterate on the previous report
-- `/research iterate 10`: repeat the above process 10 times (10 is just an example)
+- `/research <cmd> 42`: repeat command such as `more`, `combine`, etc. 42 times
 
 You can also view the reports:
 
@@ -150,6 +166,7 @@ You can also view the reports:
 - `/research view base`: view the base reports
 - `/research view combined`: view the combined reports
 """
+# - `/research more <your new query>`: same as above, but ingest into current collection
 
 
 def print_no_newline(*args, **kwargs):
