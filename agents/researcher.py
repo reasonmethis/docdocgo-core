@@ -455,7 +455,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
     return {"new_parsed_query": new_parsed_query}
 
 
-MAX_ITERATIONS_IF_COMMUNITY_KEY = 3
+MAX_ITERATIONS_IF_COMMUNITY_KEY = 6
 MAX_ITERATIONS_IF_OWN_KEY = 100
 
 
