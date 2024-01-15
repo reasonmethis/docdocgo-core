@@ -174,33 +174,33 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
 
 
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
-    task_type, query = get_command(
-        orig_query, research_commands_to_enum, default_command=ResearchCommand.NEW
-    )
+    task_type, query = get_command(orig_query, research_commands_to_enum)
+
+    if task_type is None or task_type == ResearchCommand.NEW:
+        task_type = ResearchCommand.NEW if query else ResearchCommand.NONE
+        return ResearchParams(task_type=task_type), query
 
     if task_type == ResearchCommand.VIEW:
         sub_task, query = get_command(query, research_view_subcommands, "main")
         return ResearchParams(task_type=task_type, sub_task=sub_task), query
 
-    if task_type == ResearchCommand.ITERATE:
-        num_iterations_left, query = get_int(query)
-        if num_iterations_left is None and not query:
-            # "/research iterate" or "/research for"
-            num_iterations_left = 1
-        if num_iterations_left is None or num_iterations_left < 1:
-            # No valid number, assume "for" is part of the query
-            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+    # Task type: MORE, COMBINE, AUTO, ITERATE
+    num_iterations, query_after_get_int = get_int(query)
 
-        # Valid number, ignore the rest of the query
-        return ResearchParams(
-            task_type=ResearchCommand.ITERATE,
-            num_iterations_left=num_iterations_left,
-        ), ""
+    if not query_after_get_int:
+        if num_iterations is None:  # e.g. /research more
+            return ResearchParams(task_type=task_type), ""
+        if num_iterations > 0:  # e.g. /research combine 10
+            return ResearchParams(
+                task_type=task_type, num_iterations_left=num_iterations
+            ), ""
 
-    if not orig_query: # "/research" wih no additional text
-        return ResearchParams(task_type=ResearchCommand.NONE), ""
+    # No valid number of iterations specified, treat e.g. -10 as part of actual query
+    if task_type == ResearchCommand.MORE:
+        return ResearchParams(task_type=task_type), query # e.g. /research more somequery
 
-    return ResearchParams(task_type=task_type), query
+    # We have e.g. "/research auto somequery", treat "auto" as part of the query
+    return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 
 
 def parse_query(

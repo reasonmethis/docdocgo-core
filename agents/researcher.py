@@ -451,7 +451,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy()
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = None
+    new_parsed_query.message = None  # NOTE: need this?
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -465,7 +465,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.NEW:
         return get_initial_iterative_researcher_response(chat_state)
     if task_type == ResearchCommand.AUTO:
-        task_type = ResearchCommand.MORE # we were routed here from main handler
+        task_type = ResearchCommand.MORE  # we were routed here from main handler
 
     rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
     # chat_state.get_rr_data() for readability
@@ -587,7 +587,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             "answer": "There are no more usable sources to incorporate into the report",
             "rr_data": rr_data,
             "needs_print": True,  # NOTE: this won't be streamed
-        } | prepare_next_iteration(chat_state)
+        }
 
     # Count tokens in texts to be processed; throw in the report text too
     print("Counting tokens in texts and current report...")
@@ -705,8 +705,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         "answer": answer,
         "rr_data": rr_data,
         "source_links": links_to_include,
-    } | prepare_next_iteration(chat_state)
-    # NOTE: look into removing rr_data from the response
+    }  # NOTE: look into removing rr_data from the response
 
 
 NUM_REPORTS_TO_COMBINE = 2
@@ -846,7 +845,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     return format_nonstreaming_answer(answer)
 
 
-def get_researcher_response(chat_state: ChatState) -> Props:
+def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
     if task_type in {
         ResearchCommand.NEW,
@@ -865,13 +864,13 @@ def get_researcher_response(chat_state: ChatState) -> Props:
         is_error = response.get("status.body") == INVALID_COMBINE_STATUS
         if not response.get("needs_print") and not is_error:
             return response
-        
+
         # Sanity check
         assert is_error == bool(response.get("needs_print"))
 
         # We can't combine reports, so generate a new report instead
-        return get_iterative_researcher_response(chat_state)        
-        
+        return get_iterative_researcher_response(chat_state)
+
     if task_type == ResearchCommand.VIEW:
         return get_research_view_response(chat_state)
 
@@ -879,6 +878,12 @@ def get_researcher_response(chat_state: ChatState) -> Props:
         return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
 
     raise ValueError(f"Invalid task type: {task_type}")
+
+
+def get_researcher_response(chat_state: ChatState) -> Props:
+    return get_researcher_response_single_iter(chat_state) | prepare_next_iteration(
+        chat_state
+    )  # contains parsed query for next iteration, if any
 
 
 ########### Snippet for contextual compression ############
