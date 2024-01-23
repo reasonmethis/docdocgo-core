@@ -54,7 +54,7 @@ GREETING_MESSAGE = """\
 - chat using all sources fetched during research as a knowledge base
 - similarly chat using documents you provide as a knowledge base
 
-How? jusk ask me! (or type `/help`) \
+How? Just ask me! (or type `/help`) \
 """
 
 EXAMPLE_QUERIES = """\
