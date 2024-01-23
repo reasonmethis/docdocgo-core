@@ -198,7 +198,7 @@ def get_initial_researcher_response(
                     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 }
             )
-            print(f"Attempt {i + 1}: {query_generator_output = }")
+            # print(f"Attempt {i + 1}: {query_generator_output = }")
             query_generator_dict = extract_json(query_generator_output)
             queries = query_generator_dict["queries"][:max_queries]
             report_type = query_generator_dict["report_type"]
@@ -232,8 +232,7 @@ def get_initial_researcher_response(
         all_links = get_links(search_results)
         print(
             f"Got {len(all_links)} links in total, "
-            f"will try to fetch at least {min(num_ok_links, len(all_links))} successfully:\n-",
-            "\n- ".join(all_links[:num_ok_links]),  # will fetch more if some fail
+            f"will try to fetch at least {min(num_ok_links, len(all_links))} successfully."
         )
         t_get_links_end = datetime.now()
     except Exception as e:
@@ -743,7 +742,7 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
             )
 
     # Form input for the LLM
-    inputs = {"query": rr_data.query}
+    inputs = {"query": rr_data.query, "report_type": rr_data.report_type}
     reports_to_combine = [rr_data.get_report_by_id(id) for id in ids_to_combine]
     for i, r in enumerate(reports_to_combine):
         # TODO: currently prompt doesn't support more than 2 reports
@@ -759,9 +758,11 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
         stream=True,
     ).invoke(inputs)
 
+    report_text, evaluation = parse_iterative_report(answer)
+
     # Record the combined report and parent-child relationships
     new_id = f"c{len(rr_data.combined_reports)}"
-    new_report = Report(report_text=answer, parent_report_ids=ids_to_combine)
+    new_report = Report(report_text=report_text, evaluation=evaluation, parent_report_ids=ids_to_combine)
     rr_data.combined_reports.append(new_report)
     for r in reports_to_combine:
         r.child_report_id = new_id

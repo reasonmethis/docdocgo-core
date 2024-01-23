@@ -2,6 +2,15 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTem
 
 from utils.type_utils import BotSettings
 
+REPORT_ASSESSMENT_INSTRUCTION = """\
+"REPORT ASSESSMENT: X%", where X is your estimate of how well the query was answered on a scale from 0% to 100%. 
+"""
+
+REPORT_ASSESSMENT_INSTRUCTION = """\
+"---
+REPORT ASSESSMENT: <biggest constructive criticism some hypothetical person making the above query might have for the report, assuming they are difficult to please (AVOID any praise, write ONLY what can be improved, be brief)> <percentage grade they might assign>%"
+"""
+
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 
 2. Then, add "[For context: <condensed summary to yourself of the relevant parts of the chat history: if Human asks a question and the answer is clear from the chat history, include it in the summary>]"
@@ -154,7 +163,7 @@ query: "how old was John Lennon during the Cuban Missile Crisis? I want a report
 timestamp: Tuesday, September 12, 2023, 07:39 AM
 
 output: {{"queries": ["John Lennon birth date", "Cuban Missile Crisis dates", "John Lennon during Cuban Missile Crisis"],
-"report_type": "report in apa format, around 1000 words long"}}
+"report_type": "report in apa format, at least 1000 words long"}}
 
 # YOUR ACTUAL OUTPUT
 query: "{query}"
@@ -162,12 +171,6 @@ timestamp: {timestamp}
 
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
-
-researcher_template_initial_report0 = """<sources>{texts_str}</sources>
-Please extract all information relevant to the following query: 
-<query>{query}</query>
-Write a report in Markdown syntax, which should be: {report_type}.
-"""
 
 researcher_template_initial_report = """<sources>{texts_str}</sources>
 The above information has been retrieved from online sources. Please use it to \
@@ -177,10 +180,37 @@ answer the following query:
 
 Your answer/report type must be: {report_type}. 
 
+The query and report type provide the most important guidelines, but here are additional general guidelines:
+1. Focus on addressing the specific query.
+2. Avoid fluff and irrelevant information.
+3. Provide available facts, figures, examples, details, dates, locations, etc.
+4. If not enough information is available, be honest about it.
+
 Use Markdown syntax for your answer. Start with a title.
 
-Please write **only** the report, followed by "REPORT ASSESSMENT: X%, where X is your estimate of how well the generated report serves USER's information need on a scale from 0% to 100%.
-"""
+Write **only** the report, followed by \
+""" + REPORT_ASSESSMENT_INSTRUCTION
+
+researcher_template_initial_report = """\
+Here is the scraped content of some online sources.
+
+<sources>{texts_str}</sources>
+
+Using them, please respond to the following query:
+
+<query>{query}</query>
+
+1. Focus on addressing the specific query.
+2. Avoid fluff and irrelevant information.
+3. Provide available facts, figures, examples, details, dates, locations, etc.
+4. If not enough information is available, be honest about it.
+
+This will be read and assessed by an experienced high-level executive, who doesn't have a lot of time. She requested the report type to be: {report_type}
+
+Make it easy for her and format nicely in Markdown, starting with a title. 
+
+Finish with: \
+""" + REPORT_ASSESSMENT_INSTRUCTION
 
 RESEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
     [("user", researcher_template_initial_report)]
@@ -199,12 +229,49 @@ END OF REPORT 1/2
 
 END OF REPORT 2/2
 
-Both reports/answers were written using different online sources, with the aim to best respond to the following query:
+Both reports/answers were written with the aim to best respond to the following query:
 
 <query>{query}</query>
 
-Use the above two reports to write a new report/answer to try to respond even better to the query. Use Markdown syntax (unless clearly not needed).
-"""
+The difference in the reports' content is because they were written using different online sources. Your task: use the above content to write a new version of the report, which will be even better, since it will be indirectly based on twice as many sources as each report individually. Follow these guidelines:
+
+1. Most important: focus on addressing the above query. Provide available facts and figures, if any, and be as specific as possible. Avoid irrelevant information, filler words, and generalizations. If not enough information is available, be honest about it and avoid just filling up space.
+
+2. Use Markdown syntax for your answer. Start with a title.
+
+3. Please write **only** the complete report, followed by \
+""" + REPORT_ASSESSMENT_INSTRUCTION
+
+report_combiner_template = """\
+Here are two reports compiled from two sets of online sources.
+
+1/2:
+{report_1}
+
+END OF REPORT 1/2
+
+2/2:
+{report_2}
+
+END OF REPORT 2/2
+
+Using them, please respond to the following query:
+
+<query>{query}</query>
+
+1. Focus on addressing the specific query.
+2. Avoid fluff and irrelevant information.
+3. Provide available facts, figures, examples, details, dates, locations, etc.
+4. If not enough information is available, be honest about it.
+
+This will be read and assessed by an experienced high-level executive, who doesn't have a lot of time. She requested the report type to be: {report_type}
+
+Make it easy for her and format nicely in Markdown, starting with a title. 
+
+Finish with: \
+""" + REPORT_ASSESSMENT_INSTRUCTION
+
+
 REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", report_combiner_template)]
 )
@@ -240,7 +307,8 @@ After that, write: "NEW REPORT:" and write a new report from scratch in Markdown
 
 END OF QUERY. This new report/answer should be: {report_type}. (in case of conflict, user's query takes precedence)
 
-Finish with: "REPORT ASSESSMENT: X%", where X is your estimate of how well your new report serves user's information need on a scale from 0% to 100%, based on their query. Don't use Markdown here, only for the new report/answer.
+Finish with: """ + REPORT_ASSESSMENT_INSTRUCTION + """\
+Don't use Markdown here, only for the new report/answer.
 
 **Important**: don't delete information from the report only because it can't be verified using the provided sources! The information in the report was obtained from previously retrieved sources!
 """
