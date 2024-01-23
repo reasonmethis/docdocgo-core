@@ -121,7 +121,7 @@ ACTION_ITEMS_MSG = "ACTION ITEMS FOR IMPROVEMENT:"
 NEW_REPORT_MSG = "NEW REPORT:"
 
 
-def parse_iterative_report(answer: str) -> tuple[str, str | None]:
+def parse_research_report(answer: str) -> tuple[str, str | None]:
     """
     Parse the answer from an iterative researcher response and return the
     report and the LLM's assessment of the report.
@@ -166,6 +166,8 @@ def parse_iterative_report(answer: str) -> tuple[str, str | None]:
         evaluation = answer[idx_end_report:]
 
     report = answer[idx_start_report:idx_end_report].strip()
+    if report.endswith("---"):
+        report = report.rstrip("-").rstrip()
     return report, evaluation
 
 
@@ -318,7 +320,7 @@ def get_initial_researcher_response(
         answer = chain.invoke(
             {"texts_str": final_context, "query": query, "report_type": report_type}
         )
-        rr_data.main_report, rr_data.evaluation = parse_iterative_report(answer)
+        rr_data.main_report, rr_data.evaluation = parse_research_report(answer)
 
         return {"answer": answer, "rr_data": rr_data, "source_links": links}
     except Exception as e:
@@ -636,7 +638,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     ).invoke(inputs)
 
     # Extract and record the report and the LLM's assessment of the report
-    report, evaluation = parse_iterative_report(answer)
+    report, evaluation = parse_research_report(answer)
 
     # Update rr_data
     if task_type == ResearchCommand.ITERATE:
@@ -758,11 +760,13 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
         stream=True,
     ).invoke(inputs)
 
-    report_text, evaluation = parse_iterative_report(answer)
+    report_text, evaluation = parse_research_report(answer)
 
     # Record the combined report and parent-child relationships
     new_id = f"c{len(rr_data.combined_reports)}"
-    new_report = Report(report_text=report_text, evaluation=evaluation, parent_report_ids=ids_to_combine)
+    new_report = Report(
+        report_text=report_text, evaluation=evaluation, parent_report_ids=ids_to_combine
+    )
     rr_data.combined_reports.append(new_report)
     for r in reports_to_combine:
         r.child_report_id = new_id
@@ -786,7 +790,7 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
 
 def get_research_view_response(chat_state: ChatState) -> Props:
     def report_str_with_sources(report: Report) -> str:
-        return f"{report.report_text}\n\nSOURCES:\n- " + "\n- ".join(
+        return f"{report.report_text}\n## Sources:\n- " + "\n- ".join(
             rr_data.get_sources(report)
         )
 
@@ -798,12 +802,16 @@ def get_research_view_response(chat_state: ChatState) -> Props:
 
     coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
     answer = (
-        f"Research result stats for collection `{coll_name_as_shown}`:\n"
+        f"### Research overview for collection `{coll_name_as_shown}`\n\n"
+        f"Query:\n\n```\n{rr_data.query}\n```\n\n"
+        f"Report type:\n\n```\n{rr_data.report_type}\n```\n\n"
+        f"Report breakdown:\n\n"
         f"- There are {num_reports} base reports.\n"
         f"- There are {len(rr_data.combined_reports)} combined reports.\n"
         f"- There are {len(rr_data.processed_links)} processed links.\n"
         f"- There are {len(rr_data.unprocessed_links)} unprocessed links.\n"
-        f"- Report levels breakdown: {[len(x) for x in rr_data.combined_report_id_levels]}"
+        f"- Report levels: {[len(x) for x in rr_data.combined_report_id_levels]}"
+        f"\n---\n\n"
     )
 
     sub_task = chat_state.parsed_query.research_params.sub_task
@@ -812,7 +820,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     elif sub_task == "base":
         answer += "\n\nBASE REPORTS:"
         for i, report in enumerate(rr_data.base_reports):
-            answer += f"\n\n{i + 1}/{num_reports}:\n{report_str_with_sources(report)}"
+            answer += f"\n\n{i + 1}/{num_reports}:\n\n{report_str_with_sources(report)}"
     elif sub_task == "combined":
         answer += "\n\nCOMBINED REPORTS:"
         if not rr_data.combined_reports:
@@ -823,7 +831,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
                 answer += f"\n\nLEVEL {num_levels - i}: {len(id_list)} REPORTS"
                 for i, id in enumerate(id_list):
                     report = rr_data.get_report_by_id(id)
-                    answer += f"\n\n{i + 1}/{len(id_list)}:\n{report_str_with_sources(report)}"
+                    answer += f"\n\n{i + 1}/{len(id_list)}:\n\n{report_str_with_sources(report)}"
     else:
         raise ValueError(f"Invalid sub_task: {sub_task}")
     return format_nonstreaming_answer(answer)

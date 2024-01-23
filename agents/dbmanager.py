@@ -205,7 +205,10 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         return f"Collection {name} not found. {get_available_dbs_str()}"
 
     if command == DBCommand.LIST:
-        return format_nonstreaming_answer(get_available_dbs_str())
+        return format_nonstreaming_answer(
+            f"{get_available_dbs_str()}\n\n"
+            "**Tip:** To switch to collection number N, type `/db use N`."
+        )
 
     if command == DBCommand.USE:
         if not value:
@@ -321,7 +324,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # One last check:
                 if not idxs:
                     raise ValueError
-                
+
                 # Get the full names of the collections
                 full_names = [coll_names_full[idx] for idx in idxs]
             except ValueError:
