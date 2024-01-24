@@ -1,18 +1,15 @@
 import os
 
 import streamlit as st
-from langchain.schema import Document
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
-    construct_full_collection_name,
     get_user_facing_collection_name,
     is_user_authorized_for_collection,
 )
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma_client
 from utils.helpers import (
     DELIMITER,
     EXAMPLE_QUERIES,
@@ -22,14 +19,12 @@ from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
-    POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
-    POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
-    allowed_extensions,
     fix_markdown,
     show_sources,
     status_config,
     write_slowly,
 )
+from utils.streamlit.ingest import extract_text, ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import ChatMode, chat_modes_needing_llm
@@ -115,7 +110,7 @@ with st.sidebar:
             and not user_openai_api_key
             and not st.session_state.allow_all_settings_for_default_key
         )
-        chat_state.is_community_key = is_community_key # in case it changed
+        chat_state.is_community_key = is_community_key  # in case it changed
         if is_community_key:
             st.caption(
                 "Using the default OpenAI API key (some settings are restricted, "
@@ -219,17 +214,7 @@ for i, (msg_pair, sources) in enumerate(
 # Check if the user has uploaded files
 if files:
     # Ingest the files
-    docs = []
-    failed_files = []
-    for file in files:
-        try:
-            extension = os.path.splitext(file.name)[1]
-            if not allow_all_ext and extension not in allowed_extensions:
-                raise ValueError("Extension not allowed.")
-            text = file.getvalue().decode("utf-8")  # NOTE: can try other encodings
-            docs.append(Document(page_content=text, metadata={"source": file.name}))
-        except Exception:
-            failed_files.append(file.name)
+    docs, failed_files = extract_text(files, allow_all_ext)
 
     # Display failed files, if any
     if failed_files:
@@ -242,42 +227,7 @@ if files:
 
     # Ingest the docs into the vectorstore, if any
     if docs:
-        uploaded_docs_coll_name_as_shown = "uploaded-docs-rename-me"
-        uploaded_docs_coll_name_full = construct_full_collection_name(
-            chat_state.user_id, uploaded_docs_coll_name_as_shown
-        )
-        try:
-            ingest_docs_into_chroma_client(
-                docs,
-                collection_name=uploaded_docs_coll_name_full,
-                chroma_client=chat_state.vectorstore.client,
-                openai_api_key=chat_state.openai_api_key,
-                verbose=True,
-            )
-            if chat_state.vectorstore.name != uploaded_docs_coll_name_full:
-                # Switch to the newly created collection
-                chat_state.vectorstore = chat_state.get_new_vectorstore(
-                    uploaded_docs_coll_name_full
-                )
-                with st.chat_message("assistant"):
-                    st.markdown(
-                        POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL.format(
-                            coll_name=uploaded_docs_coll_name_as_shown
-                        )
-                    )
-            else:
-                with st.chat_message("assistant"):
-                    st.markdown(
-                        POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL.format(
-                            coll_name=uploaded_docs_coll_name_as_shown
-                        )
-                    )
-        except Exception as e:
-            with st.chat_message("assistant"):
-                st.markdown(
-                    f"Apologies, an error occurred during ingestion:\n```\n{e}\n```"
-                )
-
+        ingest_docs(docs, chat_state)
 
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
@@ -359,7 +309,7 @@ with st.chat_message("assistant"):
         if not response.get("skip_chat_history"):
             chat_state.chat_history.append((full_query, answer))
             # TODO: check if this is better than parsed_query.messag, if so, change
-            # things in other modes. Also, handle parsed_query.message being None 
+            # things in other modes. Also, handle parsed_query.message being None
 
         # If the response, contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):
