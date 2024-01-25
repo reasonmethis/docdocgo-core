@@ -212,6 +212,8 @@ chromadb==0.4.21
 openai==1.6.1
 tiktoken==0.5.2
 beautifulsoup4==4.12.2
+docx2txt==0.8
+pypdf==4.0.0
 trafilatura==1.6.3
 fake-useragent==1.4.0
 python-dotenv==1.0.0
