@@ -95,6 +95,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
             if self.verbose:
                 for doc, sim in docs_and_similarities_overshot:
                     print(f"[SIMILARITY: {sim:.2f}] {repr(doc.page_content[:60])}")
+                    print(doc.metadata)
                 print(
                     f"Before paring down: {len(docs_and_similarities_overshot)} docs."
                 )

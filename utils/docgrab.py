@@ -1,11 +1,12 @@
-from typing import Iterable
 import json
-from dotenv import load_dotenv
+import uuid
+from typing import Iterable
 
-from langchain.vectorstores.chroma import Chroma
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from dotenv import load_dotenv
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores.chroma import Chroma
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
@@ -88,6 +89,9 @@ def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
     return docs
 
 
+FAKE_FULL_DOC_EMBEDDING = [10000] * 1536  # NOTE: 1536 is OpenAI's dim
+
+
 def ingest_docs_into_chroma_client(
     docs: list[Document],
     *,
@@ -107,6 +111,14 @@ def ingest_docs_into_chroma_client(
     # (we use it in ingest_local_docs.py for both creating a new collection and
     # adding to an existing one). But I am still not 100% sure if the returned vectorstore
     # incorporates the existing docs (I think it does, but I need to double check).
+    clg = ConditionalLogger(verbose)
+
+    # First, add the full docs (with fake embeddings)
+    ids = [str(uuid.uuid4()) for _ in range(len(docs))]
+    texts = [doc.page_content for doc in docs]
+    fake_embeddings = [FAKE_FULL_DOC_EMBEDDING for _ in range(len(docs))]
+
+    # Now, split into snippets, embed and add those
     vectorstore = ChromaDDG.from_documents(
         prepare_docs(docs, verbose=verbose),
         embedding=get_openai_embeddings(openai_api_key),
@@ -114,10 +126,9 @@ def ingest_docs_into_chroma_client(
         collection_name=collection_name,
         collection_metadata=collection_metadata,
     )
-    # chroma_client.persist() # NOTE: won't be needed when we are able to use v >= 0.4.0
-    if verbose:
-        print(f"Ingested documents into collection {collection_name}")
+    clg.log(f"Ingested documents into collection {collection_name}")
     return vectorstore
+
 
 # TODO: consider removing this
 def create_vectorstore_ram_or_disk(
@@ -125,7 +136,7 @@ def create_vectorstore_ram_or_disk(
     *,
     collection_name: str,
     openai_api_key: str,
-    save_dir: str|None = None,
+    save_dir: str | None = None,
     verbose: bool = False,
 ) -> ChromaDDG:
     """

@@ -27,7 +27,7 @@ from utils.streamlit.helpers import (
 from utils.streamlit.ingest import extract_text, ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import ChatMode, chat_modes_needing_llm
+from utils.type_utils import ChatMode, OperationMode, chat_modes_needing_llm
 
 
 def show_uploader(is_new_widget=False, border=True):
@@ -70,6 +70,12 @@ chat_state: ChatState = st.session_state.chat_state
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
+if chat_state.operation_mode != OperationMode.STREAMLIT:
+    st.write(
+        "Operation mode:",
+        chat_state.operation_mode,
+        len(chat_state.chat_and_command_history),
+    )
 
 ####### Sidebar #######
 with st.sidebar:
