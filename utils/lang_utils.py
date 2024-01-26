@@ -16,7 +16,10 @@ default_llm_for_token_counting = ChatOpenAI(api_key="DUMMY")  # "DUMMY" to avoid
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
     llm = llm_for_token_counting or default_llm_for_token_counting
-    return llm.get_num_tokens(text)
+    # return llm.get_num_tokens(text) # can result in:
+    # ValueError: Encountered text corresponding to disallowed special token '<|endoftext|>'.
+    _, tiktoken_encoding = llm._get_encoding_model()
+    return len(tiktoken_encoding.encode_ordinary(text)) # LC uses encode instead
 
 
 def get_num_tokens_in_texts(
