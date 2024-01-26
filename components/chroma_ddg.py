@@ -1,7 +1,7 @@
 import os
 from typing import Any
 
-from chromadb import ClientAPI, HttpClient, PersistentClient
+from chromadb import ClientAPI, Collection, HttpClient, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
 from langchain.schema import Document
@@ -29,35 +29,35 @@ class ChromaDDG(Chroma):
 
     @property
     def name(self) -> str:
-        """Name of the underlying Chroma collection."""
+        """Name of the underlying chromadb collection."""
         return self._collection.name
 
     @property
-    def collection(self) -> Chroma:
-        """The underlying Chroma collection."""
+    def collection(self) -> Collection:
+        """The underlying chromadb collection."""
         return self._collection
 
     @property
     def client(self) -> ClientAPI:
-        """The underlying Chroma client."""
+        """The underlying chromadb client."""
         return self._client
 
     def get_collection_metadata(self) -> dict[str, Any] | None:
-        """Get metadata for the underlying Chroma collection."""
+        """Get metadata for the underlying chromadb collection."""
         return self._collection.metadata
 
     def set_collection_metadata(self, metadata: dict[str, Any]) -> None:
-        """Set metadata for the underlying Chroma collection."""
+        """Set metadata for the underlying chromadb collection."""
         self._collection.modify(metadata=metadata)
         # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
     def rename_collection(self, new_name: str) -> None:
-        """Rename the underlying Chroma collection."""
+        """Rename the underlying chromadb collection."""
         self._collection.modify(name=new_name)
         # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
     def delete_collection(self, collection_name: str) -> None:
-        """Delete the underlying Chroma collection."""
+        """Delete the underlying chromadb collection."""
         self._client.delete_collection(collection_name)
         # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
@@ -127,11 +127,11 @@ def exists_collection(
         raise e
 
 
-def initialize_client() -> ClientAPI:
+def initialize_client(use_chroma_via_http: bool = USE_CHROMA_VIA_HTTP) -> ClientAPI:
     """
-    Initialize a chroma client from a given path.
+    Initialize a chroma client.
     """
-    if USE_CHROMA_VIA_HTTP:
+    if use_chroma_via_http:
         return HttpClient(
             host=CHROMA_SERVER_HOST,  # must provide host and port explicitly...
             port=CHROMA_SERVER_HTTP_PORT,  # ...if the env vars are different from defaults

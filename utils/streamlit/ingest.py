@@ -9,7 +9,7 @@ from pypdf import PdfReader
 
 from agents.dbmanager import construct_full_collection_name
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma_client
+from utils.docgrab import ingest_docs_into_chroma
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
@@ -58,7 +58,7 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
         chat_state.user_id, uploaded_docs_coll_name_as_shown
     )
     try:
-        ingest_docs_into_chroma_client(
+        ingest_docs_into_chroma(
             docs,
             collection_name=uploaded_docs_coll_name_full,
             chroma_client=chat_state.vectorstore.client,

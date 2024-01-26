@@ -18,7 +18,7 @@ from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma_client
+from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
     DELIMITER,
     RESEARCH_COMMAND_HELP_MESSAGE,
@@ -398,7 +398,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     rr_data.collection_name = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
-    chroma_client: ClientAPI = chat_state.vectorstore._client
+    chroma_client: ClientAPI = chat_state.vectorstore.client
     for i in range(2, 1000000):
         if not exists_collection(rr_data.collection_name, chroma_client):
             break
@@ -421,7 +421,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
             collection_metadata = {"rr_data": rr_data.model_dump_json()}
             # NOTE: might want to remove collection_name from collection_metadata
             # since the user can rename the collection without updating the metadata
-            ingest_docs_into_chroma_client(
+            ingest_docs_into_chroma(
                 docs,
                 collection_name=rr_data.collection_name,
                 openai_api_key=chat_state.openai_api_key,
@@ -675,7 +675,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    ingest_docs_into_chroma_client(
+    ingest_docs_into_chroma(
         docs,
         collection_name=rr_data.collection_name,
         chroma_client=chat_state.vectorstore.client,

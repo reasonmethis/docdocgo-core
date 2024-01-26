@@ -1,12 +1,13 @@
 import json
+import os
 import uuid
 from typing import Iterable
 
+from chromadb import ClientAPI
 from dotenv import load_dotenv
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores.chroma import Chroma
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
@@ -48,14 +49,17 @@ def load_gitbook(root_url: str) -> list[Document]:
     return all_pages_docs
 
 
-def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
+def prepare_chunks(
+    texts: list[str], metadatas: list[dict], ids: list[str], verbose: bool = False
+) -> list[Document]:
     """
-    Prepare docs for vectorstore creation. Specifically, split into snippets and
-    group duplicates together. Returns a list of snippets (each is a Document).
+    Split documents into chunks and add parent ids to the chunks' metadata.
+    Returns a list of snippets (each is a Document).
 
-    It is ok to pass an empty list of docs.
+    It is ok to pass an empty list of texts.
     """
     clg = ConditionalLogger(verbose)
+    clg.log(f"Splitting {len(texts)} documents into chunks...")
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -63,41 +67,31 @@ def prepare_docs(docs: list[Document], verbose: bool = False) -> list[Document]:
         add_start_index=True,  # metadata will include start index of snippet in original doc
     )
 
-    clg.log(f"Ingesting {len(docs)} documents")
-    docs = text_splitter.split_documents(docs)
-    clg.log(f"  - Split documents into {len(docs)} snippets")
+    # Add parent ids to metadata
+    for metadata, id in zip(metadatas, ids):
+        metadata["parent_id"] = id
 
-    # Group duplicates together
-    snippet_text_to_snippets: dict[str, list[Document]] = {}
-    for snippet in reversed(docs):  # reversed means we keep the latest snippet
-        try:
-            snippet_text_to_snippets[snippet.page_content].append(snippet)
-        except KeyError:
-            snippet_text_to_snippets[snippet.page_content] = [snippet]
+    # Split into snippets
+    snippets = text_splitter.create_documents(texts, metadatas)
+    clg.log(f"Obtained {len(snippets)} chunks.")
 
-    # Create a single document for each group of duplicates
-    docs = []
-    for snippets in snippet_text_to_snippets.values():
-        # Make latest snippet metadata the main one, add others' metadata
-        snippet = snippets[0]
-        if len(snippets) > 1:
-            snippet.metadata["duplicates_metadata"] = json.dumps(
-                [s.metadata for s in snippets[1:]]
-            )
-        docs.append(snippet)
-    clg.log(f"  - After grouping duplicates - {len(docs)} snippets")
-    return docs
+    # Restore original metadata
+    for metadata in metadatas:
+        del metadata["parent_id"]
+
+    return snippets
 
 
-FAKE_FULL_DOC_EMBEDDING = [10000] * 1536  # NOTE: 1536 is OpenAI's dim
+FAKE_FULL_DOC_EMBEDDING = [1.0] * os.getenv("EMBEDDINGS_DIMENSIONS", 1536)
 
 
-def ingest_docs_into_chroma_client(
+def ingest_docs_into_chroma(
     docs: list[Document],
     *,
     collection_name: str,
-    chroma_client: Chroma,
     openai_api_key: str,
+    chroma_client: ClientAPI | None = None,
+    save_dir: str | None = None,
     collection_metadata: dict | None = None,
     verbose: bool = False,
 ) -> ChromaDDG:
@@ -112,46 +106,30 @@ def ingest_docs_into_chroma_client(
     # adding to an existing one). But I am still not 100% sure if the returned vectorstore
     # incorporates the existing docs (I think it does, but I need to double check).
     clg = ConditionalLogger(verbose)
+    assert bool(chroma_client) != bool(save_dir), "Invalid vector db destination"
 
-    # First, add the full docs (with fake embeddings)
-    ids = [str(uuid.uuid4()) for _ in range(len(docs))]
+    # Prepare full texts, metadatas and ids
+    full_doc_ids = [str(uuid.uuid4()) for _ in range(len(docs))]
     texts = [doc.page_content for doc in docs]
-    fake_embeddings = [FAKE_FULL_DOC_EMBEDDING for _ in range(len(docs))]
+    metadatas = [doc.metadata for doc in docs]
 
-    # Now, split into snippets, embed and add those
-    vectorstore = ChromaDDG.from_documents(
-        prepare_docs(docs, verbose=verbose),
+    # Split into snippets, embed and add them
+    vectorstore: ChromaDDG = ChromaDDG.from_documents(
+        prepare_chunks(texts, metadatas, full_doc_ids, verbose=verbose),
         embedding=get_openai_embeddings(openai_api_key),
         client=chroma_client,
+        persist_directory=save_dir,
         collection_name=collection_name,
         collection_metadata=collection_metadata,
     )
+
+    # Add the original full docs (with fake embeddings)
+    fake_embeddings = [FAKE_FULL_DOC_EMBEDDING for _ in range(len(docs))]
+    vectorstore.collection.add(full_doc_ids, fake_embeddings, metadatas, texts)
+
     clg.log(f"Ingested documents into collection {collection_name}")
-    return vectorstore
-
-
-# TODO: consider removing this
-def create_vectorstore_ram_or_disk(
-    docs: list[Document],
-    *,
-    collection_name: str,
-    openai_api_key: str,
-    save_dir: str | None = None,
-    verbose: bool = False,
-) -> ChromaDDG:
-    """
-    Create a vectorstore from a list of documents.
-    """
-    vectorstore = ChromaDDG.from_documents(
-        prepare_docs(docs, verbose=verbose),
-        embedding=get_openai_embeddings(openai_api_key),
-        persist_directory=save_dir,
-        collection_name=collection_name,
-    )
-    if verbose:
-        print(f"Created collection {collection_name}")
-        if save_dir:
-            print(f"  - Saved to {save_dir}")
+    if save_dir:
+        clg.log(f"Saved to {save_dir}")
     return vectorstore
 
 

@@ -276,6 +276,22 @@ REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", report_combiner_template)]
 )
 
+searcher_template = """\
+Here is the scraped content of some online sources.
+
+<sources>{context}</sources>
+
+Your task: determine if the above sources contain the answer to the following query:
+
+<query>{query}</query>
+
+Answer following one of these scenarios:
+
+1. If the information to answer the query is not available in the sources, write: "ANSWER NOT FOUND".
+2. If the sources contain information to fully answer the query, then write: "ANSWER: " followed by the answer. Cite the source where you found the information, including its URL. If more than one source was needed, cite all of them, including their URLs.
+3. If the sources contain information to partially answer the query, then write: "PARTIAL ANSWER (<percentage of the answer that was found>)%: " followed by the partial answer. Again, cite the source(s) where you found the information, including their URL(s). 
+"""
+
 iterative_report_improver_template = """\
 You are ARIA, Advanced Report Improvement Assistant. 
 

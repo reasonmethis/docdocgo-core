@@ -7,15 +7,21 @@ from _prepare_env import is_env_loaded
 from components.chroma_ddg import initialize_client
 from utils.docgrab import (
     JSONLDocumentLoader,
-    create_vectorstore_ram_or_disk,
-    ingest_docs_into_chroma_client,
+    ingest_docs_into_chroma,
 )
 from utils.helpers import clear_directory, is_directory_empty, print_no_newline
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 if __name__ == "__main__":
-    print("-" * 70 + "\n" + " " * 20 + "Local Document Ingestion\n" + "-" * 70 + "\n")
+    print(
+        "-" * 70
+        + "\n"
+        + " " * 20
+        + "Ingestion of Local Docs into Loca DB\n"
+        + "-" * 70
+        + "\n"
+    )
 
     DOCS_TO_INGEST_DIR_OR_FILE = os.getenv("DOCS_TO_INGEST_DIR_OR_FILE")
     COLLECTON_NAME_FOR_INGESTED_DOCS = os.getenv("COLLECTON_NAME_FOR_INGESTED_DOCS")
@@ -52,6 +58,7 @@ if __name__ == "__main__":
                 sys.exit()
 
     # Check if the save directory is empty; if not, give the user options
+    chroma_client = None
     if is_directory_empty(VECTORDB_DIR):
         is_new_db = True
     else:
@@ -73,7 +80,7 @@ if __name__ == "__main__":
             clear_directory(VECTORDB_DIR)
             print("Done!")
         else:
-            chroma_client = initialize_client()
+            chroma_client = initialize_client(use_chroma_via_http=False)
             collections = chroma_client.list_collections()
             collection_names = [c.name for c in collections]
             if COLLECTON_NAME_FOR_INGESTED_DOCS in collection_names:
@@ -133,20 +140,12 @@ if __name__ == "__main__":
     docs = loader.load()
     print("Done!")
 
-    # Create the vectorstore (this will print messages regarding the status)
-    if is_new_db:
-        create_vectorstore_ram_or_disk(
-            docs,
-            collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
-            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
-            save_dir=VECTORDB_DIR,
-            verbose=True,
-        )
-    else:
-        ingest_docs_into_chroma_client(
-            docs,
-            collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
-            chroma_client=chroma_client,
-            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
-            verbose=True,
-        )
+    # Ingest into chromadb (this will print messages regarding the status)
+    ingest_docs_into_chroma(
+        docs,
+        collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
+        chroma_client=chroma_client,
+        save_dir=None if chroma_client else VECTORDB_DIR,
+        openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
+        verbose=True,
+    )
