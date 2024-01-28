@@ -1,5 +1,6 @@
 """Chain for chatting with a vector database."""
 from __future__ import annotations
+
 import inspect
 from pathlib import Path
 from typing import Any, Callable
@@ -11,10 +12,12 @@ from langchain.callbacks.manager import (
 from langchain.chains.base import Chain
 from langchain.chains.llm import LLMChain
 from langchain.schema import BaseRetriever, Document
+from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.messages import BaseMessage
-from pydantic import Extra
 
+from components.llm import get_llm_from_prompt_llm_chain
 from utils import lang_utils
+from utils.helpers import DELIMITER
 from utils.prepare import CONTEXT_LENGTH
 from utils.type_utils import CallbacksOrNone, JSONish, PairwiseChatHistory
 
@@ -54,7 +57,8 @@ class ChatWithDocsChain(Chain):
             function to get a string of the chat history. Default is None.
     """
 
-    qa_from_docs_chain: Any  # NOTE Chain results in a pydantic error
+    qa_from_docs_chain: Any  # res of get_prompt_llm_chain (Chain causes pydantic error)
+
     query_generator_chain: LLMChain
     retriever: BaseRetriever
 
@@ -77,13 +81,12 @@ class ChatWithDocsChain(Chain):
     class Config:
         """Configuration for this pydantic object."""
 
-        extra = Extra.forbid
+        extra = "forbid"
         arbitrary_types_allowed = True
         allow_population_by_field_name = True
 
     @property
     def input_keys(self) -> list[str]:
-        """Input keys."""
         return ["question", "chat_history"]
 
     @property
@@ -100,15 +103,22 @@ class ChatWithDocsChain(Chain):
         return res
 
     def _limit_token_count_in_docs(
-        self, docs: list[Document], max_tokens: int
+        self,
+        docs: list[Document],
+        max_tokens: int,
+        llm_for_token_counting: BaseLanguageModel,
     ) -> tuple[list[Document], int]:
         """Reduce the number of tokens in the documents below the limit."""
 
         # Get the number of tokens in each document
-        # TODO rethink llm for token counting
-        token_counts = lang_utils.get_num_tokens_in_texts(
-            [doc.page_content for doc in docs], self.query_generator_chain.llm
-        )
+        try:
+            # When using ChromaDDGRetriever, the number of tokens is already cached
+            token_counts = [doc.metadata["num_tokens"] for doc in docs]
+        except KeyError:
+            token_counts = lang_utils.get_num_tokens_in_texts(
+                [doc.page_content for doc in docs],
+                llm_for_token_counting,
+            )
 
         # Reduce the number of documents until we're below the limit
         token_count = sum(token_counts)
@@ -151,7 +161,7 @@ class ChatWithDocsChain(Chain):
         chat_history_token_limit = max(
             self.max_tokens_limit_rephrase, self.max_tokens_limit_qa
         )
-        llm_for_token_counting = self.query_generator_chain.llm
+        llm_for_token_counting = get_llm_from_prompt_llm_chain(self.qa_from_docs_chain)
 
         chat_history, chat_history_token_counts = lang_utils.limit_chat_history(
             chat_history,
@@ -179,6 +189,7 @@ class ChatWithDocsChain(Chain):
             )["text"]
 
         # Get relevant documents using the standalone query
+        print("getting relevant documents...")
         docs = self.retriever.get_relevant_documents(
             standalone_query,
             # callbacks=_run_manager.get_child(),
@@ -205,7 +216,7 @@ class ChatWithDocsChain(Chain):
         # Reduce number of docs to fit in overall token limit
         max_tokens_limit_docs = self.max_tokens_limit_qa - token_count_chat
         docs, token_count_docs = self._limit_token_count_in_docs(
-            docs, max_tokens_limit_docs
+            docs, max_tokens_limit_docs, llm_for_token_counting
         )
 
         # Reevaluate limit for chat history (maybe can fit more) and limit it
@@ -232,6 +243,10 @@ class ChatWithDocsChain(Chain):
                 context += ":"
             context += f"\n\n{doc.page_content}\n-------------\n\n"
         qa_inputs["context"] = context
+
+        print(DELIMITER)
+        print(context)
+        print(DELIMITER)
 
         # Submit limited docs and chat history to the chat/qa chain
         answer = self.qa_from_docs_chain.invoke(qa_inputs, {"callbacks": callbacks})

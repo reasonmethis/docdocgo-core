@@ -133,6 +133,8 @@ def get_prompt_llm_chain(
         | StrOutputParser()
     )
 
+def get_llm_from_prompt_llm_chain(prompt_llm_chain):
+    return prompt_llm_chain.middle[0]
 
 if __name__ == "__main__":
     # NOTE: Run this file as "python -m components.llm"

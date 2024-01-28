@@ -7,11 +7,11 @@ from chromadb import ClientAPI
 from dotenv import load_dotenv
 from langchain.document_loaders import GitbookLoader
 from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.output import ConditionalLogger
+from utils.rag import text_splitter
 
 load_dotenv(override=True)
 
@@ -60,12 +60,6 @@ def prepare_chunks(
     """
     clg = ConditionalLogger(verbose)
     clg.log(f"Splitting {len(texts)} documents into chunks...")
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,  # NOTE used to be 100 - can tune
-        add_start_index=True,  # metadata will include start index of snippet in original doc
-    )
 
     # Add parent ids to metadata
     for metadata, id in zip(metadatas, ids):

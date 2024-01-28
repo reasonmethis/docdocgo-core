@@ -296,6 +296,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         if value == f"--default {pwd}" and pwd:
             value = DEFAULT_COLLECTION_NAME
 
+        # Admin can also reset the whole db by providing the password
+        if value == f"--reset {pwd}" and pwd:
+            chat_state.vectorstore.client.reset()
+            return format_nonstreaming_answer("The entire database has been reset.")
+
         # Get the full name(s) of the collection(s) to delete
         try:
             full_names = [coll_names_full[coll_names_as_shown.index(value)]]

@@ -1,5 +1,5 @@
-from typing import Iterable, Iterator, Any
 from itertools import zip_longest
+from typing import Any, Iterable, Iterator
 
 
 def interleave_iterables(iterables: Iterable[Iterable[Any]]) -> Iterator[Any]:
@@ -28,3 +28,29 @@ def remove_duplicates_keep_order(iterable: Iterable):
     Remove duplicates from an iterable while keeping order. Returns a list.
     """
     return list(dict.fromkeys(iterable))
+
+
+def insert_interval(
+    current_intervals: list[tuple[int, int]], new_interval: tuple[int, int]
+) -> list[tuple[int, int]]:
+    """
+    Add a new interval to a list of sorted non-overlapping intervals. If the new interval overlaps
+    with any of the existing intervals, merge them. Return the resulting list of intervals.
+    """
+    new_intervals = []
+    new_interval_start, new_interval_end = new_interval
+    for i, (start, end) in enumerate(current_intervals):
+        if end < new_interval_start:
+            new_intervals.append((start, end))
+        elif start > new_interval_end:
+            # Add the new interval and all remaining intervals
+            new_intervals.append((new_interval_start, new_interval_end))
+            return new_intervals + current_intervals[i:]
+        else:
+            # Intervals overlap or are adjacent, merge them
+            new_interval_start = min(start, new_interval_start)
+            new_interval_end = max(end, new_interval_end)
+
+    # If we're here, the new/merged interval is the last one
+    new_intervals.append((new_interval_start, new_interval_end))
+    return new_intervals

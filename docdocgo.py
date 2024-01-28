@@ -1,3 +1,4 @@
+from langchain.schema.language_model import BaseLanguageModel
 import os
 from typing import Any
 
@@ -10,7 +11,7 @@ from agents.researcher import get_researcher_response, get_websearcher_response
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
-from components.llm import get_llm, get_prompt_llm_chain
+from components.llm import get_llm, get_llm_from_prompt_llm_chain, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
 from utils.chat_state import ChatState
 from utils.helpers import (
@@ -149,6 +150,7 @@ def get_docs_chat_chain(
         retriever = ChromaDDGRetriever(
             vectorstore=chat_state.vectorstore,
             search_type="similarity_ddg",
+            llm_for_token_counting=None, # will be assigned in a moment
             verbose=bool(os.getenv("PRINT_SIMILARITIES")),
         )
     else:
@@ -167,6 +169,16 @@ def get_docs_chat_chain(
         print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
         stream=True,
     )
+
+    # Assign llm_for_token_counting for the retriever
+    if isinstance(chat_state.vectorstore, ChromaDDG):
+        llm_for_response = get_llm_from_prompt_llm_chain(qa_from_docs_chain)
+        if not isinstance(llm_for_response, BaseLanguageModel):
+            raise ValueError(
+                "Could not get the language model from the qa_from_docs_chain."
+                + str(llm_for_response)
+            )
+        retriever.llm_for_token_counting = llm_for_response
 
     # Get and return full chain: question generation + doc retrieval + answer generation
     return ChatWithDocsChain(

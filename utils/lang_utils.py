@@ -6,20 +6,28 @@ from langchain.schema.messages import (
     HumanMessage,
     get_buffer_string,
 )
+from langchain_core.documents import Document
 
+from utils.algo import insert_interval
 from utils.async_utils import execute_func_map_in_threads
+from utils.rag import text_splitter
 from utils.type_utils import PairwiseChatHistory
 
 default_llm_for_token_counting = ChatOpenAI(api_key="DUMMY")  # "DUMMY" to avoid error
 
 
+def get_token_ids(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
+    """Get the token IDs for a text."""
+    llm = llm_for_token_counting or default_llm_for_token_counting
+    # return llm.get_token_ids(text) # can result in:
+    # ValueError: Encountered text corresponding to disallowed special token '<|endoftext|>'
+    _, tiktoken_encoding = llm._get_encoding_model()
+    return tiktoken_encoding.encode_ordinary(text)  # LC uses encode instead
+
+
 def get_num_tokens(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
     """Get the number of tokens in a text."""
-    llm = llm_for_token_counting or default_llm_for_token_counting
-    # return llm.get_num_tokens(text) # can result in:
-    # ValueError: Encountered text corresponding to disallowed special token '<|endoftext|>'.
-    _, tiktoken_encoding = llm._get_encoding_model()
-    return len(tiktoken_encoding.encode_ordinary(text)) # LC uses encode instead
+    return len(get_token_ids(text, llm_for_token_counting))
 
 
 def get_num_tokens_in_texts(
@@ -239,6 +247,8 @@ def limit_tokens_in_text(
 
     Tokens are removed from the end of the text.
     """
+
+    # NOTE: Can implement without "guesses", using get_token_ids and token lookup
     words = text.split(" ")
     num_tokens = 0
     at_most_words = len(words)
@@ -344,3 +354,201 @@ def limit_tokens_in_texts(
         new_texts.append(text)
         new_token_counts.append(num_tokens)
     return new_texts, new_token_counts
+
+
+def expand_chunks(
+    base_chunks: list[Document],
+    parents_by_id: dict[str, Document],
+    max_total_tokens: int,
+    boost_factor_top: float = 1.5,  # boost token allowance for top chunk, decrease linearly
+    ratio_add_above_vs_below: float = 0.5,  # approx. ratio of tokens to add above vs below
+    llm_for_token_counting: BaseLanguageModel | None = None,
+) -> list[Document]:
+    """
+    Expand chunks using their parent documents. The expanded chunks will have a total
+    number of tokens below the specified limit (or slightly above). The expanded chunks
+    will have the same metadata as the base chunks, except for the "start_index" metadata,
+    which will be updated to reflect the new start index in the parent document, and the
+    "num_tokens" metadata, which will contain the chunk's number of tokens.
+
+    If during expansion two or more chunks in the same parent document overlap, they will
+    be merged into one chunk.
+    """
+
+    num_base_chunks = len(base_chunks)
+    if num_base_chunks == 0:
+        return []
+
+    # Split each parent document into chunks
+    parent_chunks_by_id: dict[str, list[Document]] = {
+        id_: text_splitter.split_documents([doc]) for id_, doc in parents_by_id.items()
+    }
+
+    # Determine the location of each chunk in its parent document chunks
+    chunk_idxs = []
+    for base_chunk in base_chunks:
+        parent_id = base_chunk.metadata["parent_id"]
+        start_index = base_chunk.metadata["start_index"]
+        parent_chunks = parent_chunks_by_id[parent_id]
+
+        # Find the index of the parent chunk identical to chunk
+        for i, parent_chunk in enumerate(parent_chunks):
+            if parent_chunk.metadata["start_index"] == start_index:
+                chunk_idxs.append(i)
+                break
+        else:
+            raise ValueError(
+                f"Chunk with start_index {start_index} not found in parent chunks."
+            )
+
+    # Determine target boost factor for each base chunk vs average expanded size
+    if num_base_chunks == 1:
+        boost_factors = [1.0]
+    else:
+        # Linearly decrease boost factor from e.g. 1.5 to 0.5
+        boost_factor_bottom = 2 - boost_factor_top  # to get average of 1
+        boost_factor_step = (boost_factor_top - boost_factor_bottom) / (
+            num_base_chunks - 1
+        )
+        boost_factors = [
+            boost_factor_bottom + boost_factor_step * i for i in range(num_base_chunks)
+        ]
+
+    final_chunks_by_id: dict[str, dict[tuple[int, int], Document]] = {}
+
+    token_allowance_left = max_total_tokens
+    num_base_chunks_left = num_base_chunks
+    boost_factors_sum_left = num_base_chunks
+    for base_chunk, boost_factor, chunk_idx in zip(
+        base_chunks, boost_factors, chunk_idxs
+    ):
+        parent_id = base_chunk.metadata["parent_id"]
+        parent_doc_text = parents_by_id[parent_id].page_content
+        parent_chunks = parent_chunks_by_id[parent_id]
+        num_parent_chunks = len(parent_chunks)
+
+        # Variables to keep track of the expanded chunk
+        start_idx = base_chunk.metadata["start_index"]
+        end_idx = start_idx + len(base_chunk.page_content)
+        start_chunk_idx = chunk_idx
+        end_chunk_idx = chunk_idx + 1
+
+        # Expanded chunk starts with the original chunk
+        num_tokens = get_num_tokens(base_chunk.page_content, llm_for_token_counting)
+        expanded_chunk = Document(
+            page_content=base_chunk.page_content,
+            metadata=base_chunk.metadata | {"num_tokens": num_tokens},
+        )
+
+        target_num_tokens = token_allowance_left * boost_factor / boost_factors_sum_left
+
+        # Keep expanding the chunk until it reaches the target size
+        # If, e.g. ratio_add_above_vs_below = 0.5, we want to add 2 chunks below for
+        # every chunk above (below, above, below, below, above, below, ...)
+        added_above = added_below = 0
+        while True:
+            # Determine whether to add above or below
+            if start_chunk_idx == 0:
+                if end_chunk_idx == num_parent_chunks:
+                    break  # no more chunks to add
+                add_above = False
+            elif end_chunk_idx == num_parent_chunks:
+                add_above = True
+            else:
+                ratio_if_add_above = (added_above + 1.001) / (added_below + 0.001)
+                ratio_if_add_below = (added_above + 0.001) / (added_below + 1.001)
+                d_ratio_if_add_above = abs(
+                    ratio_if_add_above - ratio_add_above_vs_below
+                )
+                d_ratio_if_add_below = abs(
+                    ratio_if_add_below - ratio_add_above_vs_below
+                )
+                add_above = d_ratio_if_add_above < d_ratio_if_add_below
+
+            # Get the chunk to add and update number of tokens in the expanded chunk
+            new_chunk_idx = start_chunk_idx - 1 if add_above else end_chunk_idx
+            chunk_to_add = parent_chunks[new_chunk_idx]
+            chunk_to_add_start_idx = chunk_to_add.metadata["start_index"]
+            new_start_idx = chunk_to_add_start_idx if add_above else start_idx
+            new_end_idx = (
+                end_idx
+                if add_above
+                else chunk_to_add_start_idx + len(chunk_to_add.page_content)
+            )
+
+            new_text = parent_doc_text[new_start_idx:new_end_idx]
+            new_num_tokens = get_num_tokens(new_text, llm_for_token_counting)
+
+            # If adding this chunk would exceed the target size, stop
+            # NOTE: we are always including the original chunk, even if it
+            # exceeds the target size on its own. That's why the total number
+            # of tokens in the final expanded chunks can be slightly above the target.
+            if new_num_tokens > target_num_tokens:
+                break
+
+            # Add the base chunk by updating the relevant variables
+            if add_above:
+                start_idx = new_start_idx
+                start_chunk_idx -= 1
+                added_above += 1
+            else:
+                end_idx = new_end_idx
+                end_chunk_idx += 1
+                added_below += 1
+
+            # Update the expanded chunk
+            expanded_chunk = Document(
+                page_content=new_text,
+                metadata=base_chunk.metadata
+                | {"num_tokens": new_num_tokens, "start_index": new_start_idx},
+            )
+
+        # We have determined the expanded chunk. Update chunk info for parent document
+        curr_chunks_in_parent = final_chunks_by_id.get(parent_id, {})
+        curr_chunk_boundaries = curr_chunks_in_parent.keys()
+        new_chunk_boundaries = insert_interval(
+            curr_chunk_boundaries, (start_idx, end_idx)
+        )  # some chunks may have been merged
+        new_chunks_in_parent: dict[tuple[int, int], Document] = {}
+        for idx_pair in new_chunk_boundaries:
+            try:
+                # If we already have this expanded chunk, keep it
+                new_chunks_in_parent[idx_pair] = curr_chunks_in_parent[idx_pair]
+            except KeyError:
+                # We don't have info for this expanded chunk yet, so add it
+                if idx_pair == (start_idx, end_idx):
+                    # The unaltered expanded chunk we just constructed
+                    new_chunks_in_parent[idx_pair] = expanded_chunk
+                else:
+                    # Some sort of merged chunk. Construct it and add it
+                    chunk_text = parent_doc_text[idx_pair[0] : idx_pair[1]]
+                    num_tokens = get_num_tokens(chunk_text, llm_for_token_counting)
+                    new_chunks_in_parent[idx_pair] = Document(
+                        page_content=chunk_text,
+                        metadata=base_chunk.metadata
+                        | {
+                            "start_index": idx_pair[0],
+                            "num_tokens": num_tokens,
+                        },
+                    )
+        final_chunks_by_id[parent_id] = new_chunks_in_parent
+
+        # Update remaining token allowance (only tokens used from parent doc changed)
+        orig_num_tokens_in_parent = sum(
+            x.metadata["num_tokens"] for x in curr_chunks_in_parent.values()
+        )
+        new_num_tokens_in_parent = sum(
+            x.metadata["num_tokens"] for x in new_chunks_in_parent.values()
+        )
+        token_allowance_left -= new_num_tokens_in_parent - orig_num_tokens_in_parent
+
+        # Update accounting variables for the next base chunk to expand
+        num_base_chunks_left -= 1
+        boost_factors_sum_left -= boost_factor
+
+    # We have expanded all base chunks. Return the expanded chunks
+    final_chunks = []
+    for parent_id in final_chunks_by_id:
+        final_chunks.extend(final_chunks_by_id[parent_id].values())
+
+    return final_chunks

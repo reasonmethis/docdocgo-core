@@ -49,17 +49,14 @@ class ChromaDDG(Chroma):
     def set_collection_metadata(self, metadata: dict[str, Any]) -> None:
         """Set metadata for the underlying chromadb collection."""
         self._collection.modify(metadata=metadata)
-        # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
     def rename_collection(self, new_name: str) -> None:
         """Rename the underlying chromadb collection."""
         self._collection.modify(name=new_name)
-        # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete the underlying chromadb collection."""
         self._client.delete_collection(collection_name)
-        # self._client.persist()  # won't be needed when we can switch to v >= 0.4.0
 
     def similarity_search_with_score(
         self,
