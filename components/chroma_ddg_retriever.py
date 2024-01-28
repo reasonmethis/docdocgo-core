@@ -10,7 +10,6 @@ from langchain.vectorstores.base import VectorStoreRetriever
 from langchain_core.documents import Document
 from pydantic import Field
 
-from components.chroma_ddg import ChromaDDG
 from utils.helpers import DELIMITER, lin_interpolate
 from utils.lang_utils import expand_chunks
 from utils.prepare import CONTEXT_LENGTH
@@ -79,7 +78,7 @@ class ChromaDDGRetriever(VectorStoreRetriever):
 
         # Main search method used by DocDocGo
         assert self.search_type == "similarity_ddg", "Invalid search type"
-        assert isinstance(self.vectorstore, ChromaDDG), "Invalid vectorstore type"
+        assert str(type(self.vectorstore)).endswith("ChromaDDG'>"), "Bad vectorstore"
 
         # First, get more docs than we need, then we'll pare them down
         # NOTE this is because apparently Chroma can miss even the most relevant doc
@@ -106,7 +105,6 @@ class ChromaDDGRetriever(VectorStoreRetriever):
         if self.verbose:
             for doc, sim in docs_and_similarities_overshot:
                 print(f"[SIMILARITY: {sim:.2f}] {repr(doc.page_content[:60])}")
-                print(doc.metadata)
             print(f"Before paring down: {len(docs_and_similarities_overshot)} docs.")
 
         # Now, pare down the results
@@ -156,7 +154,9 @@ class ChromaDDGRetriever(VectorStoreRetriever):
 
         parent_docs_by_id = {
             id: Document(page_content=text, metadata=metadata)
-            for id, text, metadata in zip(rsp["ids"], rsp["documents"], rsp["metadatas"])
+            for id, text, metadata in zip(
+                rsp["ids"], rsp["documents"], rsp["metadatas"]
+            )
         }
 
         # Expand chunks using the parent docs

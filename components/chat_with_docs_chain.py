@@ -114,6 +114,7 @@ class ChatWithDocsChain(Chain):
         try:
             # When using ChromaDDGRetriever, the number of tokens is already cached
             token_counts = [doc.metadata["num_tokens"] for doc in docs]
+            print("TOKEN COUNTS:", token_counts)
         except KeyError:
             token_counts = lang_utils.get_num_tokens_in_texts(
                 [doc.page_content for doc in docs],
@@ -123,6 +124,8 @@ class ChatWithDocsChain(Chain):
         # Reduce the number of documents until we're below the limit
         token_count = sum(token_counts)
         num_docs = len(docs)
+        print("TOKEN COUNT:", token_count)
+        print(DELIMITER)
         while token_count > max_tokens and num_docs:
             num_docs -= 1
             token_count -= token_counts[num_docs]
@@ -189,7 +192,6 @@ class ChatWithDocsChain(Chain):
             )["text"]
 
         # Get relevant documents using the standalone query
-        print("getting relevant documents...")
         docs = self.retriever.get_relevant_documents(
             standalone_query,
             # callbacks=_run_manager.get_child(),

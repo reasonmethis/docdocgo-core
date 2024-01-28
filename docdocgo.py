@@ -1,9 +1,8 @@
-from langchain.schema.language_model import BaseLanguageModel
 import os
 from typing import Any
 
 from langchain.chains import LLMChain
-from langchain.vectorstores.base import VectorStoreRetriever
+from langchain.schema.language_model import BaseLanguageModel
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import handle_db_command
@@ -146,19 +145,25 @@ def get_docs_chat_chain(
     )  # need it to be an object that exposes easy access to the underlying llm
 
     # Initialize retriever from the provided vectorstore
-    if isinstance(chat_state.vectorstore, ChromaDDG):
-        retriever = ChromaDDGRetriever(
-            vectorstore=chat_state.vectorstore,
-            search_type="similarity_ddg",
-            llm_for_token_counting=None, # will be assigned in a moment
-            verbose=bool(os.getenv("PRINT_SIMILARITIES")),
+    if not isinstance(chat_state.vectorstore, ChromaDDG):
+        type_str = str(type(chat_state.vectorstore))
+        if not type_str.endswith("ChromaDDG'>"):
+            raise ValueError("Invalid vectorstore type: " + type_str)
+        print(
+            "WARNING: unusual case where vectorstore is not identified as an "
+            "instance of ChromaDDG, but its type is: " + type_str
         )
-    else:
-        retriever = VectorStoreRetriever(vectorstore=chat_state.vectorstore)
-        # search_kwargs={
-        #     "k": num_docs_max,
-        #     "score_threshold": relevance_threshold,
-        # },
+    retriever = ChromaDDGRetriever(
+        vectorstore=chat_state.vectorstore,
+        search_type="similarity_ddg",
+        llm_for_token_counting=None,  # will be assigned in a moment
+        verbose=bool(os.getenv("PRINT_SIMILARITIES")),
+    )
+    # retriever = VectorStoreRetriever(vectorstore=chat_state.vectorstore)
+    # search_kwargs={
+    #     "k": num_docs_max,
+    #     "score_threshold": relevance_threshold,
+    # },
 
     # Initialize chain for answering queries based on provided doc snippets
     qa_from_docs_chain = get_prompt_llm_chain(
@@ -171,14 +176,14 @@ def get_docs_chat_chain(
     )
 
     # Assign llm_for_token_counting for the retriever
-    if isinstance(chat_state.vectorstore, ChromaDDG):
-        llm_for_response = get_llm_from_prompt_llm_chain(qa_from_docs_chain)
-        if not isinstance(llm_for_response, BaseLanguageModel):
-            raise ValueError(
-                "Could not get the language model from the qa_from_docs_chain."
-                + str(llm_for_response)
-            )
-        retriever.llm_for_token_counting = llm_for_response
+    # if isinstance(chat_state.vectorstore, ChromaDDG):
+    llm_for_response = get_llm_from_prompt_llm_chain(qa_from_docs_chain)
+    if not isinstance(llm_for_response, BaseLanguageModel):
+        raise ValueError(
+            "Could not get the language model from the qa_from_docs_chain."
+            + str(llm_for_response)
+        )
+    retriever.llm_for_token_counting = llm_for_response
 
     # Get and return full chain: question generation + doc retrieval + answer generation
     return ChatWithDocsChain(

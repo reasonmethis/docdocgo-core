@@ -156,7 +156,7 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
 
 def load_vectorstore(
     collection_name: str, *, openai_api_key: str, client: ClientAPI | None = None
-):
+) -> ChromaDDG:
     """
     Load a ChromaDDG vectorstore from a given collection name.
     """
