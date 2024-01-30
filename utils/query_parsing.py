@@ -16,16 +16,19 @@ db_command_to_enum = {
     "delete": DBCommand.DELETE,
 }
 
-ResearchCommand = Enum("ResearchCommand", "NEW MORE COMBINE AUTO ITERATE VIEW NONE")
+ResearchCommand = Enum(
+    "ResearchCommand", "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW NONE"
+)
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
     "new": ResearchCommand.NEW,
     "more": ResearchCommand.MORE,
     "combine": ResearchCommand.COMBINE,
     "auto": ResearchCommand.AUTO,
+    "deeper": ResearchCommand.DEEPER,
     "view": ResearchCommand.VIEW,
 }
-research_view_subcommands = {"main", "base", "combined"}  # could do an enum here too
+research_view_subcommands = {"main", "base", "combined", "stats"}
 
 
 class ResearchParams(BaseModel):
@@ -183,7 +186,7 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         sub_task, query = get_command(query, research_view_subcommands, "main")
         return ResearchParams(task_type=task_type, sub_task=sub_task), query
 
-    # Task type: MORE, COMBINE, AUTO, ITERATE
+    # Task type: MORE, COMBINE, AUTO, ITERATE, DEEPER
     num_iterations, query_after_get_int = get_int(query)
 
     if not query_after_get_int:
@@ -195,8 +198,10 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             ), ""
 
     # No valid number of iterations specified, treat e.g. -10 as part of actual query
-    if task_type == ResearchCommand.MORE:
-        return ResearchParams(task_type=task_type), query # e.g. /research more somequery
+
+    # NOTE: "/research more somequery" is currently not supported
+    # if task_type == ResearchCommand.MORE: # e.g. /research more somequery
+    #     return ResearchParams(task_type=task_type), query
 
     # We have e.g. "/research auto somequery", treat "auto" as part of the query
     return ResearchParams(task_type=ResearchCommand.NEW), orig_query

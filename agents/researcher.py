@@ -165,7 +165,7 @@ def parse_research_report(answer: str) -> tuple[str, str | None]:
             idx_end_report = idx_assessment
         evaluation = answer[idx_end_report:]
 
-    report = answer[idx_start_report:idx_end_report].strip()
+    report = answer[idx_start_report:idx_end_report].rstrip("#").strip()
     if report.endswith("---"):
         report = report.rstrip("-").rstrip()
     return report, evaluation
@@ -457,7 +457,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
 
 
 MAX_ITERATIONS_IF_COMMUNITY_KEY = 6
-MAX_ITERATIONS_IF_OWN_KEY = 100
+MAX_ITERATIONS_IF_OWN_KEY = 126
 
 
 def get_iterative_researcher_response(chat_state: ChatState) -> Props:
@@ -603,7 +603,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
 
     print("Time taken to fetch sites:", t_fetch_end - t_start)
     print("Time taken to process texts:", t_construct_context_end - t_fetch_end)
-    if chat_state.operation_mode == OperationMode.CONSOLE:
+    if chat_state.operation_mode.value == OperationMode.CONSOLE.value:
         num_tokens_final_context = get_num_tokens(final_context)  # NOTE rm to save time
         print("Number of resulting tokens in the context:", num_tokens_final_context)
         print(
@@ -656,7 +656,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             rr_data.evaluation = evaluation
 
     else:  # "/research more"
-        # Append the new report to the list of preliminary reports
+        # Append the new report to the list of base reports
         report_obj = Report(
             report_text=report, sources=links_to_include, evaluation=evaluation
         )
@@ -779,13 +779,59 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
         rr_data.combined_report_id_levels.append([new_id])
 
         # Also, in this case, update the main report
-        rr_data.main_report = answer
-        rr_data.evaluation = new_report.evaluation
+        rr_data.main_report = report_text
+        rr_data.evaluation = evaluation
 
     # Save new rr_data in chat_state (which saves it in the database) and return
     chat_state.save_rr_data(rr_data)
     sources = rr_data.get_sources(new_report)
     return {"answer": answer, "rr_data": rr_data, "source_links": sources}
+
+
+def get_num_reports_per_level(rr_data: ResearchReportData) -> list[int]:
+    return [len(rr_data.base_reports)] + [
+        len(x) for x in rr_data.combined_report_id_levels
+    ]
+
+
+def get_nums_auto_iterations_for_top_level_reports(
+    rr_data: ResearchReportData, num_results: int = 1
+) -> list[int]:
+    levels = get_num_reports_per_level(rr_data)
+    num_needed_iterations = 1  # 1 for the new top level report
+    num_needed_reports_at_level = 1
+
+    # Go through all levels and add the number of reports "missing"
+    for num_reports_at_level in reversed(levels):
+        num_needed_reports_at_level *= NUM_REPORTS_TO_COMBINE
+        num_needed_iterations += max(
+            0, num_needed_reports_at_level - num_reports_at_level
+        )
+
+    results = [num_needed_iterations]
+    if num_results < 2:
+        return results
+
+    # For subsequent results, the calculation is easier because the combined reports
+    # will form a perfect geometric progression (16, 8, 4, 2, 1) - but not base reports.
+    # We will pretend that the needed reports for +1 level have just been added.
+    num_levels = len(levels) + 1  # we just "added" a new level
+    num_base_reports = max(levels[0], num_needed_reports_at_level)
+    for _ in range(num_results - 1):
+        # Calculate the number of base/combined reports needed to add a new level
+        required_num_base_reports = NUM_REPORTS_TO_COMBINE**num_levels
+        new_num_base_reports = max(num_base_reports, required_num_base_reports)
+        num_combined_reports_to_add = NUM_REPORTS_TO_COMBINE ** (num_levels - 1)
+
+        # Add new result and update variables for the next iteration
+        num_needed_iterations += (
+            new_num_base_reports - num_base_reports + num_combined_reports_to_add
+        )
+        results.append(num_needed_iterations)
+        num_levels += 1
+        num_base_reports = new_num_base_reports
+
+    return results
 
 
 def get_research_view_response(chat_state: ChatState) -> Props:
@@ -801,6 +847,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         )
 
     coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
+    nums_for_auto = get_nums_auto_iterations_for_top_level_reports(rr_data, 5)
     answer = (
         f"### Research overview for collection `{coll_name_as_shown}`\n\n"
         f"Query:\n\n```\n{rr_data.query}\n```\n\n"
@@ -810,12 +857,17 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         f"- There are {len(rr_data.combined_reports)} combined reports.\n"
         f"- There are {len(rr_data.processed_links)} processed links.\n"
         f"- There are {len(rr_data.unprocessed_links)} unprocessed links.\n"
-        f"- Report levels: {[len(x) for x in rr_data.combined_report_id_levels]}"
-        f"\n---\n\n"
+        f"- Report levels: {get_num_reports_per_level(rr_data)}\n\n"
+        f"To get the next top-level report run `/research auto {nums_for_auto[0]}`. "
+        "For further top-level reports, make the number "
+        f"{str(nums_for_auto[1:])[1:-1]}, ..."
+        f"\n\n---\n\n"
     )
 
     sub_task = chat_state.parsed_query.research_params.sub_task
-    if sub_task == "main":
+    if sub_task == "stats":
+        pass
+    elif sub_task == "main":
         answer += f"\n\nMAIN REPORT:\n\n{rr_data.main_report}"
     elif sub_task == "base":
         answer += "\n\nBASE REPORTS:"
@@ -873,20 +925,45 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:
+    research_params = chat_state.parsed_query.research_params
+    num_iterations_left = research_params.num_iterations_left
+
+    # Transform the command if needed
+    if research_params.task_type == ResearchCommand.DEEPER:
+        # Determine the required number of "auto" iterations
+        if num_iterations_left < 15:
+            num_auto_iterations = get_nums_auto_iterations_for_top_level_reports(
+                chat_state.rr_data, num_iterations_left
+            )[num_iterations_left - 1]
+        else:
+            return format_invalid_input_answer(
+                "Apologies, I can't execute this command because it requires too "
+                "many research iterations. Remember, each `/research deeper` run "
+                f"expands the number of sources by a factor of {NUM_REPORTS_TO_COMBINE}. "
+                f"Each such expansion requires {NUM_REPORTS_TO_COMBINE}x the number of "
+                "iterations of the previous expansion.",
+                "Too many iterations are required for this command.",
+            )
+
+        # Transform the command
+        research_params.task_type = ResearchCommand.AUTO
+        research_params.num_iterations_left = num_iterations_left = num_auto_iterations
+
     # Validate number of iterations
-    num_iterations_left = chat_state.parsed_query.research_params.num_iterations_left
     if chat_state.is_community_key:
         if num_iterations_left > MAX_ITERATIONS_IF_COMMUNITY_KEY:
             return format_invalid_input_answer(
-                f"Apologies, a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
-                "allowed when using a community OpenAI API key.",
+                f"Apologies, this command requires {num_iterations_left} research iterations, "
+                f"but a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
+                "allowed when using the community OpenAI API key.",
                 "Please try a lower number of iterations or use your OpenAI API key.",
             )
     else:
         if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
             return format_invalid_input_answer(
-                f"For your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} iterations is "
-                "allowed.",
+                f"Apologies, this command requires {num_iterations_left} research iterations, "
+                f"however, for your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} "
+                "iterations is allowed.",
                 "Please try a lower number of iterations.",
             )
 

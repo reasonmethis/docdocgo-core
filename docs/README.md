@@ -122,9 +122,9 @@ We won't cover the details of using the flask server in this README, but the nec
 
 ## Ingesting Documents
 
-> You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
+> You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README and other documentation. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
 
-To ingest your documents and use them when chatting with the bot, follow the steps below.
+To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` or `/upload` if you are using the Streamlit UI. In the console mode, follow the instructions below.
 
 ### 1. Fill in the desired ingestion settings in the `.env` file
 
@@ -176,9 +176,9 @@ This is a powerful feature of DocDocGo that allows you to perform iterative web 
 /research What are the best ways to improve my memory? Just bullet points, please.
 ```
 
-**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research auto N`, where `N` is the number of research iteration steps you want DocDocGo to automatically perform. Each research step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
+**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research deeper N`, where `N` is the number of times you want to double the number of sources that go into the report. Using this command will kick off a series of research steps, where each step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
 
-> Example: `/research auto 2` would result in one more fetch step and one combine step, producing a report that is based on twice as many sources as the original report (about a dozen sources). If you want to double this number again, you can type `/research auto 4` afterwards (or use 2 + 4 = 6 in the first place), and so on.
+> For more options, you can type `/research` without any arguments or ask DocDocGo for help.
 
 **Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
 
@@ -212,6 +212,8 @@ chromadb==0.4.21
 openai==1.6.1
 tiktoken==0.5.2
 beautifulsoup4==4.12.2
+docx2txt==0.8
+pypdf==4.0.0
 trafilatura==1.6.3
 fake-useragent==1.4.0
 python-dotenv==1.0.0
@@ -222,6 +224,8 @@ google-cloud-firestore==2.14.0
 ```
 
 ### Running the Containerized Application
+
+> Note: check the Dockerfile to make sure the requirements are up to date.
 
 DocDocGo is also containerized with Docker. The following steps can be used to run the containerized flask server.
 

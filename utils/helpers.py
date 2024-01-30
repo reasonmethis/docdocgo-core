@@ -60,23 +60,20 @@ How? Just ask me! (or type `/help`) \
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
 - `/research legal arguments for and against disqualifying Trump from running`
-- `/research more` (to fetch more sites and create an alternative report with new sources)
-- `/research combine` (to create a report using information from both reports)
-- `/research auto 4` (to perform 2 "more" + 2 "combine" iterations automatically)
+- `/research deeper` (to fetch more sites and make a new report based on 2x as many sources)
 - `What legal scholars have argued for disqualification?`
-- `/db use docdocgo-documentation` (to switch to the default collection)
-- `How can I get more help using you? Tell me in the style of prof. Dumbledore.`
-- `/db` (to manage your *collections*, i.e. the knowledge bases we've created)
+- `/db use 1` (to switch to the default collection, which contains DocDocGo's documentation)
+- `How can I do "infinite" research? Tell me in the style of prof. Dumbledore.`
+- `/db` (to manage your _collections_, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
 
-After performing the "auto" command above, you will end up with a report that uses \
-information from 4x as many sources as the original report. 
-
-You can set an even higher number of iterations. If you get dizzy from all the iterations, \
-use `/research view` to view the current main, most comprehensive report.
+After performing the "deeper" command above, you will end up with a report that uses \
+information from 2x as many sources as the original report. If you wanted to quadruple \
+the number of sources, you could use `/research deeper 2` instead. 
 
 :grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance. \
-You'll need your own OpenAI API key for that.]\
+You'll need your own OpenAI API key for that. Using your own key also relaxes the restriction \
+on the maximum number of automatic research iterations.]
 """
 
 HELP_MESSAGE = f"""\
@@ -114,8 +111,8 @@ Example queries:
 
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
-- `/research auto 42` (to perform 42 iterations of research automatically)
-- `/re auto 3` (same - first two letters of a command are enough)
+- `/research deeper` (to expand the research to cover more sources)
+- `/re deeper` (same - first two letters of a command are enough)
 - `/docs Tell me just the ones related to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
 
@@ -125,7 +122,7 @@ If you're in a reading mood, here's a [link to my full docs]\
 Or simply ask me for help! By default, I'm set up to use the `docdocgo-documentation` \
 collection. As long as it's selected in the chatbox below, I'll know how to use me.
 
-> If you need to switch to the default collection, type `/db use docdocgo-documentation`.
+> If you need to switch to the default collection, you can use the shorthand `/db use 1`.
 """
 
 DB_COMMAND_HELP_TEMPLATE = f"""\
@@ -150,11 +147,16 @@ the default collection (`{DEFAULT_COLLECTION_NAME}`) is selected. If it isn't, t
 """
 
 RESEARCH_COMMAND_HELP_MESSAGE = """\
-You can use the following commands for research tasks:
+Here are the most important commands you can use for Internet research:
 
-- `/research <your query>`: start new Internet research, generate a report, and ingest fetched sites
-- `/research new <your query>`: same as above
-- `/research more`: keep original query, but fetch more websites and create a new report version
+- `/research <your query>`: start new Internet research, generate report, create KB from fetched sites
+- `/research deeper`: expand report and KB to cover 2x more sites as current report
+- `/research deeper 3`: perform the above 3 times (careful - time/number of steps increases exponentially)
+
+You can also use the following commands:
+
+- `/research new <your query>`: same as without `new` (can use if the first word looks like a command)
+- `/research more`: keep original query, but fetch more websites and create new report version
 - `/research combine`: combine reports to get a report that takes more sources into account
 - `/research auto 42`: performs 42 iterationso of "more"/"combine"
 - `/research iterate`: fetch more websites and iterate on the previous report
@@ -163,6 +165,7 @@ You can use the following commands for research tasks:
 You can also view the reports:
 
 - `/research view main`: view the main report (`main` can be omitted)
+- `/research view stats`: view just the report stats
 - `/research view base`: view the base reports
 - `/research view combined`: view the combined reports
 """

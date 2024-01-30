@@ -74,7 +74,7 @@ if chat_state.operation_mode != OperationMode.STREAMLIT:
     st.write(
         "Operation mode:",
         chat_state.operation_mode,
-        len(chat_state.chat_and_command_history),
+        chat_state.operation_mode.value == OperationMode.STREAMLIT.value,
     )
 
 ####### Sidebar #######

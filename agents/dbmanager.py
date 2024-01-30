@@ -389,7 +389,7 @@ def handle_db_command(chat_state: ChatState) -> Props:
 
     # Handle /db with no valid subcommand
     if chat_state.parsed_query.db_command == DBCommand.NONE:
-        if chat_state.operation_mode == OperationMode.CONSOLE:
+        if chat_state.operation_mode.value == OperationMode.CONSOLE.value:
             return manage_dbs_console(chat_state)
         return format_nonstreaming_answer(
             DB_COMMAND_HELP_TEMPLATE.format(current_db=chat_state.vectorstore.name)

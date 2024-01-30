@@ -83,9 +83,11 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
         return {"answer": HELP_MESSAGE}
     elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
-        if chat_state.operation_mode == OperationMode.STREAMLIT:
+        if chat_state.operation_mode.value == OperationMode.STREAMLIT.value:
+            # NOTE: "value" is needed because OperationMode, ChromaDDG, etc. sometimes
+            # get imported twice (I think when Streamlit reloads the code).
             return {"answer": "Please select your documents to upload and ingest."}
-        elif chat_state.operation_mode == OperationMode.CONSOLE:
+        elif chat_state.operation_mode.value == OperationMode.CONSOLE.value:
             return {
                 "answer": "Sorry, the /ingest command is only supported in Streamlit mode. "
                 + "In console mode, please run `python ingest_local_docs.py`."

@@ -22,8 +22,8 @@ Example queries:
 
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
-- `/research auto 42` (to perform 42 iterations of research automatically)
-- `/re auto 3` (same - first two letters of a command are enough)
+- `/research deeper` (to expand the research to cover more sources)
+- `/re deeper` (same - first two letters of a command are enough)
 - `/docs Tell me just the ones related to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
 
