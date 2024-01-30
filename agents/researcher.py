@@ -471,12 +471,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
     # chat_state.get_rr_data() for readability
 
-    if not rr_data or not rr_data.main_report:
-        return format_invalid_input_answer(
-            "Apologies, this command is only valid when there is an existing report.",
-            "You can generate a new report using `/research new <query>`.",
-        )
-
     # Fix for older style collections
     if not rr_data.base_reports:
         ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
@@ -927,13 +921,24 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
     num_iterations_left = research_params.num_iterations_left
+    rr_data = chat_state.rr_data
+
+    # Screen commands that require an existing report
+    if research_params.task_type not in {
+        ResearchCommand.NEW,
+        ResearchCommand.NONE,
+    } and (not rr_data or not rr_data.main_report):
+        return format_invalid_input_answer(
+            "Apologies, this command is only valid when there is an existing report.",
+            "You can generate a new report using `/research new <query>`.",
+        )
 
     # Transform the command if needed
     if research_params.task_type == ResearchCommand.DEEPER:
         # Determine the required number of "auto" iterations
         if num_iterations_left < 15:
             num_auto_iterations = get_nums_auto_iterations_for_top_level_reports(
-                chat_state.rr_data, num_iterations_left
+                rr_data, num_iterations_left
             )[num_iterations_left - 1]
         else:
             return format_invalid_input_answer(
