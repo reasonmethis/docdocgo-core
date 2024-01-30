@@ -42,19 +42,23 @@ That's why we have the `/research deeper` command. Instead of using new sources 
 
 > As always, all fetched content will be added to the collection for any follow-up chat.
 
+### "Infinite" research
+
+The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/research deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
+
 ### The `more` and `combine` subcommands
 
 What are these `more` and `combine` operations? `/research more` allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
 
 Such separate reports are called _base reports_. If you'd like to combine the most important information from two base reports into one report, you can use the `/research combine` command. It will automatically find the two highest-level reports (at the same level) that haven't been combined yet and combine them. "Level" here roughly corresponds to the number of sources that went into the report. More precisely, base reports have level 0. When two reports are combined, the level of the new report is 1 higher than the level of the two reports that were combined.
 
-### The `auto` subcommand and the "infinite" research
+### The `auto` subcommand
 
 The `/research auto` command is a combination of the `/research more` and `/research combine` commands. It automatically selects one or the other. If there are reports to combine, it will use the `/research combine` command. Otherwise, it will use the `/research more` command to fetch more content from the web and generate a new base report.
 
-The "infinite" research capability comes from the ability to add a number to the end. For example, `/research auto 42` will automatically 42 iterations of the `/research auto` command. (To abort, simply reload the app.)
+You can request multiple iterations of this command. For example, `/research auto 42` will automatically perform 42 iterations of `/research auto`. (To abort, simply reload the app.)
 
-You can add a number to the end of the `/research more` and `/research combine` commands a well to repeat them multiple times.
+You can add a number to the end of the `/research more` and `/research combine` commands as well to repeat them multiple times.
 
 ### The relationship between the `auto` and `deeper` commands
 

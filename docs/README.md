@@ -178,6 +178,8 @@ This is a powerful feature of DocDocGo that allows you to perform iterative web 
 
 **Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research deeper N`, where `N` is the number of times you want to double the number of sources that go into the report. Using this command will kick off a series of research steps, where each step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
 
+This is the "infinite" research capability of DocDocGo. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
+
 > For more options, you can type `/research` without any arguments or ask DocDocGo for help.
 
 **Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
