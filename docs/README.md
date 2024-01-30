@@ -272,7 +272,7 @@ After that, follow the above steps to rebuild the container and restart the serv
 
 MIT License
 
-Copyright (c) 2023 Dmitriy Vasilyuk
+Copyright (c) 2024 Dmitriy Vasilyuk
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
