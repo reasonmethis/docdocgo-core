@@ -45,6 +45,15 @@ class ParsedQuery(BaseModel):
     research_params: ResearchParams | None = None
     db_command: DBCommand | None = None
 
+    def is_ingestion_needed(self) -> bool:
+        return self.research_params and self.research_params.task_type in {
+            ResearchCommand.NEW,
+            ResearchCommand.AUTO, # NOTE: doesn't always need ingestion
+            ResearchCommand.DEEPER,
+            ResearchCommand.ITERATE,
+            ResearchCommand.MORE,
+        }
+
 
 def get_command(
     text: str, commands: dict[str, Any] | Container[str], default_command=None

@@ -19,6 +19,7 @@ from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
+    STAND_BY_FOR_INGESTION_MESSAGE,
     fix_markdown,
     show_sources,
     status_config,
@@ -280,7 +281,13 @@ with st.chat_message("assistant"):
 
     # Prepare container and callback handler for showing streaming response
     message_placeholder = st.empty()
-    callback_handler = CallbackHandlerDDGStreamlit(message_placeholder)
+
+    callback_handler = CallbackHandlerDDGStreamlit(
+        message_placeholder,
+        end_str=STAND_BY_FOR_INGESTION_MESSAGE
+        if parsed_query.is_ingestion_needed()
+        else "",
+    )
     chat_state.callbacks[1] = callback_handler
     try:
         response = get_bot_response(chat_state)
@@ -300,7 +307,7 @@ with st.chat_message("assistant"):
 
         # Display sources if present
         sources = get_source_links(response) or None  # Cheaper to store None than []
-        show_sources(sources)
+        show_sources(sources, callback_handler)
 
         # Display the "complete" status - custom or default
         if status:

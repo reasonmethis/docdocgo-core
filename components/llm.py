@@ -9,7 +9,7 @@ from langchain.prompts.prompt import PromptTemplate
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from langchain.schema import StrOutputParser
-from langchain.schema.output import ChatGenerationChunk, GenerationChunk
+from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
@@ -24,9 +24,10 @@ from utils.type_utils import BotSettings, CallbacksOrNone
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
-    def __init__(self, container: DeltaGenerator):
+    def __init__(self, container: DeltaGenerator, end_str: str = ""):
         self.container = container
         self.buffer = ""
+        self.end_str = end_str
 
     def on_llm_new_token(
         self,
@@ -39,6 +40,18 @@ class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
     ) -> None:
         self.buffer += token
         self.container.markdown(fix_markdown(self.buffer))
+
+    def on_llm_end(
+        self,
+        response: LLMResult,
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Run when LLM ends running."""
+        if self.end_str:
+            self.container.markdown(fix_markdown(self.buffer + self.end_str))
 
 
 class CallbackHandlerDDGConsole(BaseCallbackHandler):
@@ -79,7 +92,7 @@ def get_llm_with_callbacks(
         )
     else:
         llm = ChatOpenAI(
-            api_key=api_key or "", # don't allow None, no implicit key from env
+            api_key=api_key or "",  # don't allow None, no implicit key from env
             model=settings.llm_model_name,
             temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
@@ -133,8 +146,10 @@ def get_prompt_llm_chain(
         | StrOutputParser()
     )
 
+
 def get_llm_from_prompt_llm_chain(prompt_llm_chain):
     return prompt_llm_chain.middle[0]
+
 
 if __name__ == "__main__":
     # NOTE: Run this file as "python -m components.llm"

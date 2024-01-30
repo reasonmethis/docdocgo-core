@@ -5,7 +5,17 @@ import streamlit as st
 
 from utils.type_utils import ChatMode
 
-allowed_extensions = ["", ".txt", ".md", ".rtf", ".log", ".pdf", ".docx", ".html", ".htm"]
+allowed_extensions = [
+    "",
+    ".txt",
+    ".md",
+    ".rtf",
+    ".log",
+    ".pdf",
+    ".docx",
+    ".html",
+    ".htm",
+]
 
 POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL = """\
 Your documents have been uploaded to a new collection: `{coll_name}`. \
@@ -52,6 +62,10 @@ status_config = {
     ChatMode.RESEARCH_COMMAND_ID: research_status_config,
 }
 
+STAND_BY_FOR_INGESTION_MESSAGE = (
+    "\n\n--- \n\n> **PLEASE STAND BY WHILE SOURCES ARE INGESTED...**"
+)
+
 
 def escape_dollars(text: str) -> str:
     """
@@ -76,8 +90,15 @@ def write_slowly(message_placeholder, answer):
         time.sleep(delay)
 
 
-def show_sources(sources: list[str] | None):
+def show_sources(
+    sources: list[str] | None,
+    callback_handler=None,
+):
     """Show the sources if present."""
+    # If the cb handler is provided, remove the stand-by message
+    if callback_handler and callback_handler.end_str:
+        callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
+
     if not sources:
         return
     with st.expander("Sources"):
