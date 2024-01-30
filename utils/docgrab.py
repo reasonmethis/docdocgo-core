@@ -76,7 +76,7 @@ def prepare_chunks(
     return snippets
 
 
-FAKE_FULL_DOC_EMBEDDING = [1.0] * os.getenv("EMBEDDINGS_DIMENSIONS", 1536)
+FAKE_FULL_DOC_EMBEDDING = [1.0] * int(os.getenv("EMBEDDINGS_DIMENSIONS", 1536))
 
 
 def ingest_docs_into_chroma(

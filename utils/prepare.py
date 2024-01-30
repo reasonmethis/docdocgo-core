@@ -13,7 +13,7 @@ sys.modules["sqlite3"] = lambda: None
 sys.modules["sqlite3"].sqlite_version_info = (42, 42, 42)
 __import__("chromadb")
 del sys.modules["sqlite3"]
-__import__("sqlite3") # import here because chromadb was supposed to import it
+__import__("sqlite3")  # import here because chromadb was supposed to import it
 
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
@@ -22,7 +22,7 @@ CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
 DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documentation")
 
 if USE_CHROMA_VIA_HTTP := bool(os.getenv("USE_CHROMA_VIA_HTTP")):
-    os.environ["CHROMA_API_IMPL"] = "rest" 
+    os.environ["CHROMA_API_IMPL"] = "rest"
 
 # The following three variables are only used if USE_CHROMA_VIA_HTTP is True
 CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
@@ -43,7 +43,12 @@ DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 # Check that the necessary environment variables are set
 DUMMY_OPENAI_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
 
-if IS_AZURE and not (EMBEDDINGS_DEPLOYMENT_NAME and CHAT_DEPLOYMENT_NAME and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("OPENAI_API_BASE")):
+if IS_AZURE and not (
+    EMBEDDINGS_DEPLOYMENT_NAME
+    and CHAT_DEPLOYMENT_NAME
+    and os.getenv("AZURE_OPENAI_API_KEY")
+    and os.getenv("OPENAI_API_BASE")
+):
     print(
         "You have set some but not all environment variables necessary to utilize the "
         "Azure OpenAI API endpoint. Please refer to .env.example for details."
@@ -53,13 +58,13 @@ elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
     # We don't exit because we could get the key from the Streamlit app
     print(
         "WARNING: You have not set the DEFAULT_OPENAI_API_KEY environment variable. "
-        "This is ok when running in the Streamlit app, but not when running "
+        "This is ok when running the Streamlit app, but not when running "
         "the command line app. For now, we will set it to a dummy non-empty value "
         "to avoid problems initializing the vectorstore etc. "
         "Please refer to .env.example for additional information."
     )
     os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
-    # TODO investigate the behavior when this happens 
+    # TODO investigate the behavior when this happens
 
 if not os.getenv("SERPER_API_KEY"):
     print(
@@ -73,15 +78,18 @@ if not os.getenv("SERPER_API_KEY"):
     # Set the free key explicitly (there is no payment info associated with this key)
     os.environ["SERPER_API_KEY"] = "71f6d411db55df3ed492bf6da727c4512be35e52"
 
+
 # Verify the validity of the db path
-if not os.path.isdir(VECTORDB_DIR):
+if not os.getenv("USE_CHROMA_VIA_HTTP") and not os.path.isdir(VECTORDB_DIR):
     try:
         abs_path = os.path.abspath(VECTORDB_DIR)
     except Exception:
         abs_path = "INVALID PATH"
     print(
         "You have not specified a valid directory for the vector database. "
-        "Please set the VECTORDB_DIR environment variable in .env, as shown in .env.example."
+        "Please set the VECTORDB_DIR environment variable in .env, as shown in .env.example. "
+        "Alternatively, if you have a Chroma DB server running, you can set the "
+        "USE_CHROMA_VIA_HTTP environment variable to any non-empty value. "
         f"\n\nThe path you have specified is: {VECTORDB_DIR}.\n"
         f"The absolute path resolves to: {abs_path}."
     )
