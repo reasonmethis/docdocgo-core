@@ -96,7 +96,7 @@ def show_sources(
 ):
     """Show the sources if present."""
     # If the cb handler is provided, remove the stand-by message
-    if callback_handler and callback_handler.end_str:
+    if callback_handler and callback_handler.end_str_printed:
         callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
 
     if not sources:

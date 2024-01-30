@@ -28,6 +28,7 @@ class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
         self.container = container
         self.buffer = ""
         self.end_str = end_str
+        self.end_str_printed = False
 
     def on_llm_new_token(
         self,
@@ -51,6 +52,7 @@ class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
     ) -> None:
         """Run when LLM ends running."""
         if self.end_str:
+            self.end_str_printed = True
             self.container.markdown(fix_markdown(self.buffer + self.end_str))
 
 
