@@ -505,7 +505,7 @@ def expand_chunks(
 
         # We have determined the expanded chunk. Update chunk info for parent document
         curr_chunks_in_parent = final_chunks_by_id.get(parent_id, {})
-        curr_chunk_boundaries = curr_chunks_in_parent.keys()
+        curr_chunk_boundaries = list(curr_chunks_in_parent.keys())
         new_chunk_boundaries = insert_interval(
             curr_chunk_boundaries, (start_idx, end_idx)
         )  # some chunks may have been merged
