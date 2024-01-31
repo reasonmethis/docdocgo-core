@@ -16,7 +16,7 @@ from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
-from utils.async_utils import gather_tasks_sync, make_sync
+from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
@@ -44,22 +44,8 @@ from utils.strings import extract_json
 from utils.type_utils import ChatMode, OperationMode, Props
 from utils.web import (
     LinkData,
-    afetch_urls_in_parallel_aiohttp,
-    afetch_urls_in_parallel_playwright,
+    get_batch_url_fetcher,
 )
-
-
-def get_batch_fetcher():
-    """Decide which fetcher to use for the links."""
-    if not os.getenv("USE_PLAYWRIGHT"):
-        return make_sync(afetch_urls_in_parallel_aiohttp)
-
-    def link_fetcher(links):
-        return make_sync(afetch_urls_in_parallel_playwright)(
-            links, callback=lambda url, html: print_no_newline(".")
-        )
-
-    return link_fetcher
 
 
 def get_content_from_urls_with_top_up(
@@ -246,7 +232,7 @@ def get_initial_researcher_response(
         # Get content from links
         link_data_dict = get_content_from_urls_with_top_up(
             all_links,
-            batch_fetcher=get_batch_fetcher(),
+            batch_fetcher=get_batch_url_fetcher(),
             min_ok_urls=num_ok_links,
             init_batch_size=min(
                 10, round(num_ok_links * 1.2)
@@ -310,7 +296,6 @@ def get_initial_researcher_response(
         print("\nGenerating report...\n")
         chain = get_prompt_llm_chain(
             RESEARCHER_PROMPT_INITIAL_REPORT,
-            # RESEARCHER_PROMPT_DYNAMIC_REPORT,
             llm_settings=chat_state.bot_settings,
             api_key=chat_state.openai_api_key,
             print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
@@ -511,7 +496,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if num_ok_new_links_to_fetch > 0:
         link_data_dict = get_content_from_urls_with_top_up(
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
-            batch_fetcher=get_batch_fetcher(),
+            batch_fetcher=get_batch_url_fetcher(),
             min_ok_urls=num_ok_new_links_to_fetch,
             init_batch_size=INIT_BATCH_SIZE,
         )

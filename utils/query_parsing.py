@@ -46,13 +46,18 @@ class ParsedQuery(BaseModel):
     db_command: DBCommand | None = None
 
     def is_ingestion_needed(self) -> bool:
-        return self.research_params and self.research_params.task_type in {
+        if self.research_params and self.research_params.task_type in {
             ResearchCommand.NEW,
-            ResearchCommand.AUTO, # NOTE: doesn't always need ingestion
+            ResearchCommand.AUTO,  # NOTE: doesn't always need ingestion
             ResearchCommand.DEEPER,
             ResearchCommand.ITERATE,
             ResearchCommand.MORE,
-        }
+        }:
+            return True
+        if self.chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:
+            return True
+
+        return False
 
 
 def get_command(

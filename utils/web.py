@@ -1,4 +1,5 @@
 import asyncio
+import os
 from enum import Enum
 
 import aiohttp
@@ -6,13 +7,15 @@ import trafilatura
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from langchain.document_loaders import AsyncChromiumLoader, AsyncHtmlLoader
-from langchain_community.document_loaders.async_html import default_header_template
 from langchain.document_transformers import BeautifulSoupTransformer
 from langchain.schema import Document
+from langchain_community.document_loaders.async_html import default_header_template
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 
+from utils.async_utils import make_sync
+from utils.helpers import print_no_newline
 from utils.output import format_exception
 from utils.strings import remove_consecutive_blank_lines
 
@@ -314,6 +317,19 @@ class LinkData(BaseModel):
         if is_html_text_ok(text):
             return cls(text=text)
         return cls(text=text, error="UNACCEPTABLE_EXTRACTED_TEXT")
+
+
+def get_batch_url_fetcher():
+    """Decide which fetcher to use for the links."""
+    if not os.getenv("USE_PLAYWRIGHT"):
+        return make_sync(afetch_urls_in_parallel_aiohttp)
+
+    def link_fetcher(links):
+        return make_sync(afetch_urls_in_parallel_playwright)(
+            links, callback=lambda url, html: print_no_newline(".")
+        )
+
+    return link_fetcher
 
 
 # NOTE: Fetching without chromium often leads to empty content (with chromium, that can still happen; also, it's slow). For example, of the following 27 URLs, only 8 have non-empty content:

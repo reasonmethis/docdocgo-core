@@ -27,6 +27,7 @@ class ChatMode(Enum):
     HELP_COMMAND_ID = 8
     INGEST_COMMAND_ID = 9
     BROWSE_COMMAND_ID = 10
+    SUMMARIZE_COMMAND_ID = 11
 
 
 chat_modes_needing_llm = {
@@ -36,6 +37,7 @@ chat_modes_needing_llm = {
     ChatMode.DETAILS_COMMAND_ID,
     ChatMode.QUOTES_COMMAND_ID,
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
+    ChatMode.SUMMARIZE_COMMAND_ID,
 }
 
 

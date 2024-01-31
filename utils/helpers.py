@@ -42,7 +42,9 @@ command_ids = {
     "/ingest": ChatMode.INGEST_COMMAND_ID,
     "/in": ChatMode.INGEST_COMMAND_ID,  
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
-    "/up": ChatMode.INGEST_COMMAND_ID,  
+    "/up": ChatMode.INGEST_COMMAND_ID, 
+    "/summarize": ChatMode.SUMMARIZE_COMMAND_ID,
+    "/su": ChatMode.SUMMARIZE_COMMAND_ID, 
     # "/browse": ChatMode.BROWSE_COMMAND_ID,
 }
 

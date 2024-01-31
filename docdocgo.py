@@ -7,6 +7,7 @@ from langchain.schema.language_model import BaseLanguageModel
 from _prepare_env import is_env_loaded
 from agents.dbmanager import handle_db_command
 from agents.researcher import get_researcher_response, get_websearcher_response
+from agents.ingester_summarizer import get_ingester_summarizer_response
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
@@ -48,6 +49,8 @@ def get_bot_response(chat_state: ChatState):
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif chat_mode == ChatMode.WEB_COMMAND_ID:  # /web command
         return get_websearcher_response(chat_state)
+    elif chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:  # /summarize command
+        return get_ingester_summarizer_response(chat_state)
     elif chat_mode == ChatMode.RESEARCH_COMMAND_ID:  # /research command
         # Get response from iterative researcher
         res_from_bot = get_researcher_response(chat_state)
@@ -83,7 +86,10 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
         return {"answer": HELP_MESSAGE}
     elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
-        if chat_state.operation_mode.value == OperationMode.STREAMLIT.value:
+        # If a URL is given, fetch and ingest it. Otherwise, upload local docs
+        if chat_state.parsed_query.message:
+            return get_ingester_summarizer_response(chat_state)
+        elif chat_state.operation_mode.value == OperationMode.STREAMLIT.value:
             # NOTE: "value" is needed because OperationMode, ChromaDDG, etc. sometimes
             # get imported twice (I think when Streamlit reloads the code).
             return {"answer": "Please select your documents to upload and ingest."}

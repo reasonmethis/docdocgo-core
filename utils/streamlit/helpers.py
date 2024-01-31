@@ -36,15 +36,21 @@ If you are done uploading, you can rename it:
 
 default_status_config = {
     "thinking.header": "One sec...",
-    "thinking.body": "Retrieving sources and composing reply.",
+    "thinking.body": "Retrieving sources and composing reply...",
     "complete.header": "Done!",
     "complete.body": "Reply composed.",
     "error.header": "Error.",
-    "error.body": "Apologies, an error has occurred.",
+    "error.body": "Apologies, there was an error.",
 }
 
 just_chat_status_config = default_status_config | {
     "thinking.body": "Composing reply...",
+}
+
+web_status_config = default_status_config | {
+    "thinking.header": "Doing Internet research (takes 10-30s)...",
+    "thinking.body": "Retrieving content from websites and composing report...",
+    "complete.body": "Report composed.",
 }
 
 research_status_config = default_status_config | {
@@ -53,17 +59,31 @@ research_status_config = default_status_config | {
     "complete.body": "Report composed and sources added to the document collection.",
 }
 
+ingest_status_config = default_status_config | {
+    "thinking.header": "Ingesting...",
+    "thinking.body": "Retrieving and ingesting content...",
+    "complete.body": "Content was added to the document collection.",
+}
+
+summarize_status_config = default_status_config | {
+    "thinking.header": "Summarizing and ingesting...",
+    "thinking.body": "Retrieving, summarizing, and ingesting content...",
+    "complete.body": "Summary composed and retrieved content added to the document collection.",
+}
+
 status_config = {
     ChatMode.JUST_CHAT_COMMAND_ID: just_chat_status_config,
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID: default_status_config,
     ChatMode.DETAILS_COMMAND_ID: default_status_config,
     ChatMode.QUOTES_COMMAND_ID: default_status_config,
-    ChatMode.WEB_COMMAND_ID: research_status_config,
+    ChatMode.WEB_COMMAND_ID: web_status_config,
     ChatMode.RESEARCH_COMMAND_ID: research_status_config,
+    ChatMode.INGEST_COMMAND_ID: ingest_status_config,
+    ChatMode.SUMMARIZE_COMMAND_ID: summarize_status_config,
 }
 
 STAND_BY_FOR_INGESTION_MESSAGE = (
-    "\n\n--- \n\n> **PLEASE STAND BY WHILE SOURCES ARE INGESTED...**"
+    "\n\n--- \n\n> **PLEASE STAND BY WHILE CONTENT IS INGESTED...**"
 )
 
 

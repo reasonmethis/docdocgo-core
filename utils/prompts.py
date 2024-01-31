@@ -326,6 +326,23 @@ ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", iterative_report_improver_template)]
 )
 
+summarizer_template = """\
+Summarize the following content. Use Markdown syntax. Start with a short title. \
+Then have a TL;DR (1 short paragraph). Then present the content in an easily digestible way. \
+Act like an experienced content writer, \
+who knows how to explain and format your articles/blog posts for easy reading: \
+1. Break things up into short paragraphs, 1-3 sentences long.
+2. Use section headings, numbered or bullet point lists, \
+other Markdown formatting features to add structure and make the content easy to scan.
+
+CONTENT:
+{content}
+"""
+
+SUMMARIZER_PROMPT = ChatPromptTemplate.from_messages(
+    [("user", summarizer_template)]
+)
+
 if __name__ == "__main__":
     # Here we can test the prompts
     # NOTE: Run this file as "python -m utils.prompts"
