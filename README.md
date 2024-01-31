@@ -33,7 +33,7 @@ That's it, happy chatting!
 ## Features
 
 - Comes with a Streamlit UI, but can also be run in console mode or as a flask app
-- Provides [several response modes](#response-modes) ("chat", "detailed report", "quotes", "web research", "iterative web research")
+- Provides [multiple response modes](#response-modes) ("chat", "detailed report", "quotes", "quick web research", "infinite web research", "URL or local docs ingestion", "URL summarization")
 - Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
 - Allows to create and switch between multiple document collections
 - Automatically ingests content retrieved during web research into a new document collection
@@ -96,11 +96,11 @@ If this happens you will need to install the Microsoft C++ Build Tools. You can 
 cp .env.example .env
 ```
 
-At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are.
+At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are. Please see `.env.example` for additional details.
 
 ## Running DocDocGo
 
-The easiest way to interact with the bot is to run its web UI:
+The easiest way to interact with the bot is to run its Streamlit UI:
 
 ```bash
 streamlit run streamlit_app.py
@@ -124,7 +124,7 @@ We won't cover the details of using the flask server in this README, but the nec
 
 > You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README and other documentation. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
 
-To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` or `/upload` if you are using the Streamlit UI. In the console mode, follow the instructions below.
+To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI. In the console mode, follow the instructions below.
 
 ### 1. Fill in the desired ingestion settings in the `.env` file
 
@@ -147,21 +147,29 @@ The script will show you the ingestion settings and ask for confirmation before 
 
 ## Response Modes
 
-DocDocGo has several response modes:
+DocDocGo has several response modes that activate its various capabilites:
 
-- Chat with Docs Mode - the default mode, used for chatting about your ingested documents or any other topic.
-- Regular Chat Mode - chat with DocDocGo without using your ingested documents.
-- Detailed Report Mode - a detailed report on all of the content from your documents retrieved in response to your query.
-- Quotes Mode - generate a list of quotes from the documents retrieved in response to the query.
-- "Infinite" Web Research Mode - perform in-depth Internet research about your query, ingest retrieved content, and generate report(s) (see [below](#infinite-web-research-mode) for details).
-- Basic Web Research Mode - perform quick web research about your query and generate a report without ingesting the retrieved content.
-- Database Management Mode - manage your document collections: switch between them, rename, delete, etc.
-- Help Mode - see the help message.
+- Chat with Docs - the default mode, used for chatting about your ingested documents or any other topic.
+- Regular Chat - chat with DocDocGo without using your ingested documents.
+- Detailed Report - a detailed report on all of the content from your documents retrieved in response to your query.
+- Quotes - generate a list of quotes from the documents retrieved in response to the query.
+- "Infinite" Web Research - perform in-depth Internet research about your query, ingest retrieved content, and generate report(s) (see [below](#infinite-web-research-mode) for details).
+- Basic Web Research - perform quick web research about your query and generate a report without ingesting the retrieved content.
+- Ingest - ingest the content of a URL or your local documents
+- Summarize - summarize the content of a URL and ingest it for follow-up queries
+- Database Management - manage your document collections: switch between them, rename, delete, etc.
+- Help - see the help message.
 
-To select a mode, start your message with the corresponding slash command: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/db`, or `/help`. For example:
+To select a mode, start your message with the corresponding prefix: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/ingest`, `/summarize`, `/db`, or `/help`. You can also use just the first two letters of a prefix. For example:
 
 ```markdown
-/research What are the ELO ratings of the top chess engines?
+/re What are the ELO ratings of the top chess engines?
+```
+
+or
+
+```markdown
+/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers
 ```
 
 If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (defaulting to `/docs`). For the Database Management Mode, start by sending the `/db` command without any arguments. DocDocGo will then show you the available options.
@@ -175,6 +183,8 @@ This is a powerful feature of DocDocGo that allows you to perform iterative web 
 ```markdown
 /research What are the best ways to improve my memory? Just bullet points, please.
 ```
+
+> You can also enter `/research` without a query. You will then get a "cheatsheet" showing you all the ways to use the `/research` command, which extend far beyond the `deeper` option explained below.
 
 **Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research deeper N`, where `N` is the number of times you want to double the number of sources that go into the report. Using this command will kick off a series of research steps, where each step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
 

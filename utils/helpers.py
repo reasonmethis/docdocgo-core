@@ -61,9 +61,12 @@ How? Just ask me! (or type `/help`) \
 
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
+- `/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers
+- `Explain the main point like I'm five`
+- `/db delete --current` (to discard the newly created knowledge base aka _collection_)
 - `/research legal arguments for and against disqualifying Trump from running`
 - `/research deeper` (to fetch more sites and make a new report based on 2x as many sources)
-- `What legal scholars have argued for disqualification?`
+- `Which legal scholars have argued for disqualification?`
 - `/db use 1` (to switch to the default collection, which contains DocDocGo's documentation)
 - `How can I do "infinite" research? Tell me in the style of prof. Dumbledore.`
 - `/db` (to manage your _collections_, i.e. the knowledge bases we've created)
