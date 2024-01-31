@@ -11,6 +11,19 @@ REPORT_ASSESSMENT_INSTRUCTION = """\
 REPORT ASSESSMENT: <biggest constructive criticism some hypothetical person making the above query might have for the report, assuming they are difficult to please (AVOID any praise, write ONLY what can be improved, be brief)> <percentage grade they might assign>%"
 """
 
+REPORT_INSTRUCTION = """\
+1. Focus on addressing the specific query.
+2. Avoid fluff and irrelevant information.
+3. Provide available facts, figures, examples, details, dates, locations, etc.
+4. If not enough information is available, be honest about it.
+
+The report type should be: {report_type}
+
+Format nicely in Markdown, starting with a title. 
+
+Finish with: \
+""" + REPORT_ASSESSMENT_INSTRUCTION
+
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 
 2. Then, add "[For context: <condensed summary to yourself of the relevant parts of the chat history: if Human asks a question and the answer is clear from the chat history, include it in the summary>]"
@@ -200,17 +213,7 @@ Using them, please respond to the following query:
 
 <query>{query}</query>
 
-1. Focus on addressing the specific query.
-2. Avoid fluff and irrelevant information.
-3. Provide available facts, figures, examples, details, dates, locations, etc.
-4. If not enough information is available, be honest about it.
-
-This will be read and assessed by an experienced high-level executive, who doesn't have a lot of time. She requested the report type to be: {report_type}
-
-Make it easy for her and format nicely in Markdown, starting with a title. 
-
-Finish with: \
-""" + REPORT_ASSESSMENT_INSTRUCTION
+""" + REPORT_INSTRUCTION
 
 RESEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
     [("user", researcher_template_initial_report)]
@@ -259,17 +262,7 @@ Using them, please respond to the following query:
 
 <query>{query}</query>
 
-1. Focus on addressing the specific query.
-2. Avoid fluff and irrelevant information.
-3. Provide available facts, figures, examples, details, dates, locations, etc.
-4. If not enough information is available, be honest about it.
-
-This will be read and assessed by an experienced high-level executive, who doesn't have a lot of time. She requested the report type to be: {report_type}
-
-Make it easy for her and format nicely in Markdown, starting with a title. 
-
-Finish with: \
-""" + REPORT_ASSESSMENT_INSTRUCTION
+""" + REPORT_INSTRUCTION
 
 
 REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
