@@ -2,12 +2,11 @@ import os
 from typing import Any
 
 from langchain.chains import LLMChain
-from langchain.schema.language_model import BaseLanguageModel
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import handle_db_command
-from agents.researcher import get_researcher_response, get_websearcher_response
 from agents.ingester_summarizer import get_ingester_summarizer_response
+from agents.researcher import get_researcher_response, get_websearcher_response
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
@@ -107,6 +106,7 @@ def get_bot_response(chat_state: ChatState):
     return chat_chain.invoke(
         {
             "question": chat_state.message,
+            "coll_name": chat_state.vectorstore.name,
             "chat_history": chat_state.chat_history,
             "search_params": chat_state.search_params,
         }
@@ -186,11 +186,6 @@ def get_docs_chat_chain(
     # Assign llm_for_token_counting for the retriever
     # if isinstance(chat_state.vectorstore, ChromaDDG):
     llm_for_response = get_llm_from_prompt_llm_chain(qa_from_docs_chain)
-    if not isinstance(llm_for_response, BaseLanguageModel):
-        raise ValueError(
-            "Could not get the language model from the qa_from_docs_chain."
-            + str(llm_for_response)
-        )
     retriever.llm_for_token_counting = llm_for_response
 
     # Get and return full chain: question generation + doc retrieval + answer generation

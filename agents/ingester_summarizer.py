@@ -4,7 +4,7 @@ from agents.dbmanager import construct_full_collection_name
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
-from utils.helpers import format_nonstreaming_answer
+from utils.helpers import INGESTED_DOCS_INIT_COLL_NAME, format_nonstreaming_answer
 from utils.lang_utils import limit_tokens_in_text
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import SUMMARIZER_PROMPT
@@ -25,16 +25,15 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             f"Apologies, I could not retrieve the resource `{message}`."
         )
 
-    coll_name_as_shown = "ingested-content-rename-me"
     if chat_state.chat_mode == ChatMode.INGEST_COMMAND_ID:
         # "/ingest https://some.url.com" command - just ingest, don't summarize
         res = format_nonstreaming_answer(
-            f"The resource `{message}` has been "
-            f"ingested into collection {coll_name_as_shown}. If you don't need to ingest "
-            "resources into it, rename it by running `/db rename my-cool-collection-name`."
+            f"The resource `{message}` has been ingested into the collection "
+            f"`{INGESTED_DOCS_INIT_COLL_NAME}`. If you don't need to ingest "
+            "more content into it, rename it by with `/db rename my-cool-collection-name`."
         )
     else:
-        # "/summarize https://some.url.com" command 
+        # "/summarize https://some.url.com" command
         summarizer_chain = get_prompt_llm_chain(
             SUMMARIZER_PROMPT,
             llm_settings=chat_state.bot_settings,
@@ -55,7 +54,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
     # Ingest into Chroma
     doc = Document(page_content=link_data.text, metadata={"source": message})
     coll_name_full = construct_full_collection_name(
-        chat_state.user_id, coll_name_as_shown
+        chat_state.user_id, INGESTED_DOCS_INIT_COLL_NAME
     )
     ingest_docs_into_chroma(
         [doc],

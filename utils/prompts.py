@@ -49,7 +49,7 @@ JUST_CHAT_PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
-chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base. In response to the user's query you have retrieved the most relevant parts of your knowledge base you could find:
+chat_with_docs_system_template = """You are DocDocGo, a friendly Assistant AI who has been equipped with your own special knowledge base, separated into collections. The currently selected collection is `{coll_name}`. In response to the user's query you have retrieved the most relevant parts of this collection you could find:
 
 {context}
 
@@ -328,7 +328,7 @@ ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
 
 summarizer_template = """\
 Summarize the following content. Use Markdown syntax. Start with a short title. \
-Then have a TL;DR (1 short paragraph). Then present the content in an easily digestible way. \
+Then have a TL;DR (1 short paragraph). Then summarize the content in an easily digestible way. \
 Act like an experienced content writer, \
 who knows how to explain and format your articles/blog posts for easy reading: \
 1. Break things up into short paragraphs, 1-3 sentences long.

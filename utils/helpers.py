@@ -24,6 +24,8 @@ PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
 # If bot tries to create a community collection with the above prefix, use:
 SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
 
+INGESTED_DOCS_INIT_COLL_NAME= "ingested-content-rename-me"
+
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
     "/ch": ChatMode.JUST_CHAT_COMMAND_ID,
@@ -61,8 +63,8 @@ How? Just ask me! (or type `/help`) \
 
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
-- `/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers
-- `Explain the main point like I'm five`
+- `/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers`
+- `Explain the main point like I'm in high school`
 - `/db delete --current` (to discard the newly created knowledge base aka _collection_)
 - `/research legal arguments for and against disqualifying Trump from running`
 - `/research deeper` (to fetch more sites and make a new report based on 2x as many sources)

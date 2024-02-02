@@ -10,6 +10,7 @@ from pypdf import PdfReader
 from agents.dbmanager import construct_full_collection_name
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
+from utils.helpers import INGESTED_DOCS_INIT_COLL_NAME
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
@@ -53,7 +54,7 @@ def extract_text(files, allow_all_ext):
 
 
 def ingest_docs(docs: list[Document], chat_state: ChatState):
-    uploaded_docs_coll_name_as_shown = "uploaded-docs-rename-me"
+    uploaded_docs_coll_name_as_shown = INGESTED_DOCS_INIT_COLL_NAME
     uploaded_docs_coll_name_full = construct_full_collection_name(
         chat_state.user_id, uploaded_docs_coll_name_as_shown
     )

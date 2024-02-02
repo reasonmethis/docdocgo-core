@@ -232,6 +232,7 @@ class ChatWithDocsChain(Chain):
         # Prepare inputs for the chat_with_docs prompt
         qa_inputs = {
             "question": user_query,
+            "coll_name": inputs.get("coll_name", "<UNKNOWN>"),
             "chat_history": lang_utils.pairwise_chat_history_to_msg_list(
                 chat_history_for_qa
             ),
