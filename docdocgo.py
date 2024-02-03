@@ -4,7 +4,7 @@ from typing import Any
 from langchain.chains import LLMChain
 
 from _prepare_env import is_env_loaded
-from agents.dbmanager import handle_db_command
+from agents.dbmanager import get_user_facing_collection_name, handle_db_command
 from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
 from components.chat_with_docs_chain import ChatWithDocsChain
@@ -106,7 +106,7 @@ def get_bot_response(chat_state: ChatState):
     return chat_chain.invoke(
         {
             "question": chat_state.message,
-            "coll_name": chat_state.vectorstore.name,
+            "coll_name": get_user_facing_collection_name(chat_state.vectorstore.name),
             "chat_history": chat_state.chat_history,
             "search_params": chat_state.search_params,
         }
