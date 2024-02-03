@@ -150,7 +150,7 @@ def get_prompt_llm_chain(
 
 
 def get_llm_from_prompt_llm_chain(prompt_llm_chain):
-    return prompt_llm_chain.middle[0]
+    return prompt_llm_chain.middle[-1]
 
 
 if __name__ == "__main__":
