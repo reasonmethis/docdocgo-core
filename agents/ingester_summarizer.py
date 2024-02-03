@@ -18,7 +18,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
     message = chat_state.parsed_query.message
     fetcher = get_batch_url_fetcher()  # don't really need the batch aspect here
     html = fetcher([message])[0]
-    link_data = LinkData.from_html(html)
+    link_data = LinkData.from_raw_content(html)
 
     if link_data.error:
         return format_nonstreaming_answer(

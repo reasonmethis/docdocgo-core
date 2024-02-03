@@ -5,12 +5,12 @@ import docx2txt
 import streamlit as st
 from bs4 import BeautifulSoup
 from langchain.schema import Document
-from pypdf import PdfReader
 
 from agents.dbmanager import construct_full_collection_name
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import INGESTED_DOCS_INIT_COLL_NAME
+from utils.ingest import get_page_texts_from_pdf
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
@@ -27,9 +27,7 @@ def extract_text(files, allow_all_ext):
             if not allow_all_ext and extension not in allowed_extensions:
                 raise ValueError("Extension not allowed.")
             if extension == ".pdf":
-                reader = PdfReader(file)
-                for i, page in enumerate(reader.pages):
-                    text = page.extract_text()
+                for i, text in enumerate(get_page_texts_from_pdf(file)):
                     metadata = {"source": f"{file.name} (page {i + 1})"}
                     docs.append(Document(page_content=text, metadata=metadata))
             else:

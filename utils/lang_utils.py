@@ -1,3 +1,5 @@
+from bisect import bisect_right
+
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.messages import (
@@ -10,6 +12,7 @@ from langchain_core.documents import Document
 
 from utils.algo import insert_interval
 from utils.async_utils import execute_func_map_in_threads
+from utils.output import ConditionalLogger
 from utils.rag import text_splitter
 from utils.type_utils import PairwiseChatHistory
 
@@ -360,9 +363,10 @@ def expand_chunks(
     base_chunks: list[Document],
     parents_by_id: dict[str, Document],
     max_total_tokens: int,
-    boost_factor_top: float = 1.5,  # boost token allowance for top chunk, decrease linearly
+    boost_factor_top: float = 1.4,  # boost token allowance for top chunk, decrease linearly
     ratio_add_above_vs_below: float = 0.5,  # approx. ratio of tokens to add above vs below
     llm_for_token_counting: BaseLanguageModel | None = None,
+    keep_chunk_order: bool = True,
 ) -> list[Document]:
     """
     Expand chunks using their parent documents. The expanded chunks will have a total
@@ -373,7 +377,15 @@ def expand_chunks(
 
     If during expansion two or more chunks in the same parent document overlap, they will
     be merged into one chunk.
+
+    If keep_chunk_order is True, the order of the final chunks will be determined by the earliest
+    base chunk within each final chunk. If False, all final chunks belonging to the same parent
+    document will go one after the other in the order they appear in the parent document, and the
+    order of the parent documents will be determined by the earliest base chunk within each parent
+    document.
     """
+
+    clg = ConditionalLogger(verbose=False) # NOTE: can use an environment variable
 
     num_base_chunks = len(base_chunks)
     if num_base_chunks == 0:
@@ -397,28 +409,26 @@ def expand_chunks(
                 chunk_idxs.append(i)
                 break
         else:
-            raise ValueError(
-                f"Chunk with start_index {start_index} not found in parent chunks."
-            )
+            raise ValueError(f"Parent for start_index {start_index} not found.")
 
-    # Determine target boost factor for each base chunk vs average expanded size
+    # Determine target expasion boost factor for each base chunk - vs avg expanded size
     if num_base_chunks == 1:
         boost_factors = [1.0]
     else:
-        # Linearly decrease boost factor from e.g. 1.5 to 0.5
-        boost_factor_bottom = 2 - boost_factor_top  # to get average of 1
-        boost_factor_step = (boost_factor_top - boost_factor_bottom) / (
-            num_base_chunks - 1
-        )
+        # Linearly decrease boost factor from e.g. 1.4 to 0.6
+        boost_factor_step = 2 * (boost_factor_top - 1) / (num_base_chunks - 1)
         boost_factors = [
-            boost_factor_bottom + boost_factor_step * i for i in range(num_base_chunks)
+            boost_factor_top - boost_factor_step * i for i in range(num_base_chunks)
         ]
 
+    # Prepare to keep track of the expanded chunks
     final_chunks_by_id: dict[str, dict[tuple[int, int], Document]] = {}
 
     token_allowance_left = max_total_tokens
     num_base_chunks_left = num_base_chunks
     boost_factors_sum_left = num_base_chunks
+
+    # Expand each base chunk and merge overlapping chunks
     for base_chunk, boost_factor, chunk_idx in zip(
         base_chunks, boost_factors, chunk_idxs
     ):
@@ -441,6 +451,10 @@ def expand_chunks(
         )
 
         target_num_tokens = token_allowance_left * boost_factor / boost_factors_sum_left
+        clg.log(
+            f"{num_tokens = }, {token_allowance_left = }, "
+            f"{target_num_tokens = }, {boost_factor = }"
+        )
 
         # Keep expanding the chunk until it reaches the target size
         # If, e.g. ratio_add_above_vs_below = 0.5, we want to add 2 chunks below for
@@ -455,15 +469,9 @@ def expand_chunks(
             elif end_chunk_idx == num_parent_chunks:
                 add_above = True
             else:
-                ratio_if_add_above = (added_above + 1.001) / (added_below + 0.001)
-                ratio_if_add_below = (added_above + 0.001) / (added_below + 1.001)
-                d_ratio_if_add_above = abs(
-                    ratio_if_add_above - ratio_add_above_vs_below
-                )
-                d_ratio_if_add_below = abs(
-                    ratio_if_add_below - ratio_add_above_vs_below
-                )
-                add_above = d_ratio_if_add_above < d_ratio_if_add_below
+                score_if_add_above = added_above + 1 - added_below * ratio_add_above_vs_below
+                score_if_add_below = added_above - (added_below + 1) * ratio_add_above_vs_below
+                add_above = abs(score_if_add_above) <= abs(score_if_add_below) + 1e-6
 
             # Get the chunk to add and update number of tokens in the expanded chunk
             new_chunk_idx = start_chunk_idx - 1 if add_above else end_chunk_idx
@@ -502,6 +510,11 @@ def expand_chunks(
                 metadata=base_chunk.metadata
                 | {"num_tokens": new_num_tokens, "start_index": new_start_idx},
             )
+        clg.log(
+            f"New num_tokens: {expanded_chunk.metadata['num_tokens']}, "
+            f"{start_idx = }, {end_idx = }, "
+            f"{added_above = }, {added_below = }"
+        )
 
         # We have determined the expanded chunk. Update chunk info for parent document
         curr_chunks_in_parent = final_chunks_by_id.get(parent_id, {})
@@ -542,13 +555,45 @@ def expand_chunks(
         )
         token_allowance_left -= new_num_tokens_in_parent - orig_num_tokens_in_parent
 
+        clg.log(f"{token_allowance_left = }")
+        clg.log("=-" * 20)
+
         # Update accounting variables for the next base chunk to expand
         num_base_chunks_left -= 1
         boost_factors_sum_left -= boost_factor
 
     # We have expanded all base chunks. Return the expanded chunks
     final_chunks = []
-    for parent_id in final_chunks_by_id:
-        final_chunks.extend(final_chunks_by_id[parent_id].values())
+    if keep_chunk_order:
+        # Prepare idx_pairs_by_parent_id for each parent_id
+        idx_pairs_by_parent_id = {
+            parent_id: list(final_chunks_in_parent.keys())
+            for parent_id, final_chunks_in_parent in final_chunks_by_id.items()
+        }
+        used_idx_pairs_by_parent_id = {
+            parent_id: set() for parent_id in final_chunks_by_id
+        }
+
+        # Find and add the final chunks in the order of the base chunks
+        for base_chunk in base_chunks:
+            parent_id = base_chunk.metadata["parent_id"]
+            idx_pairs = idx_pairs_by_parent_id[parent_id]
+            # Use bisect_right to find which final chunk contains the base chunk
+            idx_pair = idx_pairs[
+                bisect_right(
+                    idx_pairs,
+                    base_chunk.metadata["start_index"],
+                    key=lambda x: x[0],  # use start index for comparisons
+                )
+                - 1
+            ]
+            # Add the final chunk if it hasn't been added yet
+            if idx_pair not in used_idx_pairs_by_parent_id[parent_id]:
+                final_chunks.append(final_chunks_by_id[parent_id][idx_pair])
+                used_idx_pairs_by_parent_id[parent_id].add(idx_pair)
+
+    else:
+        for parent_id in final_chunks_by_id:
+            final_chunks.extend(final_chunks_by_id[parent_id].values())
 
     return final_chunks

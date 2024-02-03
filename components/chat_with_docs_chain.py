@@ -247,10 +247,6 @@ class ChatWithDocsChain(Chain):
             context += f"\n\n{doc.page_content}\n-------------\n\n"
         qa_inputs["context"] = context
 
-        print(DELIMITER)
-        print(context)
-        print(DELIMITER)
-
         # Submit limited docs and chat history to the chat/qa chain
         answer = self.qa_from_docs_chain.invoke(qa_inputs, {"callbacks": callbacks})
 

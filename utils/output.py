@@ -6,6 +6,10 @@ class ConditionalLogger:
         if self.verbose:
             print(message)
 
+    def log_no_newline(self, message):
+        if self.verbose:
+            print(message, end="")
+
     def log_error(self, message):
         print(message)
 

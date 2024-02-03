@@ -163,7 +163,12 @@ class ChromaDDGRetriever(VectorStoreRetriever):
         max_total_tokens = min(
             self.max_total_tokens, self.max_average_tokens_per_chunk * len(chunks)
         )
-        expanded_chunks = expand_chunks(chunks, parent_docs_by_id, max_total_tokens)
+        expanded_chunks = expand_chunks(
+            chunks,
+            parent_docs_by_id,
+            max_total_tokens,
+            llm_for_token_counting=self.llm_for_token_counting,
+        )
         return expanded_chunks
 
     async def _aget_relevant_documents(

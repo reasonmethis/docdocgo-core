@@ -1,4 +1,5 @@
 import asyncio
+import io
 import os
 from enum import Enum
 
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 
 from utils.async_utils import make_sync
 from utils.helpers import print_no_newline
+from utils.ingest import get_text_from_pdf
 from utils.output import format_exception
 from utils.strings import remove_consecutive_blank_lines
 
@@ -24,23 +26,40 @@ MAX_PLAYWRIGHT_INSTANCES = 5
 
 PLAYWRIGHT_TIMEOUT_MS = 10000
 AIOHTTP_TIMEOUT_MS = 10000
+PDF_TEXT_PREFIX = "PLAIN_TEXT[PDF]: "
 
 
-async def afetch_url_aiohttp(session: aiohttp.ClientSession, url: str):
+async def afetch_url_aiohttp(
+    session: aiohttp.ClientSession, url: str, retries=3, backoff_factor=0.5
+):
     """
-    Asynchronously fetch the content from a URL using an aiohttp session.
+    Asynchronously fetch a URL using an aiohttp session with retry and exponential backoff.
+    It extracts text from PDFs and returns HTML content otherwise.
     """
     header_template = default_header_template
     header_template["User-Agent"] = UserAgent().random
-    # TODO: add retries (see AsyncHtmlLoader._fetch)
-    try:
-        async with session.get(url, headers=header_template) as response:
-            response.raise_for_status()
-            return await response.text()
-    # except aiohttp.ClientError as e:
-    except Exception as e:
-        # ClientError, asyncio.TimeoutError, etc.
-        return f"Error: {format_exception(e)}"
+
+    for attempt in range(retries):
+        try:
+            async with session.get(url, headers=header_template) as response:
+                response.raise_for_status()  # Raises exception for 4xx/5xx errors
+
+                content_type = response.headers.get("Content-Type", "")
+                if "application/pdf" in content_type:
+                    # Handle PDF content
+                    pdf_content = await response.read()
+                    with io.BytesIO(pdf_content) as pdf_file:
+                        return PDF_TEXT_PREFIX + get_text_from_pdf(pdf_file)
+                else:
+                    return await response.text()
+
+        except Exception as e:
+            # TODO: ClientError, asyncio.TimeoutError, etc.
+            if attempt == retries - 1:
+                return f"Error: {format_exception(e)}"
+            # Wait for a bit before retrying
+            sleep_time = backoff_factor * (2**attempt)  # Exponential backoff
+            await asyncio.sleep(sleep_time)
 
 
 async def afetch_urls_in_parallel_aiohttp(urls):
@@ -310,10 +329,15 @@ class LinkData(BaseModel):
     num_tokens: int | None = None
 
     @classmethod
-    def from_html(cls, html: str):
-        if html.startswith("Error: "):
-            return cls(error=html)
-        text = get_text_from_html(html)
+    def from_raw_content(cls, content: str):
+        """
+        Return a LinkData instance from the HTML or plain text content of a URL.
+        """
+        if content.startswith("Error: "):
+            return cls(error=content)
+        if content.startswith(PDF_TEXT_PREFIX):
+            return cls(text=content[len(PDF_TEXT_PREFIX) :])
+        text = get_text_from_html(content)
         if is_html_text_ok(text):
             return cls(text=text)
         return cls(text=text, error="UNACCEPTABLE_EXTRACTED_TEXT")

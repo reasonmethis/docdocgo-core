@@ -89,7 +89,7 @@ def get_content_from_urls_with_top_up(
 
         # Process fetched content
         for url, html in zip(batch_urls, batch_htmls):
-            link_data = LinkData.from_html(html)
+            link_data = LinkData.from_raw_content(html)
             if not link_data.error:
                 num_ok_urls += 1
             link_data_dict[url] = link_data
