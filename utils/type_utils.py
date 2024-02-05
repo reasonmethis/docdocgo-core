@@ -38,6 +38,7 @@ chat_modes_needing_llm = {
     ChatMode.QUOTES_COMMAND_ID,
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
     ChatMode.SUMMARIZE_COMMAND_ID,
+    ChatMode.HELP_COMMAND_ID,
 }
 
 

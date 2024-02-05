@@ -124,9 +124,17 @@ We won't cover the details of using the flask server in this README, but the nec
 
 > You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README and other documentation. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
 
-To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI. In the console mode, follow the instructions below.
+### Ingesting Documents in the Streamlit UI
 
-### 1. Fill in the desired ingestion settings in the `.env` file
+To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI (which is the default way of using the bot). You will then be prompted to upload your documents. You can also ingest a URL by typing `/ingest` followed by the URL. The bot will then retrieve the content of the URL and ingest it into a new collection.
+
+Once the documents are ingested, you can continue adding more documents or URLs by using the `/ingest` command again. When you are done, you should rename the collection (`/db rename new-name`). Why should you rename it? Because if the collection has the default name the system assigned to it, any future use of the `/ingest` command will continue adding documents to it.
+
+### Ingesting Documents in the Console Mode
+
+In the console mode, the process is currently a bit less convenient:
+
+#### 1. Fill in the desired ingestion settings in the `.env` file
 
 Set the following values in the `.env` file:
 
@@ -135,7 +143,7 @@ DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
 COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
 ```
 
-### 2. Run the ingestion script
+#### 2. Run the ingestion script
 
 To ingest the documents, run:
 
@@ -158,7 +166,7 @@ DocDocGo has several response modes that activate its various capabilites:
 - Ingest - ingest the content of a URL or your local documents
 - Summarize - summarize the content of a URL and ingest it for follow-up queries
 - Database Management - manage your document collections: switch between them, rename, delete, etc.
-- Help - see the help message.
+- Help - get help on how to use the bot by asking the bot itelf or getting a command cheatsheet
 
 To select a mode, start your message with the corresponding prefix: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/ingest`, `/summarize`, `/db`, or `/help`. You can also use just the first two letters of a prefix. For example:
 

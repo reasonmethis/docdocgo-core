@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_MODE
+from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
 DELIMITER = "-" * 94 + "\n"
@@ -24,7 +24,7 @@ PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
 # If bot tries to create a community collection with the above prefix, use:
 SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
 
-INGESTED_DOCS_INIT_COLL_NAME= "ingested-content-rename-me"
+INGESTED_DOCS_INIT_COLL_NAME = "ingested-content-rename-me"
 
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
@@ -42,11 +42,11 @@ command_ids = {
     "/db": ChatMode.DB_COMMAND_ID,
     "/help": ChatMode.HELP_COMMAND_ID,
     "/ingest": ChatMode.INGEST_COMMAND_ID,
-    "/in": ChatMode.INGEST_COMMAND_ID,  
+    "/in": ChatMode.INGEST_COMMAND_ID,
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
-    "/up": ChatMode.INGEST_COMMAND_ID, 
+    "/up": ChatMode.INGEST_COMMAND_ID,
     "/summarize": ChatMode.SUMMARIZE_COMMAND_ID,
-    "/su": ChatMode.SUMMARIZE_COMMAND_ID, 
+    "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     # "/browse": ChatMode.BROWSE_COMMAND_ID,
 }
 
@@ -99,16 +99,18 @@ You can enter your messages with or without a prefix. Different prefixes activat
 response modes. Think of them like different subagents, each with a different job. \
 The default mode is `{DEFAULT_MODE}`.
 
-Here's what each prefix does. Most important prefixes:
+Here's what each prefix does. Most important ones:
 
-- `/research`: perform "infinite" Internet research, ingesting websites into a collection
-- `/ingest` or `/upload`: upload your documents and ingest them into a collection
-- `/docs <your query>`: chat with me about your currently selected doc collection (or a general topic)
+- `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
+- `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
+- `/ingest`: upload your documents and ingest them into a collection
+- `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
+- `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
 - `/db`: manage your doc collections (select, rename, etc.)
+- `/help <your query>`: get help with using DocDocGo
 
 Other prefixes:
 
-- `/help`: show this help message
 - `/details <your query>`: get details about the retrieved documents
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report
@@ -116,6 +118,7 @@ Other prefixes:
 
 Example queries:
 
+- `/help How do I delete a collection?`
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)
@@ -126,13 +129,11 @@ Example queries:
 If you're in a reading mood, here's a [link to my full docs]\
 (https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
 
-Or simply ask me for help! By default, I'm set up to use the `docdocgo-documentation` \
-collection. As long as it's selected in the chatbox below, I'll know how to use me.
-
-> If you need to switch to the default collection, you can use the shorthand `/db use 1`.
+Or simply ask me for help! I have "digested" my own documentation, so I can help you find what you need. \
+Just type `/help` followed by your question.\
 """
 
-DB_COMMAND_HELP_TEMPLATE = f"""\
+DB_COMMAND_HELP_TEMPLATE = """\
 Your current document collection is: `{{current_db}}`
 
 You can use the following commands to manage your collections:
@@ -148,9 +149,7 @@ Additional shorthands:
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
 
-Remember, you can always ask me for help in using me - you just need to make sure that \
-the default collection (`{DEFAULT_COLLECTION_NAME}`) is selected. If it isn't, type \
-`/db use 1`.\
+Remember, you can always ask me for help in using me - simply type `/help` followed by your question.\
 """
 
 RESEARCH_COMMAND_HELP_MESSAGE = """\

@@ -37,8 +37,11 @@ from utils.prompts import (
 from utils.query_parsing import parse_query
 from utils.type_utils import ChatMode, OperationMode
 
+default_vectorstore = None # can move to chat_state
+
 
 def get_bot_response(chat_state: ChatState):
+    global default_vectorstore
     chat_mode = chat_state.chat_mode
     if chat_mode == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
@@ -83,7 +86,24 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
-        return {"answer": HELP_MESSAGE}
+        if not chat_state.parsed_query.message:
+            return {"answer": HELP_MESSAGE, "needs_print": True}
+        
+        # Temporarily switch to the default vectorstore to get help
+        saved_vectorstore = chat_state.vectorstore
+        if default_vectorstore is None: # can happen due to Streamlit's code reloading
+            default_vectorstore = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
+        chat_state.vectorstore = default_vectorstore
+        chat_chain = get_docs_chat_chain(chat_state)
+        res = chat_chain.invoke(
+            {
+                "question": chat_state.message,
+                "coll_name": DEFAULT_COLLECTION_NAME,
+                "chat_history": chat_state.chat_history,
+            }
+        )
+        chat_state.vectorstore = saved_vectorstore
+        return res
     elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
         # If a URL is given, fetch and ingest it. Otherwise, upload local docs
         if chat_state.parsed_query.message:
@@ -199,12 +219,14 @@ def get_docs_chat_chain(
 
 
 def do_intro_tasks(openai_api_key: str):
+    global default_vectorstore
+
     print(INTRO_ASCII_ART + "\n\n")
+    print_no_newline("Loading the vector database of your documents... ")
 
     # Load the vector database
-    print_no_newline("Loading the vector database of your documents... ")
     try:
-        vectorstore = load_vectorstore(
+        default_vectorstore = load_vectorstore(
             DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
         )
     except Exception as e:
@@ -215,7 +237,7 @@ def do_intro_tasks(openai_api_key: str):
             f"Could not load the default document collection {DEFAULT_COLLECTION_NAME}."
         )
     print("Done!")
-    return vectorstore
+    return default_vectorstore
 
 
 if __name__ == "__main__":

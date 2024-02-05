@@ -4,16 +4,16 @@ The general pattern for queries is to enter one of the prefixes below followed b
 
 Here's what each prefix does. Most important ones:
 
-- `/research`: perform "infinite" Internet research, ingesting websites into a collection
+- `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
 - `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
 - `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
 - `/db`: manage your doc collections (select, rename, etc.)
+- `/help <your query>`: get help with using DocDocGo
 
 Other prefixes:
 
-- `/help`: show this help message
 - `/details <your query>`: get details about the retrieved documents
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report
@@ -30,6 +30,6 @@ Example queries:
 
 Need a clarification about any of the commands? There are two ways to get more help:
 
-1. You can ask DocDocGo for help with using it. By default, it's set up to use the `docdocgo-documentation` collection, which contains all its docs. As long as this collection is selected (as shown in the chat box), it can answer questions about how to use it. And if it's not selected, you can switch to it with `/db use 1`.
+1. You can ask DocDocGo for help with using it. Simply type `/help` followed by your question. If the default `docdocgo-documentation` collection is selected you don't even need to use the `/help` prefix.
 
 2. Check out the [README](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).

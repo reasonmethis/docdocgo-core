@@ -76,6 +76,7 @@ status_config = {
     ChatMode.CHAT_WITH_DOCS_COMMAND_ID: default_status_config,
     ChatMode.DETAILS_COMMAND_ID: default_status_config,
     ChatMode.QUOTES_COMMAND_ID: default_status_config,
+    ChatMode.HELP_COMMAND_ID: default_status_config,
     ChatMode.WEB_COMMAND_ID: web_status_config,
     ChatMode.RESEARCH_COMMAND_ID: research_status_config,
     ChatMode.INGEST_COMMAND_ID: ingest_status_config,
