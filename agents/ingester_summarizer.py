@@ -1,10 +1,19 @@
+import uuid
+
 from langchain.schema import Document
 
-from agents.dbmanager import construct_full_collection_name
+from agents.dbmanager import (
+    construct_full_collection_name,
+    get_user_facing_collection_name,
+)
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
-from utils.helpers import INGESTED_DOCS_INIT_COLL_NAME, format_nonstreaming_answer
+from utils.helpers import (
+    ADDITIVE_COLLECTION_PREFIX,
+    INGESTED_DOCS_INIT_PREFIX,
+    format_nonstreaming_answer,
+)
 from utils.lang_utils import limit_tokens_in_text
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import SUMMARIZER_PROMPT
@@ -25,11 +34,26 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             f"Apologies, I could not retrieve the resource `{message}`."
         )
 
+    if get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
+        ADDITIVE_COLLECTION_PREFIX
+    ):
+        # We are in an additive collection, so we will use the same collection
+        coll_name_as_shown = get_user_facing_collection_name(
+            chat_state.vectorstore.name
+        )
+        coll_name_full = chat_state.vectorstore.name
+    else:
+        # We will need to create a new collection
+        coll_name_as_shown = INGESTED_DOCS_INIT_PREFIX + uuid.uuid4().hex[:8]
+        coll_name_full = construct_full_collection_name(
+            chat_state.user_id, coll_name_as_shown
+        )
+
     if chat_state.chat_mode == ChatMode.INGEST_COMMAND_ID:
         # "/ingest https://some.url.com" command - just ingest, don't summarize
         res = format_nonstreaming_answer(
             f"The resource `{message}` has been ingested into the collection "
-            f"`{INGESTED_DOCS_INIT_COLL_NAME}`. If you don't need to ingest "
+            f"`{coll_name_as_shown}`. If you don't need to ingest "
             "more content into it, rename it by with `/db rename my-cool-collection-name`."
         )
     else:
@@ -39,12 +63,11 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             llm_settings=chat_state.bot_settings,
             api_key=chat_state.openai_api_key,
             callbacks=chat_state.callbacks,
-            # streaming=False,
         )
 
         text, num_tokens = limit_tokens_in_text(
             link_data.text, DEFAULT_MAX_TOKENS_FINAL_CONTEXT
-        )
+        )  # TODO: ability to summarize longer content
 
         if text != link_data.text:
             text += "\n\nNOTE: The above content was truncated to fit the maximum token limit."
@@ -53,9 +76,6 @@ def get_ingester_summarizer_response(chat_state: ChatState):
 
     # Ingest into Chroma
     doc = Document(page_content=link_data.text, metadata={"source": message})
-    coll_name_full = construct_full_collection_name(
-        chat_state.user_id, INGESTED_DOCS_INIT_COLL_NAME
-    )
     ingest_docs_into_chroma(
         [doc],
         collection_name=coll_name_full,

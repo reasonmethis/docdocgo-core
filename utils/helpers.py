@@ -24,7 +24,8 @@ PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
 # If bot tries to create a community collection with the above prefix, use:
 SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
 
-INGESTED_DOCS_INIT_COLL_NAME = "ingested-content-rename-me"
+ADDITIVE_COLLECTION_PREFIX = "ingested-content"
+INGESTED_DOCS_INIT_PREFIX = "ingested-content-rename-me-"
 
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
