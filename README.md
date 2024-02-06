@@ -7,12 +7,15 @@
 - [Features](#features)
 - [Installation](#installation)
 - [Running DocDocGo](#running-docdocgo)
+- [Using DocDocGo](#using-docdocgo)
+- [Research Commands](#research-commands)
+- [Database Management](#database-management)
 - [Ingesting Documents](#ingesting-documents)
-- [Response Modes](#response-modes)
 - [Querying based on substrings](#querying-based-on-substrings)
 - [Contributing](#contributing)
 - [Appendix](#appendix)
   - [Minified Requirements](#minified-requirements)
+  - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
   - [Running the Containerized Application](#running-the-containerized-application)
   - [License](#license)
 
@@ -33,7 +36,7 @@ That's it, happy chatting!
 ## Features
 
 - Comes with a Streamlit UI, but can also be run in console mode or as a flask app
-- Provides [multiple response modes](#response-modes) ("chat", "detailed report", "quotes", "quick web research", "infinite web research", "URL or local docs ingestion", "URL summarization")
+- Provides [multiple response modes](#using-docdocgo) ("chat", "detailed report", "quotes", "quick web research", "infinite web research", "URL or local docs ingestion", "URL summarization")
 - Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
 - Allows to create and switch between multiple document collections
 - Automatically ingests content retrieved during web research into a new document collection
@@ -120,91 +123,151 @@ waitress-serve --listen=0.0.0.0:8000 main:app
 
 We won't cover the details of using the flask server in this README, but the necessary format for requests can be relatively easily gleaned from `main.py`. The server was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
+## Using DocDocGo
+
+The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional, if you just enter a message the `/docs` prefix is used.
+
+Here's what each prefix does. Most important ones:
+
+- `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
+- `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
+- `/ingest`: upload your documents and ingest them into a collection
+- `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
+- `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
+- `/db`: manage your doc collections (select, rename, etc.)
+- `/help <your query>`: get help with using DocDocGo
+
+Other prefixes:
+
+- `/details <your query>`: get details about the retrieved documents
+- `/quotes <your query>`: get quotes from the retrieved documents
+- `/web <your query>`: perform web searches and generate a report
+- `/chat <your query>`: regular chat, without retrieving docs or websites
+
+Example queries:
+
+- `/research What are this month's most important AI news?`
+- `/research` (to see research options, including the "infinite" research)
+- `/research deeper` (to expand the research to cover more sources)
+- `/re deeper` (same - first two letters of a command are enough)
+- `/docs Tell me just the ones related to OpenAI`
+- `/chat Reformat your previous answer as a list of short bullet points`
+
+We'll delve into the most important commands in more detail in the sections below. Another way to get help is to simply ask DocDocGo itself. Simply type `/help` followed by your question. If the default `docdocgo-documentation` collection is selected you don't even need to use the `/help` prefix.
+
+## Research Commands
+
+We'll first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
+
+>_KB_ stands for _knowledge base_, also known as a _collection_.
+
+### Overview
+
+Here are the most important commands you can use for Internet research:
+
+- `/research <your query>`: start new Internet research, generate report, create KB from fetched sites
+- `/research deeper`: expand report and KB to cover 2x more sites as current report
+- `/research deeper 3`: perform the above 3 times (careful - time/number of steps increases exponentially)
+
+You can also use the following commands:
+
+- `/research new <your query>`: same as without `new` (can use if the first word looks like a command)
+- `/research more`: keep original query, but fetch more websites and create new report version
+- `/research combine`: combine reports to get a report that takes more sources into account
+- `/research auto 42`: performs 42 iterationso of "more"/"combine"
+- `/research iterate`: fetch more websites and iterate on the previous report
+- `/research <cmd> 42`: repeat command such as `more`, `combine`, etc. 42 times
+
+You can also view the reports:
+
+- `/research view main`: view the main report (`main` can be omitted)
+- `/research view stats`: view just the report stats
+- `/research view base`: view the base reports
+- `/research view combined`: view the combined reports
+
+Let's go over the commands in more detail to get a better understanding of what they do and the differences between them.
+
+### The `iterate` subcommand
+
+If you type `/research iterate`, DocDocGo will fetch more content from the web and use it to try to improve the report. If you type `/research iterate N`, DocDocGo will automatically do `N` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report. All fetched content will be added to a KB (aka _collection_) for any follow-up questions.
+
+> If you are doing multiple iterations and want to abort, simply reload the app.
+
+### The `deeper` subcommand
+
+The above approach sounds neat, but it doesn't always work in practice, especially if you use a not-so-smart model, like GPT-3.5. Specifically, it sometimes treats the information from the latest small batch of sources on an equal or higher footing than the information in the pre-existing report, even when the latter is based on many more sources and thus should be prioritized. Important information can then be lost and the report can become worse after a new iteration, not better.
+
+That's why we have the `/research deeper` command. Instead of using new sources to try to directly improve the report, it uses a combination of `more` and `combine` operations to generate _separate_ reports from additional sources and then combine them with the existing report(s) in a way that doesn't unfairly prioritize the new sources. Each run of the `/research deeper` command will double the number of sources in the report.
+
+> As always, all fetched content will be added to the collection for any follow-up chat.
+
+### The recommended workflow for "infinite" research
+
+The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/research deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
+
+Here's the simplest workflow for research:
+
+1. Start with `/research <your query>` to generate a report based on the initial sources.
+2. Decide on the next step:  
+  a. If you are happy with the report, you can stop here.  
+  b. If the report is completely off, you can go back to step 1 and try a new query.  
+  c. Otherwise, continue to step 3.
+3. Use `/research deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
+4. Ask any follow-up questions you have.
+
+### The `more` and `combine` subcommands
+
+What are these `more` and `combine` operations? `/research more` allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
+
+Such separate reports are called _base reports_. If you'd like to combine the most important information from two base reports into one report, you can use the `/research combine` command. It will automatically find the two highest-level reports (at the same level) that haven't been combined yet and combine them. "Level" here roughly corresponds to the number of sources that went into the report. More precisely, base reports have level 0. When two reports are combined, the level of the new report is 1 higher than the level of the two reports that were combined.
+
+### The `auto` subcommand
+
+The `/research auto` command is a combination of the `/research more` and `/research combine` commands. It automatically selects one or the other. If there are reports to combine, it will use the `/research combine` command. Otherwise, it will use the `/research more` command to fetch more content from the web and generate a new base report.
+
+You can request multiple iterations of this command. For example, `/research auto 42` will automatically perform 42 iterations of `/research auto`. (To abort, simply reload the app.)
+
+You can add a number to the end of the `/research more` and `/research combine` commands as well to repeat them multiple times.
+
+### The relationship between the `auto` and `deeper` commands
+
+Both of these commands can be used to perform "infinite" research, but the `deeper` command is more user-friendly because most values for the number of `auto` iterations will result in a final output that may cause confusion.
+
+For example, after performing the initial research, running `/research auto 2` will perform one iteration of `more` and one iteration of `combine`. This will result in a report that is based on 2x more sources than the original report. Running `/research auto 3`, however, will perform the two iterations above, plus an additional `more` step. As a result, there will be 3 base reports and 1 combined report, and the final output will be the 3rd base report. While you can still view the combined report by scrolling up or by running `/re view`, this state of affairs is likely to be confusing.
+
+Only certain specific values for the number of `auto` iterations will result in a final output that is a report based on combining all of the previous reports. After doing a bit of math, you can convince yourself that if you only have one base report, then `/research auto 2^N - 2` will result in a report based on 2^(N-1) sources.
+
+But of course, you don't want to have to do math to figure out how many iterations to run. That's why the `deeper` command is more user-friendly. It will automatically figure out how many iterations to run to get a report based on 2x more sources than the current main report.
+
+### The `view` subcommand
+
+Finally, you can view the reports and some stats on them using the `/research view` command. The `/research view stats` command will show the report stats, such as how many sources have been processed, how many base and combined reports there are, etc. The `/research view main` command (`main` is optional) will show the stats and main report, i.e. the report that combines the most sources. The `/research view base` command will show the base reports. The `/research view combined` command will show the combined reports.
+
+## Database Management
+
+You can use the following commands to manage your collections:
+
+- `/db list`: list all your collections
+- `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
+- `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
+- `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
+- `/db`: show database management options
+
+Additional shorthands:
+
+- `/db use 3`: switch to collection #3 in the list
+- `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
+- `/db delete --current` (or just `-c`): delete the current collection
+
 ## Ingesting Documents
 
-> You can skip this section and still be able to use all of the bot's features. The repo comes with a database preconfigured with a default document collection, obtained by ingesting this very README and other documentation. Additionally, using the `/research` command (see [Response Modes](#response-modes)) automatically ingests the results of the web research into a new document collection.
-
-### Ingesting Documents in the Streamlit UI
-
-To ingest your documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI (which is the default way of using the bot). You will then be prompted to upload your documents. You can also ingest a URL by typing `/ingest` followed by the URL. The bot will then retrieve the content of the URL and ingest it into a new collection.
+To ingest your local documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI (which is the default way of using the bot). You will then be prompted to upload your documents. You can also ingest a URL by typing `/ingest` followed by the URL. The bot will then retrieve the content of the URL and ingest it into a new collection.
 
 Once the documents are ingested, you can continue adding more documents or URLs by using the `/ingest` command again. When you are done, you should rename the collection (`/db rename new-name`). Why should you rename it? Because if the collection has the default name the system assigned to it, any future use of the `/ingest` command will continue adding documents to it.
 
-### Ingesting Documents in the Console Mode
+Additionally, using the `/research` command automatically ingests the results of the web research into a new document collection.
 
-In the console mode, the process is currently a bit less convenient:
-
-#### 1. Fill in the desired ingestion settings in the `.env` file
-
-Set the following values in the `.env` file:
-
-```bash
-DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
-COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
-```
-
-#### 2. Run the ingestion script
-
-To ingest the documents, run:
-
-```bash
-python ingest_local_docs.py
-```
-
-The script will show you the ingestion settings and ask for confirmation before proceeding.
-
-## Response Modes
-
-DocDocGo has several response modes that activate its various capabilites:
-
-- Chat with Docs - the default mode, used for chatting about your ingested documents or any other topic.
-- Regular Chat - chat with DocDocGo without using your ingested documents.
-- Detailed Report - a detailed report on all of the content from your documents retrieved in response to your query.
-- Quotes - generate a list of quotes from the documents retrieved in response to the query.
-- "Infinite" Web Research - perform in-depth Internet research about your query, ingest retrieved content, and generate report(s) (see [below](#infinite-web-research-mode) for details).
-- Basic Web Research - perform quick web research about your query and generate a report without ingesting the retrieved content.
-- Ingest - ingest the content of a URL or your local documents
-- Summarize - summarize the content of a URL and ingest it for follow-up queries
-- Database Management - manage your document collections: switch between them, rename, delete, etc.
-- Help - get help on how to use the bot by asking the bot itelf or getting a command cheatsheet
-
-To select a mode, start your message with the corresponding prefix: `/docs`, `/chat`, `/details`, `/quotes`, `/research`, `/web`, `/ingest`, `/summarize`, `/db`, or `/help`. You can also use just the first two letters of a prefix. For example:
-
-```markdown
-/re What are the ELO ratings of the top chess engines?
-```
-
-or
-
-```markdown
-/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers
-```
-
-If you don't specify a mode, DocDocGo will use the default mode, which is set by the `DEFAULT_MODE` variable in the `.env` file (defaulting to `/docs`). For the Database Management Mode, start by sending the `/db` command without any arguments. DocDocGo will then show you the available options.
-
-### "Infinite" Web Research Mode
-
-This is a powerful feature of DocDocGo that allows you to perform iterative web research about your query, ingest retrieved content, and generate a report, which the bot will try to improve iteratively by using more and more sources, for as many steps as you specify. Use this mode in three steps:
-
-**Step 1.** Start the research by sending a message starting with `/research` and followed by your query. For example:
-
-```markdown
-/research What are the best ways to improve my memory? Just bullet points, please.
-```
-
-> You can also enter `/research` without a query. You will then get a "cheatsheet" showing you all the ways to use the `/research` command, which extend far beyond the `deeper` option explained below.
-
-**Step 2.** After DocDocGo has finished the first iteration of the research, it will compose its initial report. If you want to continue the research, simply type `/research` to see your options. The main option is `/research deeper N`, where `N` is the number of times you want to double the number of sources that go into the report. Using this command will kick off a series of research steps, where each step involves either (a) fetching more sources and composing an alternative report or (b) combining information from two existing reports into a new, higher-level report.
-
-This is the "infinite" research capability of DocDocGo. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
-
-> For more options, you can type `/research` without any arguments or ask DocDocGo for help.
-
-**Step 3. Here's the awesome part:** The fetched content will be automatically ingested into a new collection. This means you can go beyond the report and ask follow-up questions, with DocDocGo using all of the web pages it fetched as its knowledge base.
-
-You could even have it run overnight and come back to a huge knowledge base on your desired topic!
-
-> Each research iteration is very cheap (typically ~1-2 cents if using the default gpt-3.5 model), but even tiny costs can add up if you do thousands of iterations.
+> The ingestion process for the console mode, which is a bit less streamlined, is described in the [Appendix](#ingesting-documents-in-console-mode).
 
 ## Querying based on substrings
 
@@ -242,6 +305,29 @@ playwright==1.40.0
 Flask==3.0.0
 google-cloud-firestore==2.14.0
 ```
+
+### Ingesting Documents in Console Mode
+
+In the console mode, the ingestion process is currently a bit less convenient than in the (default) Streamlit mode:
+
+#### 1. Fill in the desired ingestion settings in the `.env` file
+
+Set the following values in the `.env` file:
+
+```bash
+DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
+COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
+```
+
+#### 2. Run the ingestion script
+
+To ingest the documents, run:
+
+```bash
+python ingest_local_docs.py
+```
+
+The script will show you the ingestion settings and ask for confirmation before proceeding.
 
 ### Running the Containerized Application
 
