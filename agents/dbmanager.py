@@ -236,6 +236,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
         }
 
+
+    admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+
     if command == DBCommand.RENAME:
         if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
             return format_nonstreaming_answer(
@@ -246,8 +249,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
-        # if value == DEFAULT_COLLECTION_NAME:
-        #     return format_nonstreaming_answer("You cannot rename a collection to the default name.")
+        
+        # Admin can rename to the default collection's name by providing the password
+        if value == f"--default {admin_pwd}" and admin_pwd:
+            # Before renaming, we need to delete the default collection if it exists
+            chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
+            value = DEFAULT_COLLECTION_NAME
+
         if not chat_state.user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
             return format_nonstreaming_answer(
                 f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
@@ -268,7 +276,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 f"Error renaming collection:\n```\n{format_exception(e)}\n```"
             )
 
-        return format_nonstreaming_answer(f"Collection renamed to: {value}") | {
+        return format_nonstreaming_answer(f"Collection renamed to `{value}`.") | {
             "vectorstore": chat_state.get_new_vectorstore(new_full_name),
         }
 
@@ -292,8 +300,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         # Admin can delete the default collection by providing the password
-        pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
-        if value == f"--default {pwd}" and pwd:
+        if value == f"--default {admin_pwd}" and admin_pwd:
             value = DEFAULT_COLLECTION_NAME
 
         # NOTE: the functionality below requires allow_reset=True in the settings
@@ -312,9 +319,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # See if the user provided index(es) directly instead of a name
                 if "-" in value:
                     # Admin can delete a range of collections by providing the password
-                    if not value.endswith(f" {pwd}") or not pwd:
+                    if not value.endswith(f" {admin_pwd}") or not admin_pwd:
                         raise ValueError
-                    leftright = value[: -len(pwd) - 1].split("-")
+                    leftright = value[: -len(admin_pwd) - 1].split("-")
                     if len(leftright) != 2:
                         raise ValueError
                     min_idx, max_idx = int(leftright[0]) - 1, int(leftright[1]) - 1
