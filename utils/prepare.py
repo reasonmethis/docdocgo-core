@@ -76,7 +76,7 @@ if not os.getenv("SERPER_API_KEY"):
         "which you can get for free, without a credit card, at https://serper.dev. "
     )
     # Set the free key explicitly (there is no payment info associated with this key)
-    os.environ["SERPER_API_KEY"] = "71f6d411db55df3ed492bf6da727c4512be35e52"
+    os.environ["SERPER_API_KEY"] = "dc1e2534afe8cbd358cbb53cb84f437a48b536fd"
 
 
 # Verify the validity of the db path
