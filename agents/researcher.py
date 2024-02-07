@@ -49,6 +49,7 @@ from utils.web import (
 
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 
+
 def get_content_from_urls_with_top_up(
     urls: list[str],
     batch_fetcher: Callable[[list[str]], list[str]],
@@ -371,7 +372,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Determine which links to include in the db
     links_to_include = [
         link for link, data in rr_data.link_data_dict.items() if not data.error
-    ] 
+    ]
 
     # Decide on the collection name consistent with ChromaDB's naming rules
     query_words = [x.lower() for x in rr_data.query.split()]
@@ -441,8 +442,8 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     return response  # has answer, rr_data
 
 
-NUM_NEW_OK_LINKS_TO_PROCESS = 2
-INIT_BATCH_SIZE = 4
+NUM_NEW_OK_LINKS_TO_PROCESS_FOR_ITERATE = 2
+INIT_BATCH_SIZE_FOR_ITERATE = 4
 
 
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
@@ -467,7 +468,9 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.AUTO:
         task_type = ResearchCommand.MORE  # we were routed here from main handler
 
-    rr_data: ResearchReportData = chat_state.rr_data  # NOTE: might want to convert to
+    rr_data: ResearchReportData = (
+        chat_state.get_rr_data
+    )  # NOTE: might want to convert to
     # chat_state.get_rr_data() for readability
 
     # Fix for older style collections
@@ -500,7 +503,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
 
     # Get content from more links if needed
     num_new_ok_links_to_process = (
-        NUM_NEW_OK_LINKS_TO_PROCESS
+        NUM_NEW_OK_LINKS_TO_PROCESS_FOR_ITERATE
         if task_type == ResearchCommand.ITERATE
         else NUM_OK_LINKS_NEW_REPORT  # "/research more"
     )
@@ -512,7 +515,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
             batch_fetcher=get_batch_url_fetcher(),
             min_ok_urls=num_ok_new_links_to_fetch,
-            init_batch_size=INIT_BATCH_SIZE,
+            init_batch_size=INIT_BATCH_SIZE_FOR_ITERATE,
         )
 
         # Update rr_data
@@ -715,7 +718,7 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
             earliest_uncombined_idx : earliest_uncombined_idx + NUM_REPORTS_TO_COMBINE
         ]
 
-    rr_data: ResearchReportData | None = chat_state.rr_data
+    rr_data: ResearchReportData | None = chat_state.get_rr_data
     if not rr_data:
         return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
 
@@ -833,7 +836,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
             rr_data.get_sources(report)
         )
 
-    rr_data: ResearchReportData | None = chat_state.rr_data
+    rr_data: ResearchReportData | None = chat_state.get_rr_data
     if not rr_data or not (num_reports := len(rr_data.base_reports)):
         return format_nonstreaming_answer(
             "There are no existing reports in this collection."
@@ -882,6 +885,42 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     return format_nonstreaming_answer(answer)
 
 
+def get_research_set_response(chat_state: ChatState) -> Props:
+    parsed_query = chat_state.parsed_query
+    rr_data = chat_state.get_rr_data
+    is_set_query = parsed_query.research_params.task_type == ResearchCommand.SET_QUERY
+
+    # Update rr_data with the new query or report type
+    if is_set_query:
+        rr_data.query = parsed_query.message
+    else:
+        rr_data.report_type = parsed_query.message
+
+    # Save new rr_data in chat_state (which saves it in the database) and return
+    chat_state.save_rr_data(rr_data)
+
+    # Return the response
+    if is_set_query:
+        return format_nonstreaming_answer(
+            "The query for this collection has been updated to:\n\n"
+            f"```\n{parsed_query.message}\n```"
+        )
+    else:
+        return format_nonstreaming_answer(
+            "The report type for this collection has been updated to:\n\n"
+            f"```\n{parsed_query.message}\n```"
+        )
+
+def clear_reports(chat_state: ChatState):
+    rr_data = chat_state.get_rr_data
+    rr_data.base_reports = []
+    rr_data.combined_reports = []
+    rr_data.combined_report_id_levels = []
+    rr_data.main_report = ""
+    rr_data.evaluation = ""
+    chat_state.save_rr_data(rr_data)
+    return format_nonstreaming_answer("All reports have been cleared.")
+
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
     if task_type in {
@@ -911,6 +950,9 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.VIEW:
         return get_research_view_response(chat_state)
 
+    if task_type in {ResearchCommand.SET_QUERY, ResearchCommand.SET_REPORT_TYPE}:
+        return get_research_set_response(chat_state)
+
     if task_type == ResearchCommand.NONE:
         return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
 
@@ -920,7 +962,7 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
     num_iterations_left = research_params.num_iterations_left
-    rr_data = chat_state.rr_data
+    rr_data = chat_state.get_rr_data
 
     # Screen commands that require an existing report
     if research_params.task_type not in {

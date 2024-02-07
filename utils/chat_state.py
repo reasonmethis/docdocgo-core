@@ -80,7 +80,7 @@ class ChatState:
 
     def save_rr_data(self, rr_data: ResearchReportData) -> None:
         """
-        Update the currently selected collection's metadata with the given WebsearcherData
+        Update the currently selected collection's metadata with the given ResearchReportData
         """
         if self.vectorstore is None:
             raise ValueError("No vectorstore selected")
@@ -88,8 +88,8 @@ class ChatState:
         coll_metadata["rr_data"] = rr_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
-    @property
-    def rr_data(self) -> ResearchReportData | None:
+    @property # TODO: turn into a method
+    def get_rr_data(self) -> ResearchReportData | None:
         """
         Extract ResearchReportData from the currently selected collection's metadata
         """

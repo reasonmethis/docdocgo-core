@@ -195,15 +195,23 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     task_type, query = get_command(orig_query, research_commands_to_enum)
 
-    if task_type is None or task_type == ResearchCommand.NEW:
-        task_type = ResearchCommand.NEW if query else ResearchCommand.NONE
+    if task_type in {
+        None,
+        ResearchCommand.NEW,
+        ResearchCommand.SET_QUERY,
+        ResearchCommand.SET_REPORT_TYPE,
+    }:
+        if not query:
+            task_type = ResearchCommand.NONE # show help if no query
+        elif task_type is None:
+            task_type = ResearchCommand.NEW
         return ResearchParams(task_type=task_type), query
 
     if task_type == ResearchCommand.VIEW:
         sub_task, query = get_command(query, research_view_subcommands, "main")
         return ResearchParams(task_type=task_type, sub_task=sub_task), query
 
-    # Task type: MORE, COMBINE, AUTO, ITERATE, DEEPER
+    # Task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
     num_iterations, query_after_get_int = get_int(query)
 
     if not query_after_get_int:
