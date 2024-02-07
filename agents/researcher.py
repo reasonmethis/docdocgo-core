@@ -47,6 +47,7 @@ from utils.web import (
     get_batch_url_fetcher,
 )
 
+NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 
 def get_content_from_urls_with_top_up(
     urls: list[str],
@@ -186,7 +187,6 @@ def get_initial_researcher_response(
                     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 }
             )
-            # print(f"Attempt {i + 1}: {query_generator_output = }")
             query_generator_dict = extract_json(query_generator_output)
             queries = query_generator_dict["queries"][:max_queries]
             report_type = query_generator_dict["report_type"]
@@ -218,6 +218,12 @@ def get_initial_researcher_response(
 
         # Get links from search results
         all_links = get_links(search_results)
+        if not all_links:
+            return format_nonstreaming_answer(
+                "Apologies, it seems I'm having an issue "
+                "with the API I use to search the web."
+            )
+
         print(
             f"Got {len(all_links)} links in total, "
             f"will try to fetch at least {min(num_ok_links, len(all_links))} successfully."
@@ -243,15 +249,18 @@ def get_initial_researcher_response(
         raise ValueError(f"Failed to fetch content from URLs: {e}")
 
     # Determine which links to include in the context (num_ok_links good links)
-    processed_links = []  # NOTE: might want to rename to links_to_process
-    links = []  # NOTE: might want to rename to links_to_include
+    links_to_process = []
+    links_to_include = []
     for link, data in link_data_dict.items():
         # If we have enough ok links, stop gathering processed links and links to include
-        if len(links) == num_ok_links:
+        if len(links_to_include) == num_ok_links:
             break
-        processed_links.append(link)
+        links_to_process.append(link)
         if not data.error:
-            links.append(link)
+            links_to_include.append(link)
+
+    if not links_to_include:
+        return format_nonstreaming_answer(NO_FETCHED_CONTENT_MSG)
 
     # Initialize data object
     num_obtained_ok_links = sum(1 for data in link_data_dict.values() if not data.error)
@@ -259,16 +268,16 @@ def get_initial_researcher_response(
         query=query,
         generated_queries=queries,
         report_type=report_type,
-        unprocessed_links=all_links[len(processed_links) :],
-        processed_links=processed_links,
-        num_obtained_unprocessed_links=len(link_data_dict) - len(processed_links),
-        num_obtained_unprocessed_ok_links=num_obtained_ok_links - len(links),
+        unprocessed_links=all_links[len(links_to_process) :],
+        processed_links=links_to_process,
+        num_obtained_unprocessed_links=len(link_data_dict) - len(links_to_process),
+        num_obtained_unprocessed_ok_links=num_obtained_ok_links - len(links_to_include),
         link_data_dict=link_data_dict,
         max_tokens_final_context=max_tokens_final_context,
     )
 
     # Get a list of acceptably fetched texts
-    texts = [link_data_dict[link].text for link in links]
+    texts = [link_data_dict[link].text for link in links_to_include]
     t_process_texts_end = datetime.now()
 
     try:
@@ -279,7 +288,7 @@ def get_initial_researcher_response(
         )
         final_texts = [
             f"SOURCE: {link}\nCONTENT:\n{text}\n====="
-            for text, link in zip(final_texts, links)
+            for text, link in zip(final_texts, links_to_include)
         ]
         final_context = "\n\n".join(final_texts)
         t_final_context = datetime.now()
@@ -288,7 +297,10 @@ def get_initial_researcher_response(
         print("Number of obtained links:", len(link_data_dict))
         print("Number of successfully obtained links:", num_obtained_ok_links)
         print("Number of processed links:", len(rr_data.processed_links))
-        print("Number of links after removing unsuccessfully fetched ones:", len(links))
+        print(
+            "Number of links after removing unsuccessfully fetched ones:",
+            len(links_to_include),
+        )
         print("Time taken to process links:", t_process_texts_end - t_get_links_end)
         print("Time taken to shorten texts:", t_final_context - t_process_texts_end)
         print("Number of tokens in final context:", get_num_tokens(final_context))
@@ -307,7 +319,7 @@ def get_initial_researcher_response(
         )
         rr_data.main_report, rr_data.evaluation = parse_research_report(answer)
 
-        return {"answer": answer, "rr_data": rr_data, "source_links": links}
+        return {"answer": answer, "rr_data": rr_data, "source_links": links_to_include}
     except Exception as e:
         texts_str = "\n\n".join(x[:200] for x in texts)
         print(f"Failed to get report: {e}, texts:\n\n{texts_str}")
@@ -339,7 +351,12 @@ SMALL_WORDS |= {"some", "any"}
 
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     response = get_initial_researcher_response(chat_state)
-    rr_data: ResearchReportData = response["rr_data"]
+
+    try:
+        rr_data: ResearchReportData = response["rr_data"]
+    except KeyError:
+        # We received a non-streaming answer due to an error
+        return response
 
     # Initialize preliminary reports
     # NOTE: might want to store the main report in the same format (Report)
@@ -354,10 +371,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Determine which links to include in the db
     links_to_include = [
         link for link, data in rr_data.link_data_dict.items() if not data.error
-    ]
-    # if not links_to_include:
-    #     return rr_data
-    # NOTE: should work even if there are no links to include, but might want to test
+    ] 
 
     # Decide on the collection name consistent with ChromaDB's naming rules
     query_words = [x.lower() for x in rr_data.query.split()]

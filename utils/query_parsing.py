@@ -17,7 +17,8 @@ db_command_to_enum = {
 }
 
 ResearchCommand = Enum(
-    "ResearchCommand", "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW NONE"
+    "ResearchCommand",
+    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE NONE",
 )
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -27,6 +28,8 @@ research_commands_to_enum = {
     "auto": ResearchCommand.AUTO,
     "deeper": ResearchCommand.DEEPER,
     "view": ResearchCommand.VIEW,
+    "set-query": ResearchCommand.SET_QUERY,
+    "set-report-type": ResearchCommand.SET_REPORT_TYPE,
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 

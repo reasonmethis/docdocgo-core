@@ -17,7 +17,7 @@ domain_blacklist = ["youtube.com"]
 
 def get_links(search_results: list[dict[str, Any]]):
     links_for_each_query = [
-        [x["link"] for x in search_result["organic"]]
+        [x["link"] for x in search_result.get("organic", []) if "link" in x]
         for search_result in search_results
     ]  # [[links for query 1], [links for query 2], ...]
 
