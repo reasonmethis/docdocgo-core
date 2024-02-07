@@ -14,6 +14,7 @@
 - [Querying based on substrings](#querying-based-on-substrings)
 - [Contributing](#contributing)
 - [Appendix](#appendix)
+  - [Dev QnA](#dev-qna)
   - [Minified Requirements](#minified-requirements)
   - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
   - [Running the Containerized Application](#running-the-containerized-application)
@@ -21,7 +22,7 @@
 
 ## Introduction
 
-DocDocGo is a chatbot that can ingest documents you provide and use them in its responses. In other words, it is like ChatGPT that "knows" information from your documents. Instead of using your documents, it can also find and ingest information from the Internet and generate iteratively improving reports on any topic you want to research. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a chatbot that can ingest the content of websites and your local documents and use them in its responses. In other words, it is like ChatGPT with custom knowledge bases built from your documents or from sources it gathers online on your behalf. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
 
 ## (Very) Quickstart
 
@@ -51,6 +52,8 @@ For reference, DocDocGo Carbon (not available here) has these features:
 - Has a database for conversations and feedback and allows to resume the conversation
 
 ## Installation
+
+If you simply wish to use the bot, you don't need to install it. It is available at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app). If you would like to run the bot on your local machine, you can follow the instructions below.
 
 ### 1. Clone this repository and cd into it
 
@@ -83,7 +86,7 @@ Run:
 pip install -r requirements.txt
 ```
 
-> Note: if you would like to see a "minified" version of the requirements, please see the [Appendix](DOCS-APPENDIX.md#minified-requirements).
+> Note: if you would like to see a "minified" version of the requirements, please see the [Appendix](#minified-requirements).
 
 It's possible you may get the error message:
 
@@ -284,6 +287,22 @@ DocDocGo will only consider document chunks that contain the substring "Christop
 Contributions are welcome! If you have any questions or suggestions, please open an issue or a pull request.
 
 ## Appendix
+
+Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
+
+### Dev QnA
+
+#### Q: I want to fork this repository and use a vector database on my local machine. How do I make sure that when I pull updates from the original repository, I don't overwrite my local database?
+
+A: The easiest way is to set:
+
+```env
+VECTORDB_DIR="some-custom-dir-name-outside-of-project-dir/" # directory of your doc database
+```
+
+That way you don't have to worry about the `chroma/` directory being freshly pulled from this repo. To make sure your custom directory contains the default collection `docdocgo-documentation`, which is what the `chroma/` directory contains initially, you should be able to simply copy the contents of `chroma/` to your chosen custom directory.
+
+As an alternative way to handle the issue of the default collection, you can create your own version of the default collection by ingesting this README, along with any other files you wish to be included. To make the resulting collection the default collection, use the command `/db rename --default <admin pwd you set>`, where the admin password is the value you assigned to the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable.
 
 ### Minified Requirements
 
