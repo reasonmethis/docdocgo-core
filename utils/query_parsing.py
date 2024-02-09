@@ -18,7 +18,7 @@ db_command_to_enum = {
 
 ResearchCommand = Enum(
     "ResearchCommand",
-    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE NONE",
+    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE CLEAR NONE",
 )
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -30,6 +30,7 @@ research_commands_to_enum = {
     "view": ResearchCommand.VIEW,
     "set-query": ResearchCommand.SET_QUERY,
     "set-report-type": ResearchCommand.SET_REPORT_TYPE,
+    "clear": ResearchCommand.CLEAR,
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
@@ -209,9 +210,16 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
 
     if task_type == ResearchCommand.VIEW:
         sub_task, query = get_command(query, research_view_subcommands, "main")
-        return ResearchParams(task_type=task_type, sub_task=sub_task), query
+        if query: # view task doesn't take any additional query after sub_task
+            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+        return ResearchParams(task_type=task_type, sub_task=sub_task), ""
+    
+    if task_type == ResearchCommand.CLEAR:
+        if query: # clear task doesn't take any additional query
+            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+        return ResearchParams(task_type=task_type), ""
 
-    # Task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
+    # We have a task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
     num_iterations, query_after_get_int = get_int(query)
 
     if not query_after_get_int:
@@ -222,13 +230,8 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
                 task_type=task_type, num_iterations_left=num_iterations
             ), ""
 
-    # No valid number of iterations specified, treat e.g. -10 as part of actual query
-
-    # NOTE: "/research more somequery" is currently not supported
-    # if task_type == ResearchCommand.MORE: # e.g. /research more somequery
-    #     return ResearchParams(task_type=task_type), query
-
     # We have e.g. "/research auto somequery", treat "auto" as part of the query
+    # OR no valid number of iterations specified, treat e.g. -10 as part of actual query
     return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 
 

@@ -88,7 +88,6 @@ class ChatState:
         coll_metadata["rr_data"] = rr_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
-    @property # TODO: turn into a method
     def get_rr_data(self) -> ResearchReportData | None:
         """
         Extract ResearchReportData from the currently selected collection's metadata

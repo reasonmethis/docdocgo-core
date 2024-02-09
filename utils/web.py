@@ -327,6 +327,7 @@ class LinkData(BaseModel):
     text: str | None = None
     error: str | None = None
     num_tokens: int | None = None
+    is_ingested: bool = False
 
     @classmethod
     def from_raw_content(cls, content: str):

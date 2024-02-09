@@ -1,5 +1,5 @@
 import os
-import random
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Callable
@@ -20,7 +20,6 @@ from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
-    DELIMITER,
     RESEARCH_COMMAND_HELP_MESSAGE,
     format_invalid_input_answer,
     format_nonstreaming_answer,
@@ -359,7 +358,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         # We received a non-streaming answer due to an error
         return response
 
-    # Initialize preliminary reports
+    # Initialize base reports
     # NOTE: might want to store the main report in the same format (Report)
     rr_data.base_reports.append(
         Report(
@@ -405,11 +404,11 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         rr_data.collection_name = f"{new_coll_name}-{i}"
 
     # Convert website content into documents for ingestion
-    print()  # we just printed the report, so add a newline
-    print_no_newline("Ingesting fetched content into ChromaDB...")
+    print_no_newline("\nIngesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = rr_data.link_data_dict[link]
+        link_data.is_ingested = True  # this will be saved in rr_data
         metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
@@ -435,10 +434,10 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
 
             # Create a random valid collection name and try again
             rr_data.collection_name = construct_full_collection_name(
-                chat_state.user_id,
-                "collection-" + "".join(random.sample("abcdefghijklmnopqrstuvwxyz", 6)),
+                chat_state.user_id, "collection-" + uuid.uuid4().hex[:8]
             )
-    print("Done!")
+
+    print("Done")
     return response  # has answer, rr_data
 
 
@@ -468,13 +467,10 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.AUTO:
         task_type = ResearchCommand.MORE  # we were routed here from main handler
 
-    rr_data: ResearchReportData = (
-        chat_state.get_rr_data
-    )  # NOTE: might want to convert to
-    # chat_state.get_rr_data() for readability
+    rr_data: ResearchReportData = chat_state.get_rr_data()
 
     # Fix for older style collections
-    if not rr_data.base_reports:
+    if not rr_data.base_reports and rr_data.main_report:
         ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
         rr_data.base_reports.append(
             Report(
@@ -485,8 +481,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         )
 
     t_start = datetime.now()
-    print("Current version of report:\n", rr_data.main_report)
-    print(DELIMITER)
 
     # Sanity check
     if (
@@ -507,10 +501,10 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         if task_type == ResearchCommand.ITERATE
         else NUM_OK_LINKS_NEW_REPORT  # "/research more"
     )
-    num_ok_new_links_to_fetch = (
-        num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
+    num_ok_new_links_to_fetch = max(
+        0, num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
     )
-    if num_ok_new_links_to_fetch > 0:
+    if num_ok_new_links_to_fetch:
         link_data_dict = get_content_from_urls_with_top_up(
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
             batch_fetcher=get_batch_url_fetcher(),
@@ -569,14 +563,18 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             "needs_print": True,  # NOTE: this won't be streamed
         }
 
-    # Count tokens in texts to be processed; throw in the report text too
+    # Count tokens in texts to be processed; throw in the report text too if needed
     print("Counting tokens in texts and current report...")
     texts_to_count_tokens_for = [
         rr_data.link_data_dict[x].text for x in links_to_count_tokens_for
-    ] + [rr_data.main_report]
+    ]
+    if task_type == ResearchCommand.ITERATE:
+        texts_to_count_tokens_for.append(rr_data.main_report)
+
     token_counts = get_num_tokens_in_texts(texts_to_count_tokens_for)
 
-    num_tokens_report = token_counts[-1]
+    num_tokens_report = token_counts[-1] if task_type == ResearchCommand.ITERATE else 0
+
     for link, num_tokens in zip(links_to_count_tokens_for, token_counts):
         rr_data.link_data_dict[link].num_tokens = num_tokens
 
@@ -646,11 +644,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         )
         rr_data.base_reports[-1] = report_obj
 
-        # Update the final report, if the "root" report is the one that was improved
-        if len(rr_data.base_reports) == 1:
-            rr_data.main_report = report
-            rr_data.evaluation = evaluation
-
     else:  # "/research more"
         # Append the new report to the list of base reports
         report_obj = Report(
@@ -658,29 +651,44 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         )
         rr_data.base_reports.append(report_obj)
 
+    # If we are redoing all reports or just iteratively improved the only report:
+    if len(rr_data.base_reports) == 1:
+        # Update or set the main report and evaluation
+        rr_data.main_report = report  # NOTE: clunky
+        rr_data.evaluation = evaluation
+
     # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
-    print()  # we just printed the report, so add a newline
-    print_no_newline("Ingesting new documents into ChromaDB...")
     docs: list[Document] = []
+    link_datas_to_ingest = []
     for link in links_to_include:
         link_data = rr_data.link_data_dict[link]
+        if link_data.is_ingested:
+            continue
         metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
+        link_datas_to_ingest.append(link_data)
 
     # Ingest documents into ChromaDB
-    ingest_docs_into_chroma(
-        docs,
-        collection_name=rr_data.collection_name,
-        chroma_client=chat_state.vectorstore.client,
-        openai_api_key=chat_state.openai_api_key,
-    )
+    if docs:
+        print_no_newline("\nIngesting new documents into ChromaDB...")
+        ingest_docs_into_chroma(
+            docs,
+            collection_name=rr_data.collection_name,
+            chroma_client=chat_state.vectorstore.client,
+            openai_api_key=chat_state.openai_api_key,
+        )
+    else:
+        print_no_newline("No new documents to ingest. Saving rr_data...")
 
-    # Save new rr_data in chat_state (which saves it in the database) and return
+    # Save new rr_data in chat_state (which saves it in the database) and
+    for link_data in link_datas_to_ingest:
+        link_data.is_ingested = True  # this will be saved in rr_data
     chat_state.save_rr_data(rr_data)
     print("Done")
+
     return {
         "answer": answer,
         "rr_data": rr_data,
@@ -718,7 +726,7 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
             earliest_uncombined_idx : earliest_uncombined_idx + NUM_REPORTS_TO_COMBINE
         ]
 
-    rr_data: ResearchReportData | None = chat_state.get_rr_data
+    rr_data: ResearchReportData | None = chat_state.get_rr_data()
     if not rr_data:
         return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
 
@@ -836,11 +844,8 @@ def get_research_view_response(chat_state: ChatState) -> Props:
             rr_data.get_sources(report)
         )
 
-    rr_data: ResearchReportData | None = chat_state.get_rr_data
-    if not rr_data or not (num_reports := len(rr_data.base_reports)):
-        return format_nonstreaming_answer(
-            "There are no existing reports in this collection."
-        )
+    rr_data: ResearchReportData = chat_state.get_rr_data()
+    num_base_reports = len(rr_data.base_reports)
 
     coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
     nums_for_auto = get_nums_auto_iterations_for_top_level_reports(rr_data, 5)
@@ -849,7 +854,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         f"Query:\n\n```\n{rr_data.query}\n```\n\n"
         f"Report type:\n\n```\n{rr_data.report_type}\n```\n\n"
         f"Report breakdown:\n\n"
-        f"- There are {num_reports} base reports.\n"
+        f"- There are {num_base_reports} base reports.\n"
         f"- There are {len(rr_data.combined_reports)} combined reports.\n"
         f"- There are {len(rr_data.processed_links)} processed links.\n"
         f"- There are {len(rr_data.unprocessed_links)} unprocessed links.\n"
@@ -868,7 +873,9 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     elif sub_task == "base":
         answer += "\n\nBASE REPORTS:"
         for i, report in enumerate(rr_data.base_reports):
-            answer += f"\n\n{i + 1}/{num_reports}:\n\n{report_str_with_sources(report)}"
+            answer += (
+                f"\n\n{i + 1}/{num_base_reports}:\n\n{report_str_with_sources(report)}"
+            )
     elif sub_task == "combined":
         answer += "\n\nCOMBINED REPORTS:"
         if not rr_data.combined_reports:
@@ -887,7 +894,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
 
 def get_research_set_response(chat_state: ChatState) -> Props:
     parsed_query = chat_state.parsed_query
-    rr_data = chat_state.get_rr_data
+    rr_data = chat_state.get_rr_data()
     is_set_query = parsed_query.research_params.task_type == ResearchCommand.SET_QUERY
 
     # Update rr_data with the new query or report type
@@ -911,15 +918,33 @@ def get_research_set_response(chat_state: ChatState) -> Props:
             f"```\n{parsed_query.message}\n```"
         )
 
-def clear_reports(chat_state: ChatState):
-    rr_data = chat_state.get_rr_data
+
+def get_research_clear_response(chat_state: ChatState):
+    rr_data = chat_state.get_rr_data()
+
     rr_data.base_reports = []
     rr_data.combined_reports = []
     rr_data.combined_report_id_levels = []
     rr_data.main_report = ""
-    rr_data.evaluation = ""
+    rr_data.evaluation = None
+
+    # Make all links unprocessed but keep their link data
+    num_ok_processed_links = sum(
+        1 for link in rr_data.processed_links if not rr_data.link_data_dict[link].error
+    )
+    rr_data.num_obtained_unprocessed_links += len(rr_data.processed_links)
+    rr_data.num_obtained_unprocessed_ok_links += num_ok_processed_links
+    rr_data.unprocessed_links = rr_data.processed_links + rr_data.unprocessed_links
+    rr_data.processed_links = []
+
+    # Save new rr_data in chat_state (which saves it in the database) and return
     chat_state.save_rr_data(rr_data)
-    return format_nonstreaming_answer("All reports have been cleared.")
+    return format_nonstreaming_answer(
+        "All reports have been cleared. The collection still contains the "
+        "previously fetched content, which can be used to generate a new report "
+        "using `/research auto`."
+    )
+
 
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
@@ -929,9 +954,6 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
         ResearchCommand.MORE,
     }:
         return get_iterative_researcher_response(chat_state)
-
-    if task_type == ResearchCommand.COMBINE:
-        return get_report_combiner_response(chat_state)
 
     if task_type == ResearchCommand.AUTO:
         response = get_report_combiner_response(chat_state)
@@ -947,11 +969,17 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
         # We can't combine reports, so generate a new report instead
         return get_iterative_researcher_response(chat_state)
 
+    if task_type == ResearchCommand.COMBINE:
+        return get_report_combiner_response(chat_state)
+
     if task_type == ResearchCommand.VIEW:
         return get_research_view_response(chat_state)
 
     if task_type in {ResearchCommand.SET_QUERY, ResearchCommand.SET_REPORT_TYPE}:
         return get_research_set_response(chat_state)
+
+    if task_type == ResearchCommand.CLEAR:
+        return get_research_clear_response(chat_state)
 
     if task_type == ResearchCommand.NONE:
         return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
@@ -962,20 +990,30 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
     num_iterations_left = research_params.num_iterations_left
-    rr_data = chat_state.get_rr_data
+    task_type = research_params.task_type
+    rr_data = chat_state.get_rr_data()
 
-    # Screen commands that require an existing report
-    if research_params.task_type not in {
-        ResearchCommand.NEW,
-        ResearchCommand.NONE,
-    } and (not rr_data or not rr_data.main_report):
+    # Screen commands that require pre-existing research
+    if not rr_data and task_type not in {ResearchCommand.NEW, ResearchCommand.NONE}:
         return format_invalid_input_answer(
-            "Apologies, this command is only valid when there is an existing report.",
+            "Apologies, this command is only valid when there is pre-existing research "
+            "associated with the collection. "
             "You can generate a new report using `/research new <query>`.",
+            "You can generate a new report using `/research new <query>`.",
+        )
+    if (
+        task_type in {ResearchCommand.ITERATE, ResearchCommand.CLEAR}
+        and not rr_data.main_report  # COMBINE is screened upstream
+    ):
+        return format_invalid_input_answer(
+            "Apologies, all research reports have been cleared from this collection. "
+            "However, it still contains the previously fetched content, which can be "
+            "used to generate a new report using `/research auto`.",
+            "You can generate a new report in this collection using `/research auto`.",
         )
 
     # Transform the command if needed
-    if research_params.task_type == ResearchCommand.DEEPER:
+    if task_type == ResearchCommand.DEEPER:
         # Determine the required number of "auto" iterations
         if num_iterations_left < 15:
             num_auto_iterations = get_nums_auto_iterations_for_top_level_reports(
@@ -985,14 +1023,14 @@ def get_researcher_response(chat_state: ChatState) -> Props:
             return format_invalid_input_answer(
                 "Apologies, I can't execute this command because it requires too "
                 "many research iterations. Remember, each `/research deeper` run "
-                f"expands the number of sources by a factor of {NUM_REPORTS_TO_COMBINE}. "
+                f"expands the number of sources by {NUM_REPORTS_TO_COMBINE}x. "
                 f"Each such expansion requires {NUM_REPORTS_TO_COMBINE}x the number of "
                 "iterations of the previous expansion.",
                 "Too many iterations are required for this command.",
             )
 
         # Transform the command
-        research_params.task_type = ResearchCommand.AUTO
+        task_type = research_params.task_type = ResearchCommand.AUTO
         research_params.num_iterations_left = num_iterations_left = num_auto_iterations
 
     # Validate number of iterations
