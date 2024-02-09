@@ -16,12 +16,18 @@ from utils.type_utils import (
 class ScheduledQueries(BaseModel):
     queue_: list[ParsedQuery] = Field(default_factory=list)
 
-    def add(self, query: ParsedQuery) -> None:
+    def add_top(self, query: ParsedQuery) -> None:
+        """Add a query to the top of the queue. This query will be executed next."""
         self.queue_.append(query)
 
+    def add_bottom(self, query: ParsedQuery) -> None:
+        """Add a query to the bottom of the queue. This query will be executed last."""
+        self.queue_.insert(0, query)
+
     def pop(self) -> ParsedQuery | None:
+        """Pop the next query from the queue. Returns None if the queue is empty."""
         try:
-            return self.queue_.pop(0)
+            return self.queue_.pop()
         except IndexError:
             return None
 

@@ -266,7 +266,7 @@ if __name__ == "__main__":
                 break
         print()
 
-        # Parse the query to extract command id & search params, if any
+        # Parse the query
         parsed_query = parse_query(query)
 
         # Get response from the bot

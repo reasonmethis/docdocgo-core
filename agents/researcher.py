@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Callable
 
 from chromadb import ClientAPI
+from icecream import ic
 from langchain.schema import Document
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
@@ -446,10 +447,11 @@ INIT_BATCH_SIZE_FOR_ITERATE = 4
 
 
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
+    # TODO: just mutate chat_state
     research_params = chat_state.parsed_query.research_params
     if research_params.num_iterations_left < 2:
         return {}
-    new_parsed_query = chat_state.parsed_query.model_copy()
+    new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
     new_parsed_query.message = None  # NOTE: need this?
     return {"new_parsed_query": new_parsed_query}
@@ -948,6 +950,7 @@ def get_research_clear_response(chat_state: ChatState):
 
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
+    ic(task_type)
     if task_type in {
         ResearchCommand.NEW,
         ResearchCommand.ITERATE,
@@ -1032,6 +1035,16 @@ def get_researcher_response(chat_state: ChatState) -> Props:
         # Transform the command
         task_type = research_params.task_type = ResearchCommand.AUTO
         research_params.num_iterations_left = num_iterations_left = num_auto_iterations
+
+    elif task_type == ResearchCommand.REWRITE:
+        if rr_data.main_report:
+            # Expand startover -> clear + more
+            task_type = research_params.task_type = ResearchCommand.CLEAR
+            new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
+            new_parsed_query.research_params.task_type = ResearchCommand.MORE
+            chat_state.scheduled_queries.add_top(new_parsed_query)
+        else:
+            task_type = research_params.task_type = ResearchCommand.MORE
 
     # Validate number of iterations
     if chat_state.is_community_key:

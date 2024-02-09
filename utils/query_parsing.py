@@ -18,7 +18,7 @@ db_command_to_enum = {
 
 ResearchCommand = Enum(
     "ResearchCommand",
-    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE CLEAR NONE",
+    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE CLEAR REWRITE NONE",
 )
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -31,6 +31,7 @@ research_commands_to_enum = {
     "set-query": ResearchCommand.SET_QUERY,
     "set-report-type": ResearchCommand.SET_REPORT_TYPE,
     "clear": ResearchCommand.CLEAR,
+    "startover": ResearchCommand.REWRITE,
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
@@ -196,6 +197,7 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     task_type, query = get_command(orig_query, research_commands_to_enum)
 
+    # Task types requiring a query but not a number of iterations or sub-task
     if task_type in {
         None,
         ResearchCommand.NEW,
@@ -219,6 +221,11 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
 
+    if task_type == ResearchCommand.REWRITE:
+        if query:
+            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
+        return ResearchParams(task_type=task_type), ""
+    
     # We have a task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
     num_iterations, query_after_get_int = get_int(query)
 
