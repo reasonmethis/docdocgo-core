@@ -323,6 +323,7 @@ streamlit==1.29.0
 playwright==1.40.0
 Flask==3.0.0
 google-cloud-firestore==2.14.0
+icecream==2.1.3
 ```
 
 ### Ingesting Documents in Console Mode
