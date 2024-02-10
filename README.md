@@ -147,6 +147,14 @@ Other prefixes:
 - `/web <your query>`: perform web searches and generate a report
 - `/chat <your query>`: regular chat, without retrieving docs or websites
 
+Ingesting into the current vs a new collection:
+
+- `/ingest new <with or without URL>`: ingest into a new collection
+- `/ingest add <with or without URL>`: ingest and add to the current collection
+- `/summarize ... URL`: same rules in regards to `new`/`add`
+
+The default behavior (if `new`/`add` is not specified) is to (a) normally ingest into a new collection, which is given a special name (`ingested-content-...`); (b) if the current collection has this kind of name, add to it. That way, you can use `/ingest` several times in a row and all the documents will be added to the same collection.
+
 Example queries:
 
 - `/research What are this month's most important AI news?`
@@ -287,7 +295,11 @@ Additional shorthands:
 
 To ingest your local documents and use them when chatting with the bot, you can simply type `/ingest` if you are using the Streamlit UI (which is the default way of using the bot). You will then be prompted to upload your documents. You can also ingest a URL by typing `/ingest` followed by the URL. The bot will then retrieve the content of the URL and ingest it into a new collection.
 
-Once the documents are ingested, you can continue adding more documents or URLs by using the `/ingest` command again. When you are done, you should rename the collection (`/db rename new-name`). Why should you rename it? Because if the collection has the default name the system assigned to it, any future use of the `/ingest` command will continue adding documents to it.
+Once the documents are ingested, you can continue adding more documents or URLs by using the `/ingest` command again. When you are done, you should rename the collection (`/db rename new-name`).
+
+You can also explicitly control whether the documents are ingested into a new collection or added to the current collection. To ingest into a new collection, use `/ingest new`. To add to the current collection, use `/ingest add`. See [Using DocDocGo](#using-docdocgo) for more details.
+
+The `/summarize` command works similarly to the `/ingest` command, but it retrieves the content of the URL and summarizes it before ingesting it into a collection.
 
 Additionally, using the `/research` command automatically ingests the results of the web research into a new document collection.
 

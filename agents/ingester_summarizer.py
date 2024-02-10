@@ -12,11 +12,13 @@ from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
     ADDITIVE_COLLECTION_PREFIX,
     INGESTED_DOCS_INIT_PREFIX,
+    format_invalid_input_answer,
     format_nonstreaming_answer,
 )
 from utils.lang_utils import limit_tokens_in_text
-from utils.prepare import CONTEXT_LENGTH
+from utils.prepare import CONTEXT_LENGTH, DEFAULT_COLLECTION_NAME
 from utils.prompts import SUMMARIZER_PROMPT
+from utils.query_parsing import IngestCommand
 from utils.type_utils import ChatMode
 from utils.web import LinkData, get_batch_url_fetcher
 
@@ -25,28 +27,42 @@ DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 
 def get_ingester_summarizer_response(chat_state: ChatState):
     message = chat_state.parsed_query.message
-    fetcher = get_batch_url_fetcher()  # don't really need the batch aspect here
-    html = fetcher([message])[0]
-    link_data = LinkData.from_raw_content(html)
+    ingest_command = chat_state.parsed_query.ingest_command
 
-    if link_data.error:
-        return format_nonstreaming_answer(
-            f"Apologies, I could not retrieve the resource `{message}`."
+    # Determine if we need to use the same collection or create a new one
+    if ingest_command == IngestCommand.ADD or (
+        ingest_command == IngestCommand.DEFAULT
+        and get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
+            ADDITIVE_COLLECTION_PREFIX
         )
-
-    if get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
-        ADDITIVE_COLLECTION_PREFIX
     ):
-        # We are in an additive collection, so we will use the same collection
+        # We will use the same collection
         coll_name_as_shown = get_user_facing_collection_name(
             chat_state.vectorstore.name
         )
         coll_name_full = chat_state.vectorstore.name
+
+        # Screen default collection
+        if coll_name_full == DEFAULT_COLLECTION_NAME:
+            return format_invalid_input_answer(
+                "You cannot ingest content into the default collection.",
+                "You cannot ingest content into the default collection.",
+            )
     else:
         # We will need to create a new collection
         coll_name_as_shown = INGESTED_DOCS_INIT_PREFIX + uuid.uuid4().hex[:8]
         coll_name_full = construct_full_collection_name(
             chat_state.user_id, coll_name_as_shown
+        )
+
+    # Fetch the content
+    fetch_func = get_batch_url_fetcher()  # don't really need the batch aspect here
+    html = fetch_func([message])[0]
+    link_data = LinkData.from_raw_content(html)
+
+    if link_data.error:
+        return format_nonstreaming_answer(
+            f"Apologies, I could not retrieve the resource `{message}`."
         )
 
     if chat_state.chat_mode == ChatMode.INGEST_COMMAND_ID:

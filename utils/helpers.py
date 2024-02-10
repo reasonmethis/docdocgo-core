@@ -84,7 +84,7 @@ You'll need your own OpenAI API key for that. Using your own key also relaxes th
 on the maximum number of automatic research iterations.]
 """
 
-HELP_MESSAGE = f"""\
+HELP_MESSAGE = """\
 ### What I can do
 
 - **Answer questions** about documents you provide.
@@ -93,12 +93,11 @@ HELP_MESSAGE = f"""\
 - **Research a topic** on the web and generate a report
     - I can keep researching more and more sources and improving my report iteratively.
     - I **save sources** in a new doc collection, so you can ask me questions about them.
+- **Summarize** a web page and ingest it into a collection
 
 ### How to use me
 
-You can enter your messages with or without a prefix. Different prefixes activate my different \
-response modes. Think of them like different subagents, each with a different job. \
-The default mode is `{DEFAULT_MODE}`.
+The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional, if you just enter a message the `/docs` prefix is used.
 
 Here's what each prefix does. Most important ones:
 
@@ -117,9 +116,15 @@ Other prefixes:
 - `/web <your query>`: perform web searches and generate a report
 - `/chat <your query>`: regular chat, without retrieving docs or websites
 
+Ingesting into the current vs a new collection:
+
+- `/ingest new <with or without URL>`: ingest into a new collection
+- `/ingest add <with or without URL>`: ingest and add to the current collection
+
+The default behavior (if `new`/`add` is not specified) is to (a) normally ingest into a new collection, which is given a special name (`ingested-content-...`); (b) if the current collection has this kind of name, add to it. That way, you can use `/ingest` several times in a row and all the documents will be added to the same collection.
+
 Example queries:
 
-- `/help How do I delete a collection?`
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)

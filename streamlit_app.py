@@ -184,7 +184,7 @@ with st.sidebar:
 
     # Resources
     with st.expander("Resources", expanded=True):
-        "[Command Cheatsheet](https://github.com/reasonmethis/docdocgo-core/blob/main/docs/command-cheatsheet.md)"
+        "[Command Cheatsheet](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md#using-docdocgo)"
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 ####### Main page #######
@@ -262,6 +262,7 @@ else:
 #### The rest will only run once there is a parsed query to run ####
 chat_mode = parsed_query.chat_mode
 chat_state.update(parsed_query=parsed_query)
+is_ingest_via_file_uploader = chat_mode == ChatMode.INGEST_COMMAND_ID and not parsed_query.message
 
 # Display the user message (or the auto-instruction)
 if full_query:
@@ -271,7 +272,10 @@ if full_query:
 # Get and display response from the bot
 with st.chat_message("assistant"):
     # Prepare status container and display initial status
+    # TODO: needs to be improved significantly
     try:
+        if is_ingest_via_file_uploader:
+            raise KeyError # to skip the status
         status = st.status(status_config[chat_mode]["thinking.header"])
         status.write(status_config[chat_mode]["thinking.body"])
     except KeyError:
@@ -368,7 +372,7 @@ with st.chat_message("assistant"):
         chat_state.sources_history.append(sources)
 
 # Display the file uploader if needed
-if chat_mode == ChatMode.INGEST_COMMAND_ID:
+if is_ingest_via_file_uploader:
     st.session_state.idx_file_upload = len(chat_state.chat_and_command_history) - 1
     files, allow_all_ext = show_uploader(is_new_widget=True)
 

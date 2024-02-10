@@ -35,6 +35,12 @@ research_commands_to_enum = {
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
+IngestCommand = Enum("IngestCommand", "NEW ADD DEFAULT")
+ingest_command_to_enum = {
+    "new": IngestCommand.NEW,
+    "add": IngestCommand.ADD,
+}
+# DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
@@ -46,9 +52,12 @@ class ParsedQuery(BaseModel):
     # original_query: str | None = None
     chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID
     message: str = ""
+
+    # Normally, only one of the following fields should be set
     search_params: Props | None = None
     research_params: ResearchParams | None = None
     db_command: DBCommand | None = None
+    ingest_command: IngestCommand | None = None
 
     def is_ingestion_needed(self) -> bool:
         if self.research_params and self.research_params.task_type in {
@@ -59,7 +68,11 @@ class ParsedQuery(BaseModel):
             ResearchCommand.MORE,
         }:
             return True
-        if self.chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:
+        
+        if self.chat_mode in {
+            ChatMode.SUMMARIZE_COMMAND_ID,
+            ChatMode.INGEST_COMMAND_ID,
+        }:
             return True
 
         return False
@@ -205,19 +218,19 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         ResearchCommand.SET_REPORT_TYPE,
     }:
         if not query:
-            task_type = ResearchCommand.NONE # show help if no query
+            task_type = ResearchCommand.NONE  # show help if no query
         elif task_type is None:
             task_type = ResearchCommand.NEW
         return ResearchParams(task_type=task_type), query
 
     if task_type == ResearchCommand.VIEW:
         sub_task, query = get_command(query, research_view_subcommands, "main")
-        if query: # view task doesn't take any additional query after sub_task
+        if query:  # view task doesn't take any additional query after sub_task
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type, sub_task=sub_task), ""
-    
+
     if task_type == ResearchCommand.CLEAR:
-        if query: # clear task doesn't take any additional query
+        if query:  # clear task doesn't take any additional query
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
 
@@ -225,7 +238,7 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         if query:
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
-    
+
     # We have a task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
     num_iterations, query_after_get_int = get_int(query)
 
@@ -261,6 +274,10 @@ def parse_query(
     if chat_mode == ChatMode.DB_COMMAND_ID:
         c, m = get_command(query, db_command_to_enum, DBCommand.NONE)
         return ParsedQuery(chat_mode=chat_mode, db_command=c, message=m)
+    
+    if chat_mode in {ChatMode.INGEST_COMMAND_ID, ChatMode.SUMMARIZE_COMMAND_ID}:
+        c, m = get_command(query, ingest_command_to_enum, IngestCommand.DEFAULT)
+        return ParsedQuery(chat_mode=chat_mode, ingest_command=c, message=m)
 
     if chat_mode == ChatMode.RESEARCH_COMMAND_ID:
         r, m = parse_research_command(query)

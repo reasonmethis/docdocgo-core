@@ -15,6 +15,8 @@ from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import ADDITIVE_COLLECTION_PREFIX, INGESTED_DOCS_INIT_PREFIX
 from utils.ingest import get_page_texts_from_pdf
+from utils.prepare import DEFAULT_COLLECTION_NAME
+from utils.query_parsing import IngestCommand
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
@@ -56,10 +58,18 @@ def extract_text(files, allow_all_ext):
 
 
 def ingest_docs(docs: list[Document], chat_state: ChatState):
-    if get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
-        ADDITIVE_COLLECTION_PREFIX
+    ingest_command = chat_state.parsed_query.ingest_command
+
+    if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME and (
+        ingest_command == IngestCommand.ADD
+        or (
+            ingest_command == IngestCommand.DEFAULT
+            and get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
+                ADDITIVE_COLLECTION_PREFIX
+            )
+        )
     ):
-        # We are in an additive collection, so we will use the same collection
+        # We will use the same collection
         uploaded_docs_coll_name_full = chat_state.vectorstore.name
         uploaded_docs_coll_name_as_shown = get_user_facing_collection_name(
             uploaded_docs_coll_name_full
@@ -88,13 +98,9 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
                 uploaded_docs_coll_name_full
             )
             msg_template = POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL
-        
+
         with st.chat_message("assistant"):
-            st.markdown(
-                    msg_template.format(
-                        coll_name=uploaded_docs_coll_name_as_shown
-                    )
-                )
+            st.markdown(msg_template.format(coll_name=uploaded_docs_coll_name_as_shown))
     except Exception as e:
         with st.chat_message("assistant"):
             st.markdown(
