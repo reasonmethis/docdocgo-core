@@ -167,14 +167,20 @@ You can also use the following commands:
 - `/research combine`: combine reports to get a report that takes more sources into account
 - `/research auto 42`: performs 42 iterationso of "more"/"combine"
 - `/research iterate`: fetch more websites and iterate on the previous report
-- `/research <cmd> 42`: repeat command such as `more`, `combine`, etc. 42 times
+- `/research <cmd> 42`: repeat command such as `more`, `combine`, `iterate`, etc. 42 times
+- `/research set-query <your query>`: change your research query
+- `/research set-report-type <new report type>`: instructions for the desired report format
+- `/research clear`: remove all reports but keep ingested content
+- `/research startover`: perform `/research clear`, then rewrite the initial report
 
 You can also view the reports:
 
-- `/research view main`: view the main report (`main` can be omitted)
+- `/research view main`: view the stats and main report (`main` can be omitted)
 - `/research view stats`: view just the report stats
 - `/research view base`: view the base reports
 - `/research view combined`: view the combined reports
+
+Remember, you can always ask me for help in using me - simply type `/help` followed by your question.\
 """
 # - `/research more <your new query>`: same as above, but ingest into current collection
 

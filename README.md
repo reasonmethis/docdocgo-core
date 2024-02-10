@@ -179,11 +179,15 @@ You can also use the following commands:
 - `/research combine`: combine reports to get a report that takes more sources into account
 - `/research auto 42`: performs 42 iterationso of "more"/"combine"
 - `/research iterate`: fetch more websites and iterate on the previous report
-- `/research <cmd> 42`: repeat command such as `more`, `combine`, etc. 42 times
+- `/research <cmd> 42`: repeat command such as `more`, `combine`, `iterate`, etc. 42 times
+- `/research set-query <your query>`: change your research query
+- `/research set-report-type <new report type>`: instructions for the desired report format
+- `/research clear`: remove all reports but keep ingested content
+- `/research startover`: perform `/research clear`, then rewrite the initial report
 
 You can also view the reports:
 
-- `/research view main`: view the main report (`main` can be omitted)
+- `/research view main`: view the stats and main report (`main` can be omitted)
 - `/research view stats`: view just the report stats
 - `/research view base`: view the base reports
 - `/research view combined`: view the combined reports
@@ -214,7 +218,8 @@ Here's the simplest workflow for research:
 2. Decide on the next step:  
   a. If you are happy with the report, you can stop here.  
   b. If the report is completely off, you can go back to step 1 and try a new query.  
-  c. Otherwise, continue to step 3.
+  c. If some adjustments are needed use `/research set-...`, then `/research startover` (see below).
+  d. Otherwise, continue to step 3.
 3. Use `/research deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
 
@@ -244,7 +249,23 @@ But of course, you don't want to have to do math to figure out how many iteratio
 
 ### The `view` subcommand
 
-Finally, you can view the reports and some stats on them using the `/research view` command. The `/research view stats` command will show the report stats, such as how many sources have been processed, how many base and combined reports there are, etc. The `/research view main` command (`main` is optional) will show the stats and main report, i.e. the report that combines the most sources. The `/research view base` command will show the base reports. The `/research view combined` command will show the combined reports.
+You can view the reports and some basic info on them using the `/research view` command. The `/research view stats` command will show the report basic info, such as the query and report type, as well as report stats, such as how many sources have been processed, how many base and combined reports there are, etc. The `/research view main` command (`main` is optional) will show the stats and main report, i.e. the report that combines the most sources. The `/research view base` command will show the base reports. The `/research view combined` command will show the combined reports.
+
+### The `set-...` subcommands
+
+If you are not quite happy with how the report is shaping up, you have the option to change the focus and/or the format of the report, without having to re-fetch and re-ingest the already ingested websites. The `/research set-query` command allows you to change the query for the current research. The `/research set-report-type` command allows you to change the report format.
+
+What are the query and report format? The query is just what you specified in your initial `/research <query>` command. The report format is originally automatically inferred by DocDocGo based on your query, but you can change it a new format. For example, you can request:
+
+```markdown
+/research set-report-type Numbered list with short bullet points and URL of corresponding source
+```
+
+All subsequent reports will be generated using the new query and/or format. This is especially useful with the `startover` command, which we'll discuss next.
+
+### The `clear` and `startover` subcommands
+
+The `/research clear` command will remove all reports but keep the ingested content. The `/research startover` command will perform the `/research clear` command, then rewrite the initial report. This is useful if you want to change the query and/or report format, but don't want to re-ingest the already ingested websites. Rewriting the reports without having to re-fetch and re-ingest the websites makes things go much faster and is especially useful if you have already accumulated a lot of relevant content.
 
 ## Database Management
 
