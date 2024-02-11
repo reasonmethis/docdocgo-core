@@ -36,6 +36,9 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
+EMBEDDINGS_MODEL_NAME = os.getenv("EMBEDDINGS_MODEL_NAME", "text-embedding-3-large")
+EMBEDDINGS_DIMENSIONS = int(os.getenv("EMBEDDINGS_DIMENSIONS", 3072))
+
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
 DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")

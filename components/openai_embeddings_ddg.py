@@ -1,12 +1,16 @@
 import os
 
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.schema.embeddings import Embeddings
+from langchain_core.embeddings import Embeddings
+from langchain_openai import OpenAIEmbeddings
 
-from utils.prepare import IS_AZURE
+from utils.prepare import EMBEDDINGS_DIMENSIONS, EMBEDDINGS_MODEL_NAME, IS_AZURE
 
 
-def get_openai_embeddings(api_key: str | None = None) -> Embeddings:
+def get_openai_embeddings(
+    api_key: str | None = None,
+    embeddings_model_name: str = EMBEDDINGS_MODEL_NAME,
+    embeddings_dimensions: int = EMBEDDINGS_DIMENSIONS,
+) -> Embeddings:
     # Create the embeddings object, pulling current values of env vars
     # (as of Aug 8, 2023, max chunk size for Azure API is 16)
     return (
@@ -14,7 +18,13 @@ def get_openai_embeddings(api_key: str | None = None) -> Embeddings:
             deployment=os.getenv("EMBEDDINGS_DEPLOYMENT_NAME"), chunk_size=16
         )
         if IS_AZURE
-        else OpenAIEmbeddings(api_key=api_key or "")  # NOTE: if empty key, will throw
+        else OpenAIEmbeddings(
+            api_key=api_key or "",
+            model=embeddings_model_name,
+            dimensions=None
+            if embeddings_model_name == "text-embeddings-ada-002"
+            else embeddings_dimensions,
+        )  # NOTE: if empty API key, will throw
     )
 
 
