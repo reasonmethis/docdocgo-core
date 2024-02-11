@@ -99,10 +99,10 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
             )
             msg_template = POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL
 
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             st.markdown(msg_template.format(coll_name=uploaded_docs_coll_name_as_shown))
     except Exception as e:
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             st.markdown(
                 f"Apologies, an error occurred during ingestion:\n```\n{e}\n```"
             )

@@ -31,9 +31,20 @@ from utils.strings import limit_number_of_characters
 from utils.type_utils import ChatMode, chat_modes_needing_llm
 
 
+# Page config
+page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
+st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
+st.markdown(
+    "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
+    unsafe_allow_html=True,
+)
+
 def show_uploader(is_new_widget=False, border=True):
     if is_new_widget:
-        st.session_state.uploader_placeholder.empty()
+        try:
+            st.session_state.uploader_placeholder.empty()
+        except AttributeError:
+            pass # should never happen, but just in case
         # Switch between one of the two possible keys (to avoid duplicate key error)
         st.session_state.uploader_form_key = (
             "uploader-form-alt"
@@ -67,14 +78,6 @@ if "chat_state" not in st.session_state:
     is_env_loaded = is_env_loaded  # more info at the end of docdocgo.py
 
 chat_state: ChatState = st.session_state.chat_state
-
-# Page config
-page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
-st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
-st.markdown(
-    "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
-    unsafe_allow_html=True,
-)
 
 ####### Sidebar #######
 with st.sidebar:
@@ -205,10 +208,10 @@ for i, (msg_pair, sources) in enumerate(
 ):
     full_query, answer = msg_pair
     if full_query is not None:
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=st.session_state.user_avatar):
             st.markdown(fix_markdown(full_query))
     if answer is not None or sources is not None:
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             if answer is not None:
                 st.markdown(fix_markdown(answer))
             show_sources(sources)
@@ -223,7 +226,7 @@ if files:
 
     # Display failed files, if any
     if failed_files:
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             st.markdown(
                 "Apologies, the following files failed to process:\n```\n"
                 + "\n".join(failed_files)
@@ -268,11 +271,12 @@ is_ingest_via_file_uploader = (
 
 # Display the user message (or the auto-instruction)
 if full_query:
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=st.session_state.user_avatar):
+        # NOTE: should use a different avatar for auto-instructions
         st.markdown(fix_markdown(full_query))
 
 # Get and display response from the bot
-with st.chat_message("assistant"):
+with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     # Prepare status container and display initial status
     # TODO: needs to be improved significantly
     try:
