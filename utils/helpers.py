@@ -97,7 +97,15 @@ HELP_MESSAGE = """\
 
 ### How to use me
 
-The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional, if you just enter a message the `/docs` prefix is used.
+First things first, I know figuring out how to use a new tool can be a bit overwhelming. But don't \
+worry, you won't have to memorize all the commands. Instead, you can just type `/help` followed by \
+what you want to do, and I'll guide you through it. For example:
+
+```markdown
+/help How can I have you do web research for me?
+```
+
+Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional, if you just enter a message the default `/docs` prefix is used.
 
 Here's what each prefix does. Most important ones:
 
@@ -175,6 +183,7 @@ You can also use the following commands:
 - `/research <cmd> 42`: repeat command such as `more`, `combine`, `iterate`, etc. 42 times
 - `/research set-query <your query>`: change your research query
 - `/research set-report-type <new report type>`: instructions for the desired report format
+- `/research set-search-queries`: perform web searches with new queries and queue up resulting links
 - `/research clear`: remove all reports but keep ingested content
 - `/research startover`: perform `/research clear`, then rewrite the initial report
 

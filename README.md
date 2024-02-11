@@ -190,6 +190,7 @@ You can also use the following commands:
 - `/research <cmd> 42`: repeat command such as `more`, `combine`, `iterate`, etc. 42 times
 - `/research set-query <your query>`: change your research query
 - `/research set-report-type <new report type>`: instructions for the desired report format
+- `/research set-search-queries`: perform web searches with new queries and queue up resulting links
 - `/research clear`: remove all reports but keep ingested content
 - `/research startover`: perform `/research clear`, then rewrite the initial report
 
@@ -261,7 +262,7 @@ You can view the reports and some basic info on them using the `/research view` 
 
 ### The `set-...` subcommands
 
-If you are not quite happy with how the report is shaping up, you have the option to change the focus and/or the format of the report, without having to re-fetch and re-ingest the already ingested websites. The `/research set-query` command allows you to change the query for the current research. The `/research set-report-type` command allows you to change the report format.
+If you are not quite happy with how the report is shaping up, you have the option to change the focus and/or the format of the report, without having to re-fetch and re-ingest the already ingested websites. The `/research set-query` command allows you to change the query for the current research. The `/research set-report-type` command allows you to change the report format. The `/research set-search-queries` command allows you to specify new web search queries DocDocGo will use to fetch more content from the web.
 
 What are the query and report format? The query is just what you specified in your initial `/research <query>` command. The report format is originally automatically inferred by DocDocGo based on your query, but you can change it a new format. For example, you can request:
 
@@ -269,7 +270,10 @@ What are the query and report format? The query is just what you specified in yo
 /research set-report-type Numbered list with short bullet points and URL of corresponding source
 ```
 
-All subsequent reports will be generated using the new query and/or format. This is especially useful with the `startover` command, which we'll discuss next.
+All subsequent reports will be generated using the new query, format, and/or search queries. Here are a couple of possible (but not the only) workflows:
+
+1. Changing the query and/or report type, followed by the `startover` command (which we'll discuss next).
+2. Changing the search queries and continuing without starting over, using commands such as `deeper`, `auto`, `iterate`, etc.
 
 ### The `clear` and `startover` subcommands
 
