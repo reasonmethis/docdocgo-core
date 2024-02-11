@@ -346,7 +346,7 @@ As an alternative way to handle the issue of the default collection, you can cre
 Installing the following packages will also install all of the other requirements:
 
 ```bash
-langchain==0.0.352
+langchain==0.1.6
 chromadb==0.4.21
 openai==1.6.1
 tiktoken==0.5.2
