@@ -884,8 +884,6 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         f"{str(nums_for_auto[1:])[1:-1]}, ..."
         f"\n\n---\n\n"
     )
-    ic(rr_data.processed_links)
-    ic(rr_data.unprocessed_links)
 
     sub_task = chat_state.parsed_query.research_params.sub_task
     if sub_task == "stats":
