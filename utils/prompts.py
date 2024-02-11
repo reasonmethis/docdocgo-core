@@ -269,7 +269,7 @@ REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", report_combiner_template)]
 )
 
-searcher_template = """\
+_searcher_template = """\
 Here is the scraped content of some online sources.
 
 <sources>{context}</sources>
@@ -284,6 +284,11 @@ Answer following one of these scenarios:
 2. If the sources contain information to fully answer the query, then write: "ANSWER: " followed by the answer. Cite the source where you found the information, including its URL. If more than one source was needed, cite all of them, including their URLs.
 3. If the sources contain information to partially answer the query, then write: "PARTIAL ANSWER (<percentage of the answer that was found>)%: " followed by the partial answer. Again, cite the source(s) where you found the information, including their URL(s). 
 """
+
+_possible_report_template = """\
+... Use only information from the sources, no extra info please. If the sources don't contain relevant information, just say so without trying to make up your own info. After each paragraph, include the URL(s) of the source(s) from which the information was used. If there's no relevant source for a paragraph, write [NO_SOURCE] after it
+"""
+
 
 iterative_report_improver_template = """\
 You are ARIA, Advanced Report Improvement Assistant. 

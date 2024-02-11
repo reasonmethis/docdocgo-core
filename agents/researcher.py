@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from datetime import datetime
@@ -47,6 +48,9 @@ from utils.web import (
     get_batch_url_fetcher,
 )
 
+WEB_SEARCH_API_ISSUE_MSG = (
+    "Apologies, it seems I'm having an issue with the API I use to search the web."
+)
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 
 
@@ -159,13 +163,28 @@ def parse_research_report(answer: str) -> tuple[str, str | None]:
     return report, evaluation
 
 
+def get_links_from_queries(
+    queries: list[str], num_search_results: int = 10
+) -> list[str]:
+    """
+    Get links from a list of queries by doing a Google search for each query.
+    """
+    # Do a Google search for each query
+    search = GoogleSerperAPIWrapper(k=num_search_results)
+    search_tasks = [search.aresults(query) for query in queries]
+    search_results = gather_tasks_sync(search_tasks)  # TODO serper has batching
+
+    # Get links from search results
+    return get_links(search_results)
+
+
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 NUM_OK_LINKS_NEW_REPORT = min(7, round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600))
 # TODO: experiment with reducing the number of sources (gpt-3.5 may have trouble with 7)
 
 
-def get_initial_researcher_response(
+def get_web_research_response_no_ingestion(
     chat_state: ChatState,
     max_queries: int = 20,  # not that important (as long as it's not too small)
     num_ok_links: int = NUM_OK_LINKS_NEW_REPORT,
@@ -213,25 +232,17 @@ def get_initial_researcher_response(
         num_search_results = (
             100 if chat_state.chat_mode == ChatMode.RESEARCH_COMMAND_ID else 10
         )  # default is 10; 20-100 costs 2 credits per query
-        search = GoogleSerperAPIWrapper(k=num_search_results)
-        search_tasks = [search.aresults(query) for query in queries]
-        search_results = gather_tasks_sync(search_tasks)  # TODO serper has batching
-
-        # Get links from search results
-        all_links = get_links(search_results)
+        all_links = get_links_from_queries(queries, num_search_results)
         if not all_links:
-            return format_nonstreaming_answer(
-                "Apologies, it seems I'm having an issue "
-                "with the API I use to search the web."
-            )
+            return format_nonstreaming_answer(WEB_SEARCH_API_ISSUE_MSG)
 
         print(
             f"Got {len(all_links)} links in total, "
             f"will try to fetch at least {min(num_ok_links, len(all_links))} successfully."
         )
-        t_get_links_end = datetime.now()
     except Exception as e:
         raise ValueError(f"Failed to get links: {e}")
+    t_get_links_end = datetime.now()
 
     try:
         print("Fetching content from links and extracting main content...")
@@ -267,7 +278,7 @@ def get_initial_researcher_response(
     num_obtained_ok_links = sum(1 for data in link_data_dict.values() if not data.error)
     rr_data = ResearchReportData(
         query=query,
-        generated_queries=queries,
+        search_queries=queries,
         report_type=report_type,
         unprocessed_links=all_links[len(links_to_process) :],
         processed_links=links_to_process,
@@ -327,17 +338,14 @@ def get_initial_researcher_response(
         raise ValueError(f"Failed to generate report: {e}")
 
 
-WebsearcherMode = Enum("WebsearcherMode", "QUICK MEDIUM TEST")
+WebsearcherMode = Enum("WebsearcherMode", "QUICK MEDIUM")
 
 
 def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM):
     if mode == WebsearcherMode.QUICK:
         return get_websearcher_response_quick(chat_state)
     elif mode == WebsearcherMode.MEDIUM:
-        return get_initial_researcher_response(chat_state)
-    elif mode == WebsearcherMode.TEST:
-        return get_initial_researcher_response(chat_state)
-        # return get_web_test_response(chat_state)
+        return get_web_research_response_no_ingestion(chat_state)
     raise ValueError(f"Invalid mode: {mode}")
 
 
@@ -351,7 +359,7 @@ SMALL_WORDS |= {"some", "any"}
 
 
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
-    response = get_initial_researcher_response(chat_state)
+    response = get_web_research_response_no_ingestion(chat_state)
 
     try:
         rr_data: ResearchReportData = response["rr_data"]
@@ -464,8 +472,6 @@ MAX_ITERATIONS_IF_OWN_KEY = 126
 def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Assign task type and get rr_data
     task_type = chat_state.parsed_query.research_params.task_type
-    if task_type == ResearchCommand.NEW:
-        return get_initial_iterative_researcher_response(chat_state)
     if task_type == ResearchCommand.AUTO:
         task_type = ResearchCommand.MORE  # we were routed here from main handler
 
@@ -849,23 +855,37 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     rr_data: ResearchReportData = chat_state.get_rr_data()
     num_base_reports = len(rr_data.base_reports)
 
+    num_obtained_ok_links = sum(
+        1 for link_data in rr_data.link_data_dict.values() if not link_data.error
+    )
+    num_ingested_links = sum(
+        1 for link_data in rr_data.link_data_dict.values() if link_data.is_ingested
+    )
+    num_failed_links = len(rr_data.link_data_dict) - num_obtained_ok_links
+
     coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
     nums_for_auto = get_nums_auto_iterations_for_top_level_reports(rr_data, 5)
     answer = (
         f"### Research overview for collection `{coll_name_as_shown}`\n\n"
         f"Query:\n\n```\n{rr_data.query}\n```\n\n"
         f"Report type:\n\n```\n{rr_data.report_type}\n```\n\n"
+        f"Search queries:\n\n```\n{rr_data.search_queries}\n```\n\n"
         f"Report breakdown:\n\n"
         f"- There are {num_base_reports} base reports.\n"
         f"- There are {len(rr_data.combined_reports)} combined reports.\n"
         f"- There are {len(rr_data.processed_links)} processed links.\n"
         f"- There are {len(rr_data.unprocessed_links)} unprocessed links.\n"
+        f"- There are {num_obtained_ok_links} successfully fetched links.\n"
+        f"- There are {num_ingested_links} ingested links.\n"
+        f"- There are {num_failed_links} failed links.\n"
         f"- Report levels: {get_num_reports_per_level(rr_data)}\n\n"
         f"To get the next top-level report run `/research auto {nums_for_auto[0]}`. "
         "For further top-level reports, make the number "
         f"{str(nums_for_auto[1:])[1:-1]}, ..."
         f"\n\n---\n\n"
     )
+    ic(rr_data.processed_links)
+    ic(rr_data.unprocessed_links)
 
     sub_task = chat_state.parsed_query.research_params.sub_task
     if sub_task == "stats":
@@ -921,6 +941,38 @@ def get_research_set_response(chat_state: ChatState) -> Props:
         )
 
 
+def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
+    parsed_query = chat_state.parsed_query
+    rr_data = chat_state.get_rr_data()
+
+    # Update rr_data with the new queries
+    rr_data.search_queries = json.loads(parsed_query.message)  # validated by the parser
+
+    # Do Google searches to get links for the new queries
+    links = get_links_from_queries(rr_data.search_queries, num_search_results=100)
+    if not links:
+        return format_nonstreaming_answer(WEB_SEARCH_API_ISSUE_MSG)
+    
+    # Remove links that have already been processed
+    processed_links_set = set(rr_data.processed_links)
+    links = [link for link in links if link not in processed_links_set]
+
+    # Replace old unprocessed links with new ones
+    rr_data.unprocessed_links = links
+    rr_data.num_obtained_unprocessed_links = 0
+    rr_data.num_obtained_unprocessed_ok_links = 0
+
+    # Save new rr_data in chat_state (which saves it in the database) and return
+    chat_state.save_rr_data(rr_data)
+
+    # Return the response
+    return format_nonstreaming_answer(
+        "The search queries have been updated to:\n\n"
+        f"```\n{parsed_query.message}\n```\n\n"
+        f"{len(links)} new links to research have been obtained from the search queries."
+    )
+
+
 def get_research_clear_response(chat_state: ChatState):
     rr_data = chat_state.get_rr_data()
 
@@ -948,16 +1000,29 @@ def get_research_clear_response(chat_state: ChatState):
     )
 
 
+task_handlers = {
+    ResearchCommand.NEW: get_initial_iterative_researcher_response,
+    ResearchCommand.ITERATE: get_iterative_researcher_response,
+    ResearchCommand.MORE: get_iterative_researcher_response,
+    ResearchCommand.COMBINE: get_report_combiner_response,
+    ResearchCommand.VIEW: get_research_view_response,
+    ResearchCommand.SET_QUERY: get_research_set_response,
+    ResearchCommand.SET_REPORT_TYPE: get_research_set_response,
+    ResearchCommand.SET_SEARCH_QUERIES: get_research_set_search_queries_response,
+    ResearchCommand.CLEAR: get_research_clear_response,
+}
+
+
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
     ic(task_type)
-    if task_type in {
-        ResearchCommand.NEW,
-        ResearchCommand.ITERATE,
-        ResearchCommand.MORE,
-    }:
-        return get_iterative_researcher_response(chat_state)
 
+    try:
+        return task_handlers[task_type](chat_state)
+    except KeyError:
+        pass
+
+    # AUTO and NONE (help) need special handling
     if task_type == ResearchCommand.AUTO:
         response = get_report_combiner_response(chat_state)
 
@@ -972,22 +1037,7 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
         # We can't combine reports, so generate a new report instead
         return get_iterative_researcher_response(chat_state)
 
-    if task_type == ResearchCommand.COMBINE:
-        return get_report_combiner_response(chat_state)
-
-    if task_type == ResearchCommand.VIEW:
-        return get_research_view_response(chat_state)
-
-    if task_type in {ResearchCommand.SET_QUERY, ResearchCommand.SET_REPORT_TYPE}:
-        return get_research_set_response(chat_state)
-
-    if task_type == ResearchCommand.CLEAR:
-        return get_research_clear_response(chat_state)
-
-    if task_type == ResearchCommand.NONE:
-        return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
-
-    raise ValueError(f"Invalid task type: {task_type}")
+    return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:

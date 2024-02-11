@@ -13,7 +13,7 @@ class Report(BaseModel):
 
 class ResearchReportData(BaseModel):
     query: str
-    generated_queries: list[str]
+    search_queries: list[str]
     report_type: str
     unprocessed_links: list[str]
     processed_links: list[str]
@@ -30,7 +30,7 @@ class ResearchReportData(BaseModel):
 
     def is_base_report(self, id: str) -> bool:
         return not id.startswith("c")
-    
+
     def is_report_childless(self, id: str) -> bool:
         return self.get_report_by_id(id).child_report_id is None
 

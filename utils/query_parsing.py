@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 from enum import Enum
@@ -18,7 +19,8 @@ db_command_to_enum = {
 
 ResearchCommand = Enum(
     "ResearchCommand",
-    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_REPORT_TYPE CLEAR REWRITE NONE",
+    "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_SEARCH_QUERIES "
+    "SET_REPORT_TYPE CLEAR REWRITE NONE",
 )
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -29,7 +31,11 @@ research_commands_to_enum = {
     "deeper": ResearchCommand.DEEPER,
     "view": ResearchCommand.VIEW,
     "set-query": ResearchCommand.SET_QUERY,
+    "sq": ResearchCommand.SET_QUERY,  # "sq" is a shorthand for "set-query
     "set-report-type": ResearchCommand.SET_REPORT_TYPE,
+    "srt": ResearchCommand.SET_REPORT_TYPE,  # "srt" is a shorthand for "set-report-type
+    "set-search-queries": ResearchCommand.SET_SEARCH_QUERIES,
+    "ssq": ResearchCommand.SET_SEARCH_QUERIES,  # "ssq" is a shorthand for "set-search-queries
     "clear": ResearchCommand.CLEAR,
     "startover": ResearchCommand.REWRITE,
 }
@@ -41,6 +47,7 @@ ingest_command_to_enum = {
     "add": IngestCommand.ADD,
 }
 # DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
+
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
@@ -68,7 +75,7 @@ class ParsedQuery(BaseModel):
             ResearchCommand.MORE,
         }:
             return True
-        
+
         if self.chat_mode in {
             ChatMode.SUMMARIZE_COMMAND_ID,
             ChatMode.INGEST_COMMAND_ID,
@@ -207,6 +214,33 @@ def extract_search_params(query: str, mode="normal") -> tuple[str, Props]:
     return query, {"where_document": {"$and": filters}}
 
 
+def standardize_search_queries(query: str) -> str:
+    """
+    Extract a list of search queries from the given query.
+    Return the resulting list of queries as a JSON string.
+
+    There are two ways to specify search queries:
+    1. By providing a list of queries as a Python list in string format.
+    2. By providing a list of queries as a comma-separated string.
+
+    If the query can be parsed as a Python list in string format, it is treated as such. If not,
+    method 2 is used.
+    """
+    try:
+        # Attempt to parse the query using ast.literal_eval
+        search_queries = ast.literal_eval(query) # to handle single quotes
+        if not isinstance(search_queries, list):
+            raise SyntaxError
+        for q in search_queries:
+            if not isinstance(q, str):
+                raise SyntaxError
+        return json.dumps(search_queries)
+    except (ValueError, SyntaxError):
+        # Fallback to comma-separated string parsing
+        search_queries = [q.strip() for q in query.split(",")]
+        return json.dumps(search_queries)
+
+
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     task_type, query = get_command(orig_query, research_commands_to_enum)
 
@@ -216,11 +250,14 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         ResearchCommand.NEW,
         ResearchCommand.SET_QUERY,
         ResearchCommand.SET_REPORT_TYPE,
+        ResearchCommand.SET_SEARCH_QUERIES,
     }:
         if not query:
             task_type = ResearchCommand.NONE  # show help if no query
         elif task_type is None:
             task_type = ResearchCommand.NEW
+        elif task_type == ResearchCommand.SET_SEARCH_QUERIES:
+            query = standardize_search_queries(query)
         return ResearchParams(task_type=task_type), query
 
     if task_type == ResearchCommand.VIEW:
@@ -274,7 +311,7 @@ def parse_query(
     if chat_mode == ChatMode.DB_COMMAND_ID:
         c, m = get_command(query, db_command_to_enum, DBCommand.NONE)
         return ParsedQuery(chat_mode=chat_mode, db_command=c, message=m)
-    
+
     if chat_mode in {ChatMode.INGEST_COMMAND_ID, ChatMode.SUMMARIZE_COMMAND_ID}:
         c, m = get_command(query, ingest_command_to_enum, IngestCommand.DEFAULT)
         return ParsedQuery(chat_mode=chat_mode, ingest_command=c, message=m)

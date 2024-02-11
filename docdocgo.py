@@ -24,9 +24,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import (
-    DEFAULT_COLLECTION_NAME,
-)
+from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -37,7 +35,7 @@ from utils.prompts import (
 from utils.query_parsing import parse_query
 from utils.type_utils import ChatMode, OperationMode
 
-default_vectorstore = None # can move to chat_state
+default_vectorstore = None  # can move to chat_state
 
 
 def get_bot_response(chat_state: ChatState):
@@ -88,11 +86,13 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
         if not chat_state.parsed_query.message:
             return {"answer": HELP_MESSAGE, "needs_print": True}
-        
+
         # Temporarily switch to the default vectorstore to get help
         saved_vectorstore = chat_state.vectorstore
-        if default_vectorstore is None: # can happen due to Streamlit's code reloading
-            default_vectorstore = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
+        if default_vectorstore is None:  # can happen due to Streamlit's code reloading
+            default_vectorstore = chat_state.get_new_vectorstore(
+                DEFAULT_COLLECTION_NAME
+            )
         chat_state.vectorstore = default_vectorstore
         chat_chain = get_docs_chat_chain(chat_state)
         res = chat_chain.invoke(
