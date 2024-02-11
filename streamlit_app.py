@@ -262,7 +262,9 @@ else:
 #### The rest will only run once there is a parsed query to run ####
 chat_mode = parsed_query.chat_mode
 chat_state.update(parsed_query=parsed_query)
-is_ingest_via_file_uploader = chat_mode == ChatMode.INGEST_COMMAND_ID and not parsed_query.message
+is_ingest_via_file_uploader = (
+    chat_mode == ChatMode.INGEST_COMMAND_ID and not parsed_query.message
+)
 
 # Display the user message (or the auto-instruction)
 if full_query:
@@ -275,7 +277,7 @@ with st.chat_message("assistant"):
     # TODO: needs to be improved significantly
     try:
         if is_ingest_via_file_uploader:
-            raise KeyError # to skip the status
+            raise KeyError  # to skip the status
         status = st.status(status_config[chat_mode]["thinking.header"])
         status.write(status_config[chat_mode]["thinking.body"])
     except KeyError:
@@ -339,12 +341,18 @@ with st.chat_message("assistant"):
         err_msg = format_exception(e)
         answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
 
-        is_openai_api_key_error = (
-            err_msg.startswith("AuthenticationError")
-            and "key at https://platform.openai" in err_msg
+        err_type = (
+            "OPENAI_API_AUTH"
+            if (
+                err_msg.startswith("AuthenticationError")
+                and "key at https://platform.openai" in err_msg
+            )
+            else "EMBEDDINGS_DIM"
+            if err_msg.startswith("InvalidDimensionException")
+            else "OTHER"
         )
 
-        if is_openai_api_key_error:
+        if err_type == "OPENAI_API_AUTH":
             if is_community_key:
                 answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{os.getenv('DEFAULT_OPENAI_API_KEY', '')[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             elif openai_api_key_to_use:
@@ -352,6 +360,14 @@ with st.chat_message("assistant"):
             else:
                 answer = "In order to use DocDocGo, you'll need an OpenAI API key. Please get one at https://platform.openai.com/account/api-keys and enter it in the sidebar."
 
+        elif err_type == "EMBEDDINGS_DIM":
+            answer = (
+                "Apologies, on Feb 10, 2024, my embeddings model has been upgraded to a new, "
+                "more powerful model. It looks like your collection is still using the old model. "
+                "If you need to recover your collection please contact my author, Dmitriy Vasilyuk, "
+                "via the project's GitHub repository or through LinkedIn at "
+                "https://www.linkedin.com/in/dmitriyvasilyuk/."
+            )
         elif callback_handler.buffer:
             answer = f"{callback_handler.buffer}\n\n{answer}"
 

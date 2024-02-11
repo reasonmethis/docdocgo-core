@@ -347,6 +347,7 @@ Installing the following packages will also install all of the other requirement
 
 ```bash
 langchain==0.1.6
+langchain_openai==0.0.5
 chromadb==0.4.21
 openai==1.6.1
 tiktoken==0.5.2
