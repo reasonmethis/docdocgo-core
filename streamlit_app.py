@@ -155,7 +155,7 @@ with st.sidebar:
 
     # Settings
     with st.expander("Settings", expanded=False):
-        model_options = ["gpt-3.5-turbo-1106", "gpt-4-1106-preview"]
+        model_options = ["gpt-3.5-turbo-0125", "gpt-4-0125-preview"]
         if is_community_key:
             model_options = model_options[:1]
             index = 0
