@@ -11,6 +11,7 @@ from langchain.schema import Document
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.output import ConditionalLogger
+from utils.prepare import EMBEDDINGS_DIMENSIONS
 from utils.rag import text_splitter
 
 load_dotenv(override=True)
@@ -76,7 +77,7 @@ def prepare_chunks(
     return snippets
 
 
-FAKE_FULL_DOC_EMBEDDING = [1.0] * int(os.getenv("EMBEDDINGS_DIMENSIONS", 1536))
+FAKE_FULL_DOC_EMBEDDING = [1.0] * EMBEDDINGS_DIMENSIONS
 
 
 def ingest_docs_into_chroma(
