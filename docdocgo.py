@@ -181,6 +181,7 @@ def get_docs_chat_chain(
             "WARNING: unusual case where vectorstore is not identified as an "
             "instance of ChromaDDG, but its type is: " + type_str
         )
+    
     retriever = ChromaDDGRetriever(
         vectorstore=chat_state.vectorstore,
         search_type="similarity_ddg",

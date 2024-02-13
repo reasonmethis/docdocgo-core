@@ -12,7 +12,7 @@ from pydantic import Field
 
 from utils.helpers import DELIMITER, lin_interpolate
 from utils.lang_utils import expand_chunks
-from utils.prepare import CONTEXT_LENGTH
+from utils.prepare import CONTEXT_LENGTH, EMBEDDINGS_MODEL_NAME
 
 
 class ChromaDDGRetriever(VectorStoreRetriever):
@@ -33,11 +33,19 @@ class ChromaDDGRetriever(VectorStoreRetriever):
 
     verbose: bool = False  # print similarity scores and other info
     k_overshot = 20  # number of docs to return initially (prune later)
-    score_threshold_overshot = 0.0  # score threshold to use initially (prune later)
+    score_threshold_overshot = (
+        -12345.0
+    )  # score threshold to use initially (prune later)
+
     k_min = 2  # min number of docs to return after pruning
-    score_threshold_min = 0.61  # use k_min if score of k_min'th doc is <= this
+    score_threshold_min = (
+        0.61 if EMBEDDINGS_MODEL_NAME == "text-embeddings-ada-002" else -0.1
+    )  # use k_min if score of k_min'th doc is <= this
+
     k_max = 10  # max number of docs to return after pruning
-    score_threshold_max = 0.76  # use k_max if score of k_max'th doc is >= this
+    score_threshold_max = (
+        0.76 if EMBEDDINGS_MODEL_NAME == "text-embeddings-ada-002" else 0.2
+    )  # use k_max if score of k_max'th doc is >= this
 
     max_total_tokens = int(CONTEXT_LENGTH * 0.5)  # consistent with ChatWithDocsChain
     max_average_tokens_per_chunk = int(max_total_tokens / k_max)
