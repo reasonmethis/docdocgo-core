@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, Field, model_validator
+from icecream import ic
 from utils.web import LinkData
 
 
@@ -25,9 +25,21 @@ class ResearchReportData(BaseModel):
     combined_report_id_levels: list[list[str]] = Field(default_factory=list)  # levels
     num_obtained_unprocessed_links: int = 0
     num_obtained_unprocessed_ok_links: int = 0
+    num_links_from_latest_queries: int | None = None
     evaluation: str | None = None
     collection_name: str | None = None  # TODO: remove this
 
+    @model_validator(mode="after")
+    def validate(self):
+        if self.num_links_from_latest_queries is None:
+            self.num_links_from_latest_queries = len(self.unprocessed_links)
+        return self
+
+    @property
+    def num_processed_links_from_latest_queries(self) -> int:
+        # All unprocessed links are from the latest queries so we just subtract
+        return self.num_links_from_latest_queries - len(self.unprocessed_links)
+    
     def is_base_report(self, id: str) -> bool:
         return not id.startswith("c")
 

@@ -20,7 +20,7 @@ db_command_to_enum = {
 ResearchCommand = Enum(
     "ResearchCommand",
     "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_SEARCH_QUERIES "
-    "SET_REPORT_TYPE CLEAR REWRITE NONE",
+    "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES NONE",
 )
 research_commands_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -37,7 +37,9 @@ research_commands_to_enum = {
     "set-search-queries": ResearchCommand.SET_SEARCH_QUERIES,
     "ssq": ResearchCommand.SET_SEARCH_QUERIES,  # "ssq" is a shorthand for "set-search-queries
     "clear": ResearchCommand.CLEAR,
-    "startover": ResearchCommand.REWRITE,
+    "startover": ResearchCommand.STARTOVER,
+    "auto-update-search-queries": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
+    "ausq": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
@@ -228,7 +230,7 @@ def standardize_search_queries(query: str) -> str:
     """
     try:
         # Attempt to parse the query using ast.literal_eval
-        search_queries = ast.literal_eval(query) # to handle single quotes
+        search_queries = ast.literal_eval(query)  # to handle single quotes
         if not isinstance(search_queries, list):
             raise SyntaxError
         for q in search_queries:
@@ -266,13 +268,13 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type, sub_task=sub_task), ""
 
-    if task_type == ResearchCommand.CLEAR:
-        if query:  # clear task doesn't take any additional query
-            return ResearchParams(task_type=ResearchCommand.NEW), orig_query
-        return ResearchParams(task_type=task_type), ""
-
-    if task_type == ResearchCommand.REWRITE:
-        if query:
+    # Task types not needing a query or a number of iterations
+    if task_type in {
+        ResearchCommand.CLEAR,
+        ResearchCommand.STARTOVER,
+        ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
+    }:
+        if query:  # assume that "task type" is actually part of the query
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
 

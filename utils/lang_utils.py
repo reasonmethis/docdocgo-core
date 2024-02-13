@@ -1,6 +1,6 @@
 from bisect import bisect_right
 
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.messages import (
     AIMessage,

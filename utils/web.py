@@ -7,8 +7,8 @@ import aiohttp
 import trafilatura
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-from langchain.document_loaders import AsyncChromiumLoader, AsyncHtmlLoader
-from langchain.document_transformers import BeautifulSoupTransformer
+from langchain_community.document_loaders import AsyncChromiumLoader, AsyncHtmlLoader
+from langchain_community.document_transformers import BeautifulSoupTransformer
 from langchain.schema import Document
 from langchain_community.document_loaders.async_html import default_header_template
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError

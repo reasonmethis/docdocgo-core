@@ -2,7 +2,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain.chat_models.base import BaseChatModel
 from langchain.prompts.chat import ChatPromptValue
 from langchain.prompts.prompt import PromptTemplate

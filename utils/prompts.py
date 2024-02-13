@@ -11,7 +11,8 @@ REPORT_ASSESSMENT_INSTRUCTION = """\
 REPORT ASSESSMENT: <biggest constructive criticism some hypothetical person making the above query might have for the report, assuming they are difficult to please (AVOID any praise, write ONLY what can be improved, be brief)> <percentage grade they might assign>%"
 """
 
-REPORT_INSTRUCTION = """\
+REPORT_INSTRUCTION = (
+    """\
 1. Focus on addressing the specific query.
 2. Avoid fluff and irrelevant information.
 3. Provide available facts, figures, examples, details, dates, locations, etc.
@@ -22,7 +23,9 @@ The report type should be: {report_type}
 Format nicely in Markdown, starting with a title. 
 
 Finish with: \
-""" + REPORT_ASSESSMENT_INSTRUCTION
+"""
+    + REPORT_ASSESSMENT_INSTRUCTION
+)
 
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 
@@ -185,7 +188,61 @@ timestamp: {timestamp}
 output: """
 QUERY_GENERATOR_PROMPT = PromptTemplate.from_template(query_generator_template)
 
-researcher_template_initial_report = """<sources>{texts_str}</sources>
+search_queries_updater_template = """\
+You are an advanced assistant in satisfying USER's information need.
+
+# High Level Task
+
+You will be provided information about USER's query and current state of formulating the answer. Your task is to determine what needs to be added or improved in order to better satisfy USER's information need and strategically design a list of google search queries that would be most helpful to perform.
+
+# Input
+
+1. USER's query: {query} 
+END OF USER's query 
+
+2. Current timestamp: {timestamp}
+END OF timestamp
+
+3. Requested answer format: {report_type}
+END OF requested answer format
+
+4. Google search queries used to generate the current draft of the answer: {search_queries}
+END OF search queries
+
+5. Current draft of the answer: {report}
+
+# Detailed Task
+
+Let's work step by step. First, you need to determine what needs to be added or improved in order to better satisfy USER's information need. Then, based on the results of your analysis, you need to strategically design a list of google search queries that would be most helpful to perform to get an accurate, complete, unbiased, up-to-date answer. Design these queries so that the google search results will provide the necessary information to fill in any gaps in the current draft of the answer, or improve it in any way.
+
+Use everything you know about information foraging and information literacy in this task.
+
+# Output
+
+Your output should be in JSON in the following format:
+
+{{"analysis": <brief description of what kind of information we should be looking for to improve the answer and why you think the previous google search queries may not have yielded that information>,
+"queries": [<array of 3-7 new google search queries that would be most helpful to perform, based on that analysis>]}}
+
+# Example
+
+Suppose the user wants to get a numbered list of top Slavic desserts and you notice that the current draft includes desserts from Russia and Ukraine, but is missing desserts from other, non-former-USSR Slavic countries. You would then provide appropriate analysis and design new google search queries to fill in that gap, for example your output could be:
+
+{{"analysis": "The current draft of the answer is missing desserts from other Slavic countries besides Russia and Ukraine. The current search queries seem to have resulted in content being mostly about countries from the former USSR so we should specifically target other Slavic countries.",
+"queries": ["top desserts Poland", "top desserts Czech Republic", "top desserts Slovakia", "top desserts Bulgaria", "best desserts from former Yugoslavia", "desserts from Easern Europe"]}}
+
+# Your actual output
+
+Now, please use the information in the "# Input" section to construct your actual output, which should start with the opening curly brace and end with the closing curly brace:
+
+
+"""
+SEARCH_QUERIES_UPDATER_PROMPT = PromptTemplate.from_template(
+    search_queries_updater_template
+)
+
+researcher_template_initial_report = (
+    """<sources>{texts_str}</sources>
 The above information has been retrieved from online sources. Please use it to \
 answer the following query: 
 
@@ -202,9 +259,12 @@ The query and report type provide the most important guidelines, but here are ad
 Use Markdown syntax for your answer. Start with a title.
 
 Write **only** the report, followed by \
-""" + REPORT_ASSESSMENT_INSTRUCTION
+"""
+    + REPORT_ASSESSMENT_INSTRUCTION
+)
 
-researcher_template_initial_report = """\
+researcher_template_initial_report = (
+    """\
 Here is the scraped content of some online sources.
 
 <sources>{texts_str}</sources>
@@ -213,13 +273,16 @@ Using them, please respond to the following query:
 
 <query>{query}</query>
 
-""" + REPORT_INSTRUCTION
+"""
+    + REPORT_INSTRUCTION
+)
 
 RESEARCHER_PROMPT_INITIAL_REPORT = ChatPromptTemplate.from_messages(
     [("user", researcher_template_initial_report)]
 )
 
-report_combiner_template = """\
+report_combiner_template = (
+    """\
 Here are two reports.
 
 1/2:
@@ -243,9 +306,12 @@ The difference in the reports' content is because they were written using differ
 2. Use Markdown syntax for your answer. Start with a title.
 
 3. Please write **only** the complete report, followed by \
-""" + REPORT_ASSESSMENT_INSTRUCTION
+"""
+    + REPORT_ASSESSMENT_INSTRUCTION
+)
 
-report_combiner_template = """\
+report_combiner_template = (
+    """\
 Here are two reports compiled from two sets of online sources.
 
 1/2:
@@ -262,7 +328,9 @@ Using them, please respond to the following query:
 
 <query>{query}</query>
 
-""" + REPORT_INSTRUCTION
+"""
+    + REPORT_INSTRUCTION
+)
 
 
 REPORT_COMBINER_PROMPT = ChatPromptTemplate.from_messages(
@@ -290,7 +358,8 @@ _possible_report_template = """\
 """
 
 
-iterative_report_improver_template = """\
+iterative_report_improver_template = (
+    """\
 You are ARIA, Advanced Report Improvement Assistant. 
 
 For this task, you can use the following information retrieved from the Internet:
@@ -321,11 +390,14 @@ After that, write: "NEW REPORT:" and write a new report from scratch in Markdown
 
 END OF QUERY. This new report/answer should be: {report_type}. (in case of conflict, user's query takes precedence)
 
-Finish with: """ + REPORT_ASSESSMENT_INSTRUCTION + """\
+Finish with: """
+    + REPORT_ASSESSMENT_INSTRUCTION
+    + """\
 Don't use Markdown here, only for the new report/answer.
 
 **Important**: don't delete information from the report only because it can't be verified using the provided sources! The information in the report was obtained from previously retrieved sources!
 """
+)
 
 ITERATIVE_REPORT_IMPROVER_PROMPT = ChatPromptTemplate.from_messages(
     [("user", iterative_report_improver_template)]
@@ -344,9 +416,7 @@ CONTENT:
 {content}
 """
 
-SUMMARIZER_PROMPT = ChatPromptTemplate.from_messages(
-    [("user", summarizer_template)]
-)
+SUMMARIZER_PROMPT = ChatPromptTemplate.from_messages([("user", summarizer_template)])
 
 if __name__ == "__main__":
     # Here we can test the prompts

@@ -38,6 +38,7 @@ from utils.prompts import (
     QUERY_GENERATOR_PROMPT,
     REPORT_COMBINER_PROMPT,
     RESEARCHER_PROMPT_INITIAL_REPORT,
+    SEARCH_QUERIES_UPDATER_PROMPT,
 )
 from utils.query_parsing import ParsedQuery, ResearchCommand
 from utils.researcher_utils import get_links
@@ -54,11 +55,16 @@ WEB_SEARCH_API_ISSUE_MSG = (
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 
 
+def get_timestamp():
+    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
+    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+
+
 def get_content_from_urls_with_top_up(
     urls: list[str],
     batch_fetcher: Callable[[list[str]], list[str]],
     min_ok_urls: int,
-    init_batch_size: int,
+    init_batch_size: int | None = None,  # auto-determined if None
 ) -> dict[str, LinkData]:
     """
     Fetch content from a list of urls using a batch fetcher. If at least
@@ -66,6 +72,8 @@ def get_content_from_urls_with_top_up(
     Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
     urls are fetched successfully.
     """
+    init_batch_size = min(10, round(min_ok_urls * 1.2))  # NOTE: could optimize
+
     print(
         f"Fetching content from {len(urls)} urls:\n"
         f" - {min_ok_urls} successfully obtained URLs needed\n"
@@ -179,14 +187,20 @@ def get_links_from_queries(
 
 
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
+DEFAULT_MAX_SEARCH_QUERIES = 12  # not that important (as long as it's not too small)
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 NUM_OK_LINKS_NEW_REPORT = min(7, round(DEFAULT_MAX_TOKENS_FINAL_CONTEXT / 1600))
+NUM_NEW_OK_LINKS_TO_PROCESS_FOR_ITERATE = 2  # TODO can increase if first write report
+# INIT_BATCH_SIZE_FOR_ITERATE = 4
+
+NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES = 32
+
 # TODO: experiment with reducing the number of sources (gpt-3.5 may have trouble with 7)
 
 
 def get_web_research_response_no_ingestion(
     chat_state: ChatState,
-    max_queries: int = 20,  # not that important (as long as it's not too small)
+    max_queries: int = DEFAULT_MAX_SEARCH_QUERIES,
     num_ok_links: int = NUM_OK_LINKS_NEW_REPORT,
     max_tokens_final_context: int = DEFAULT_MAX_TOKENS_FINAL_CONTEXT,
 ):
@@ -203,8 +217,7 @@ def get_web_research_response_no_ingestion(
             query_generator_output = query_generator_chain.invoke(
                 {
                     "query": query,
-                    "timestamp": datetime.now().strftime("%A, %B %d, %Y, %I:%M %p"),
-                    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "timestamp": get_timestamp(),
                 }
             )
             query_generator_dict = extract_json(query_generator_output)
@@ -252,9 +265,6 @@ def get_web_research_response_no_ingestion(
             all_links,
             batch_fetcher=get_batch_url_fetcher(),
             min_ok_urls=num_ok_links,
-            init_batch_size=min(
-                10, round(num_ok_links * 1.2)
-            ),  # NOTE: might want to look into best value
         )
         print()
     except Exception as e:
@@ -450,10 +460,6 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     return response  # has answer, rr_data
 
 
-NUM_NEW_OK_LINKS_TO_PROCESS_FOR_ITERATE = 2
-INIT_BATCH_SIZE_FOR_ITERATE = 4
-
-
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
     # TODO: just mutate chat_state
     research_params = chat_state.parsed_query.research_params
@@ -503,6 +509,25 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     ):
         raise ValueError("Mismatch in the number of obtained unprocessed good links")
 
+    # Update search queries and links if needed
+    ic(rr_data.num_processed_links_from_latest_queries)
+    ic(rr_data.num_links_from_latest_queries)
+    ic(len(rr_data.unprocessed_links))
+    input("Press Enter to continue...")
+    if (
+        rr_data.num_processed_links_from_latest_queries
+        > NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES
+        or len(rr_data.unprocessed_links) < 6 # TODO: make customizable
+    ):
+        tmp = auto_update_search_queries_and_links(chat_state, cached_rr_data=rr_data)
+        try:
+            rr_data = tmp["rr_data"]  # rr_data has new unprocessed_links
+            ic(tmp["analysis"])
+            ic(rr_data.num_links_from_latest_queries)
+            ic(rr_data.unprocessed_links[:5])
+        except KeyError:
+            return format_nonstreaming_answer(tmp["early_exit_msg"])
+
     # Get content from more links if needed
     num_new_ok_links_to_process = (
         NUM_NEW_OK_LINKS_TO_PROCESS_FOR_ITERATE
@@ -517,7 +542,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
             batch_fetcher=get_batch_url_fetcher(),
             min_ok_urls=num_ok_new_links_to_fetch,
-            init_batch_size=INIT_BATCH_SIZE_FOR_ITERATE,
+            # init_batch_size=INIT_BATCH_SIZE_FOR_ITERATE,
         )
 
         # Update rr_data
@@ -939,18 +964,21 @@ def get_research_set_response(chat_state: ChatState) -> Props:
         )
 
 
-def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
-    parsed_query = chat_state.parsed_query
-    rr_data = chat_state.get_rr_data()
-
+def update_search_queries_and_links(
+    rr_data: ResearchReportData, new_queries: list[str]
+) -> dict[str, str] | None:
+    """
+    Update search queries and links in rr_data with new_queries. Return an error message
+    if there was an issue with the web search API, else None.
+    """
     # Update rr_data with the new queries
-    rr_data.search_queries = json.loads(parsed_query.message)  # validated by the parser
+    rr_data.search_queries = new_queries
 
     # Do Google searches to get links for the new queries
     links = get_links_from_queries(rr_data.search_queries, num_search_results=100)
     if not links:
-        return format_nonstreaming_answer(WEB_SEARCH_API_ISSUE_MSG)
-    
+        return {"early_exit_msg": WEB_SEARCH_API_ISSUE_MSG}
+
     # Remove links that have already been processed
     processed_links_set = set(rr_data.processed_links)
     links = [link for link in links if link not in processed_links_set]
@@ -959,6 +987,17 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
     rr_data.unprocessed_links = links
     rr_data.num_obtained_unprocessed_links = 0
     rr_data.num_obtained_unprocessed_ok_links = 0
+    rr_data.num_links_from_latest_queries = len(links)
+
+
+def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
+    parsed_query = chat_state.parsed_query
+    rr_data = chat_state.get_rr_data()
+    new_queries = json.loads(parsed_query.message)  # validated by the parser
+
+    # Update search queries and links
+    if tmp := update_search_queries_and_links(rr_data, new_queries):
+        return format_nonstreaming_answer(tmp["early_exit_msg"])
 
     # Save new rr_data in chat_state (which saves it in the database) and return
     chat_state.save_rr_data(rr_data)
@@ -967,7 +1006,78 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
     return format_nonstreaming_answer(
         "The search queries have been updated to:\n\n"
         f"```\n{parsed_query.message}\n```\n\n"
-        f"{len(links)} new links to research have been obtained from the search queries."
+        f"{len(rr_data.unprocessed_links)} new links to research have been obtained "
+        "from the search queries."
+    )
+
+
+def auto_update_search_queries_and_links(
+    chat_state: ChatState, cached_rr_data: ResearchReportData | None = None
+) -> Props:
+    rr_data = cached_rr_data or chat_state.get_rr_data()
+
+    # Construct query generator chain and inputs
+    inputs = {
+        "query": rr_data.query,
+        "timestamp": get_timestamp(),
+        "report_type": rr_data.report_type,
+        "search_queries": rr_data.search_queries,
+        "report": rr_data.main_report,
+    }
+
+    chain = get_prompt_llm_chain(
+        SEARCH_QUERIES_UPDATER_PROMPT,
+        llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
+        print_prompt=True,
+    )
+
+    # Submit to LLM to generate new search queries
+    for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
+        try:
+            query_generator_output = "OUTPUT_FAILED"
+            query_generator_output = chain.invoke(inputs)
+            query_generator_dict = extract_json(query_generator_output)
+            queries = query_generator_dict["queries"][:DEFAULT_MAX_SEARCH_QUERIES]
+            analysis = query_generator_dict["analysis"]
+            break
+        except Exception as e:
+            print(f"Failed to generate queries on attempt {i + 1} Error: \n{e}")
+            err_msg = (
+                "Failed to generate queries. Query generator output:\n\n"
+                f"{query_generator_output}\n\nError: {e}"
+            )
+    else:
+        raise Exception(err_msg)
+
+    print("Analysis:", analysis)
+    print("Generated queries:", repr(queries).strip("[]"))
+
+    # Update search queries and links
+    if early_exit_obj := update_search_queries_and_links(rr_data, queries):
+        return early_exit_obj  # {"early_exit_msg": WEB_SEARCH_API_ISSUE_MSG}
+
+    # Save new rr_data in chat_state (which saves it in the database) and return
+    chat_state.save_rr_data(rr_data)
+
+    return {"analysis": analysis, "rr_data": rr_data}
+
+
+def get_research_auto_update_search_queries_response(chat_state: ChatState) -> Props:
+    rsp = auto_update_search_queries_and_links(chat_state)
+    try:
+        rr_data = rsp["rr_data"]
+    except KeyError:
+        return format_nonstreaming_answer(rsp["early_exit_msg"])
+
+    # Return the response
+    return format_nonstreaming_answer(
+        "Analysis of the current report to generate new search queries:\n\n"
+        f"```\n{rsp['analysis']}\n```\n\n"
+        "The search queries have been updated to:\n\n"
+        f"```\n{repr(rr_data.search_queries)}\n```\n\n"
+        f"{len(rr_data.unprocessed_links)} new links to research have been obtained "
+        "from the search queries."
     )
 
 
@@ -1008,6 +1118,7 @@ task_handlers = {
     ResearchCommand.SET_REPORT_TYPE: get_research_set_response,
     ResearchCommand.SET_SEARCH_QUERIES: get_research_set_search_queries_response,
     ResearchCommand.CLEAR: get_research_clear_response,
+    ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES: get_research_auto_update_search_queries_response,
 }
 
 
@@ -1026,6 +1137,7 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 
         # If no error, return the response
         is_error = response.get("status.body") == INVALID_COMBINE_STATUS
+        assert is_error == bool(response.get("needs_print"))
         if not response.get("needs_print") and not is_error:
             return response
 
@@ -1084,7 +1196,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
         task_type = research_params.task_type = ResearchCommand.AUTO
         research_params.num_iterations_left = num_iterations_left = num_auto_iterations
 
-    elif task_type == ResearchCommand.REWRITE:
+    elif task_type == ResearchCommand.STARTOVER:
         if rr_data.main_report:
             # Expand startover -> clear + more
             task_type = research_params.task_type = ResearchCommand.CLEAR

@@ -5,7 +5,7 @@ from typing import Iterable
 
 from chromadb import ClientAPI
 from dotenv import load_dotenv
-from langchain.document_loaders import GitbookLoader
+from langchain_community.document_loaders import GitbookLoader
 from langchain.schema import Document
 
 from components.chroma_ddg import ChromaDDG
