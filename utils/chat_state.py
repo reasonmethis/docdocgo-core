@@ -1,4 +1,3 @@
-from icecream import ic
 from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData

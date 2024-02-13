@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from icecream import ic
+
 from utils.web import LinkData
 
 
@@ -39,7 +39,7 @@ class ResearchReportData(BaseModel):
     def num_processed_links_from_latest_queries(self) -> int:
         # All unprocessed links are from the latest queries so we just subtract
         return self.num_links_from_latest_queries - len(self.unprocessed_links)
-    
+
     def is_base_report(self, id: str) -> bool:
         return not id.startswith("c")
 

@@ -1,12 +1,11 @@
 import json
-import os
 import uuid
 from typing import Iterable
 
 from chromadb import ClientAPI
 from dotenv import load_dotenv
-from langchain_community.document_loaders import GitbookLoader
 from langchain.schema import Document
+from langchain_community.document_loaders import GitbookLoader
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings

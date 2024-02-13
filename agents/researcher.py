@@ -513,7 +513,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     ic(rr_data.num_processed_links_from_latest_queries)
     ic(rr_data.num_links_from_latest_queries)
     ic(len(rr_data.unprocessed_links))
-    input("Press Enter to continue...")
     if (
         rr_data.num_processed_links_from_latest_queries
         > NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES
