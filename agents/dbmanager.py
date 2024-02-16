@@ -61,12 +61,15 @@ def is_user_authorized_for_collection(user_id: str | None, coll_name_full: str) 
         PRIVATE_COLLECTION_PREFIX + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
     )
 
+GET_ALL = "GET_ALL"
 
 def get_collections(
     vectorstore: ChromaDDG, user_id: str | None, include_default_collection=True
 ) -> list[Collection]:
     """
-    Get the collections for the given user
+    Get the collections for the given user. If `user_id` is None, return only public
+    collections. If `include_default_collection` is False, don't return the default
+    collection. If `user_id` is GET_ALL, return all collections.
     """
     collections = vectorstore.client.list_collections()
     if not user_id:
@@ -74,6 +77,9 @@ def get_collections(
         return [
             c for c in collections if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
         ]
+    
+    if user_id == GET_ALL:
+        return collections
 
     if len(user_id) < PRIVATE_COLLECTION_USER_ID_LENGTH:
         raise ValueError(f"Invalid user_id: {user_id}")
@@ -204,7 +210,15 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     def get_db_not_found_str(name: str) -> str:
         return f"Collection {name} not found. {get_available_dbs_str()}"
 
+    admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+
     if command == DBCommand.LIST:
+        if value == admin_pwd:
+            all_collections = get_collections(chat_state.vectorstore, GET_ALL)
+            all_coll_names_full = [c.name for c in all_collections]
+            tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(all_coll_names_full)])
+            return format_nonstreaming_answer(f"Full collection names for all users:\n\n{tmp}")
+
         return format_nonstreaming_answer(
             f"{get_available_dbs_str()}\n\n"
             "**Tip:** To switch to collection number N, type `/db use N`."
@@ -235,9 +249,6 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         return format_nonstreaming_answer(f"Switched to collection: `{value}`.") | {
             "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
         }
-
-
-    admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
 
     if command == DBCommand.RENAME:
         if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
