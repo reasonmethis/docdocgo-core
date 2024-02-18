@@ -24,17 +24,19 @@
 3. Generate several versions of the standalone query
 4. Use tasks in case answer takes too long (meanwhile can show a tip)
 5. Ability for user to customize bot settings (num of docs, relevance threshold, temperature, etc.)
-6. Make use of larger context window
-7. Reorder relevant documents in order (based on overlap e.g.)
+6. DONE Make use of larger context window
+7. DONE Reorder relevant documents in order (based on overlap e.g.)
 8. DONE API token for the bot backend
 9. For long convos include short summary in the prompt
 10. DONE Use streaming to improve detecting true LLM stalls
-11. Send partial results to the user to avoid timeout
+11. NA Send partial results to the user to avoid timeout
 12. Return retrieved documents in the response
 13. Speed up limiting tokens - see tiktoken comment in OpenAIEmbeddings
-14. Add ability to (auto)update vector db
-15. DONE Include current date/time in the prompt
-16. Use two different chunk sizes: search for small chunks, then small chunks point to larger chunks
+14. DONE Include current date/time in the prompt
+15. DONE Use two different chunk sizes: search for small chunks, then small chunks point to larger chunks
+16. Include tips for next possible commands in the response
+17. Add /re feedback command to automatically change query, report type, search queries 
+18. Automatically infer command from user query
 
 ## Evaluations
 
