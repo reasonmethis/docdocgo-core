@@ -894,7 +894,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         f"Query:\n\n```\n{rr_data.query}\n```\n\n"
         f"Report type:\n\n```\n{rr_data.report_type}\n```\n\n"
         f"Search queries:\n\n```\n{rr_data.search_queries}\n```\n\n"
-        f"Report breakdown:\n\n"
+        "Report breakdown:\n\n"
         f"- There are {num_base_reports} base reports.\n"
         f"- There are {len(rr_data.combined_reports)} combined reports.\n"
         f"- There are {len(rr_data.processed_links)} processed links.\n"
@@ -906,7 +906,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
         f"To get the next top-level report run `/research auto {nums_for_auto[0]}`. "
         "For further top-level reports, make the number "
         f"{str(nums_for_auto[1:])[1:-1]}, ..."
-        f"\n\n---\n\n"
+        "\n\n---\n\n"
     )
 
     sub_task = chat_state.parsed_query.research_params.sub_task
