@@ -262,16 +262,29 @@ for i, (msg_pair, sources) in enumerate(
 # Check if the user has uploaded files
 if files:
     # Ingest the files
-    docs, failed_files = extract_text(files, allow_all_ext)
+    docs, failed_files, unsupported_ext_files = extract_text(files, allow_all_ext)
 
     # Display failed files, if any
-    if failed_files:
+    if failed_files or unsupported_ext_files:
         with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
-            st.markdown(
+            tmp = (
                 "Apologies, the following files failed to process:\n```\n"
-                + "\n".join(failed_files)
+                + "\n".join(unsupported_ext_files + failed_files)
                 + "\n```"
             )
+            if unsupported_ext_files:
+                unsupported_extentions = sorted(
+                    list(set(os.path.splitext(x)[1] for x in unsupported_ext_files))
+                )
+                tmp += "\n\nUnsupported file extensions: " + ", ".join(
+                    f"`{x.lstrip('.') or '<no extension>'}`"
+                    for x in unsupported_extentions
+                )
+                tmp += (
+                    "\n\nIf your files with unsupported extensions can be treated as "
+                    "text files, check the `Allow all extensions` box and try again."
+                )
+            st.markdown(fix_markdown(tmp))
 
     # Ingest the docs into the vectorstore, if any
     if docs:

@@ -27,11 +27,13 @@ from utils.streamlit.helpers import (
 def extract_text(files, allow_all_ext):
     docs = []
     failed_files = []
+    unsupported_ext_files = []
     for file in files:
         try:
             extension = os.path.splitext(file.name)[1]
             if not allow_all_ext and extension not in allowed_extensions:
-                raise ValueError("Extension not allowed.")
+                unsupported_ext_files.append(file.name)
+                continue
             if extension == ".pdf":
                 for i, text in enumerate(get_page_texts_from_pdf(file)):
                     metadata = {"source": f"{file.name} (page {i + 1})"}
@@ -54,7 +56,7 @@ def extract_text(files, allow_all_ext):
         except Exception:
             failed_files.append(file.name)
 
-    return docs, failed_files
+    return docs, failed_files, unsupported_ext_files
 
 
 def ingest_docs(docs: list[Document], chat_state: ChatState):
