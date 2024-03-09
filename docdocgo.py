@@ -181,7 +181,7 @@ def get_docs_chat_chain(
             "WARNING: unusual case where vectorstore is not identified as an "
             "instance of ChromaDDG, but its type is: " + type_str
         )
-    
+
     retriever = ChromaDDGRetriever(
         vectorstore=chat_state.vectorstore,
         search_type="similarity_ddg",
@@ -219,15 +219,15 @@ def get_docs_chat_chain(
     )
 
 
-def do_intro_tasks(openai_api_key: str):
+def do_intro_tasks(openai_api_key: str, collection_name: str | None = None):
     global default_vectorstore
 
     print(INTRO_ASCII_ART + "\n\n")
     print_no_newline("Loading the vector database of your documents... ")
 
-    # Load the vector database
+    # Load and save default vector store
     try:
-        default_vectorstore = load_vectorstore(
+        vectorstore = default_vectorstore = load_vectorstore(
             DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
         )
     except Exception as e:
@@ -235,10 +235,21 @@ def do_intro_tasks(openai_api_key: str):
             f"Failed to load the vector database. Please check the settings. Error: {e}"
         )
         raise ValueError(
-            f"Could not load the default document collection {DEFAULT_COLLECTION_NAME}."
+            f"Could not load the default document collection {repr(DEFAULT_COLLECTION_NAME)}."
         )
+
+    # Load vectorstore for passed collection name
+    # NOTE/TODO: This is not used in the current version of the code
+    if collection_name:
+        try:
+            vectorstore = load_vectorstore(
+                collection_name, openai_api_key=openai_api_key
+            )
+        except Exception as e:
+            print(f"Failed to load the {repr(collection_name)} collection. Error: {e}\n")
+
     print("Done!")
-    return default_vectorstore
+    return vectorstore
 
 
 if __name__ == "__main__":

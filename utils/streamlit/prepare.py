@@ -19,9 +19,13 @@ def prepare_app():
     # Whether or not the OpenAI API key has succeeded at least once
     st.session_state.llm_api_key_ok_status = False
 
+    # Extract the collection name passed in the URL, if any
+    st.session_state.initial_collection_name = st.query_params.get("collection")
     try:
         remove_tornado_fix()  # used to be run on every rerun
-        vectorstore = do_intro_tasks(os.getenv("DEFAULT_OPENAI_API_KEY"))
+        vectorstore = do_intro_tasks(
+            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
+        )
     except Exception as e:
         st.error(
             "Apologies, I could not load the vector database. This "
@@ -37,7 +41,7 @@ def prepare_app():
             CallbackHandlerDDGConsole(),
             "placeholder for CallbackHandlerDDGStreamlit",
         ],
-        openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY") ,
+        openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
     )
 
     st.session_state.default_openai_api_key = os.getenv("DEFAULT_OPENAI_API_KEY", "")

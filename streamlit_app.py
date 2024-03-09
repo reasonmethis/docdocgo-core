@@ -4,6 +4,8 @@ import streamlit as st
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
+    construct_full_collection_name,
+    get_collections,
     get_user_facing_collection_name,
     is_user_authorized_for_collection,
 )
@@ -30,7 +32,6 @@ from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import ChatMode, chat_modes_needing_llm
 
-
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
@@ -39,12 +40,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 def show_uploader(is_new_widget=False, border=True):
     if is_new_widget:
         try:
             st.session_state.uploader_placeholder.empty()
         except AttributeError:
-            pass # should never happen, but just in case
+            pass  # should never happen, but just in case
         # Switch between one of the two possible keys (to avoid duplicate key error)
         st.session_state.uploader_form_key = (
             "uploader-form-alt"
@@ -154,6 +156,44 @@ with st.sidebar:
                     else "The user has changed, so I switched to the default collection. Welcome!",
                 )
             )
+            chat_state.sources_history.append(None)  # keep the lengths in sync
+
+        # If the user has entered a collection name in the URL, switch to it
+        elif init_coll_name := st.session_state.initial_collection_name:
+            st.session_state.initial_collection_name = None
+
+            # Get full collection name (user will be auto-authorized for it by definition)
+            init_full_coll_name = construct_full_collection_name(
+                chat_state.user_id, init_coll_name
+            )
+
+            # Check if the collection exists
+            full_coll_names_for_user = set(
+                c.name
+                for c in get_collections(chat_state.vectorstore, chat_state.user_id)
+            )
+            if init_full_coll_name in full_coll_names_for_user:
+                # Switch to the new collection
+                chat_state.vectorstore = chat_state.get_new_vectorstore(
+                    init_full_coll_name
+                )
+                chat_state.chat_and_command_history.append(
+                    (
+                        None,
+                        f"Welcome! You are now using the `{init_coll_name}` collection. "
+                        "When chatting, I will use its content as my knowledge base. "
+                        "To get help using me, just type `/help <your question>`.",
+                    )
+                )
+            else:
+                chat_state.chat_and_command_history.append(
+                    (
+                        None,
+                        f"Apologies, I could not find the `{init_coll_name}` collection. "
+                        "I will continue using the default collection. "
+                        "To get help using me, just type `/help <your question>`.",
+                    )
+                )
             chat_state.sources_history.append(None)  # keep the lengths in sync
 
     # Settings
