@@ -15,7 +15,7 @@ from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import DBCommand
-from utils.type_utils import JSONish, OperationMode, Props
+from utils.type_utils import AccessRole, JSONish, OperationMode, Props
 
 menu_main = {
     DBCommand.LIST: "List collections",
@@ -51,17 +51,34 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
     )
 
 
-def is_user_authorized_for_collection(user_id: str | None, coll_name_full: str) -> bool:
+def is_user_authorized_for_collection(
+    chat_state: ChatState, coll_name_full: str | None = None
+) -> bool:
     """
     Check if the user is authorized to access the given collection.
     """
-    if not user_id:
-        return not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX)
-    return coll_name_full == DEFAULT_COLLECTION_NAME or coll_name_full.startswith(
-        PRIVATE_COLLECTION_PREFIX + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+    coll_name_full = coll_name_full or chat_state.vectorstore.name
+
+    # Public collections are always accessible
+    if not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX):
+        return True
+
+    # A private collection is accessible if it's the user's own collection
+    if chat_state.user_id and coll_name_full.startswith(
+        PRIVATE_COLLECTION_PREFIX
+        + chat_state.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+    ):
+        return True
+
+    # If can't be authorized with the simple checks above, check the collection's metadata
+    collection_user_settings = chat_state.get_collection_user_settings(coll_name_full)
+    return (
+        collection_user_settings.get_settings(chat_state.user_id) == AccessRole.EDITOR
     )
+# TODO - more fine-grained access control
 
 GET_ALL = "GET_ALL"
+
 
 def get_collections(
     vectorstore: ChromaDDG, user_id: str | None, include_default_collection=True
@@ -77,7 +94,7 @@ def get_collections(
         return [
             c for c in collections if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
         ]
-    
+
     if user_id == GET_ALL:
         return collections
 
@@ -217,7 +234,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             all_collections = get_collections(chat_state.vectorstore, GET_ALL)
             all_coll_names_full = [c.name for c in all_collections]
             tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(all_coll_names_full)])
-            return format_nonstreaming_answer(f"Full collection names for all users:\n\n{tmp}")
+            return format_nonstreaming_answer(
+                f"Full collection names for all users:\n\n{tmp}"
+            )
 
         return format_nonstreaming_answer(
             f"{get_available_dbs_str()}\n\n"
@@ -260,7 +279,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
-        
+
         # Admin can rename to the default collection's name by providing the password
         if value == f"--default {admin_pwd}" and admin_pwd:
             # Before renaming, we need to delete the default collection if it exists
@@ -316,7 +335,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         # NOTE: the functionality below requires allow_reset=True in the settings
         # or an ALLOW_RESET env variable **on the server**.
-            
+
         # # Admin can also reset the whole db by providing the password
         # if value == f"--reset {pwd}" and pwd:
         #     chat_state.vectorstore.client.reset()

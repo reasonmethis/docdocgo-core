@@ -137,12 +137,11 @@ with st.sidebar:
             chat_state.user_id = openai_api_key_to_use  # use the key as the user id
 
         # If user (i.e. OpenAI API key) changed, reload the vectorstore
-        is_auth = is_user_authorized_for_collection(
-            chat_state.user_id, chat_state.vectorstore.name
-        )
+        is_auth = is_user_authorized_for_collection(chat_state)
         if openai_api_key_to_use != chat_state.openai_api_key or not is_auth:
             # NOTE: the second condition is needed because the user could have
             # entered the unlock pwd and is now a "private" user, without a key change
+            # TODO: REVIEW the need in light of allowing access to public collections to anyone
             chat_state.openai_api_key = openai_api_key_to_use
 
             chat_state.vectorstore = chat_state.get_new_vectorstore(

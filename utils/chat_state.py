@@ -4,9 +4,11 @@ from agents.researcher_data import ResearchReportData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
+    COLLECTION_USERS_METADATA_KEY,
     BotSettings,
     CallbacksOrNone,
     ChatMode,
+    CollectionUsers,
     OperationMode,
     PairwiseChatHistory,
     Props,
@@ -43,12 +45,12 @@ class ChatState:
         self,
         *,
         operation_mode: OperationMode,
+        vectorstore: ChromaDDG,
         is_community_key: bool = False,
         parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
         chat_and_command_history: PairwiseChatHistory | None = None,
-        vectorstore: ChromaDDG | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,
@@ -80,9 +82,24 @@ class ChatState:
     def search_params(self) -> Props:
         return self.parsed_query.search_params or {}
 
+    @property
+    def vectorstore_client(self):
+        return self.vectorstore.client
+
     def update(self, **kwargs) -> None:
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def get_collection_metadata(self, coll_name: str | None = None) -> Props | None:
+        """
+        Get metadata for the currently selected collection, or for the given
+        collection name if provided
+        """
+        if coll_name in (None, self.vectorstore.name):
+            return self.vectorstore.get_collection_metadata()
+
+        tmp_vectorstore = self.get_new_vectorstore(coll_name)
+        return tmp_vectorstore.get_collection_metadata()
 
     def save_rr_data(self, rr_data: ResearchReportData) -> None:
         """
@@ -90,7 +107,7 @@ class ChatState:
         """
         if self.vectorstore is None:
             raise ValueError("No vectorstore selected")
-        coll_metadata = self.vectorstore.get_collection_metadata() or {}
+        coll_metadata = self.get_collection_metadata() or {}
         coll_metadata["rr_data"] = rr_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
@@ -98,15 +115,26 @@ class ChatState:
         """
         Extract ResearchReportData from the currently selected collection's metadata
         """
-        if self.vectorstore is None:
-            return None
-        if not (coll_metadata := self.vectorstore.get_collection_metadata()):
-            return None
         try:
-            rr_data_json = coll_metadata["rr_data"]
-        except KeyError:
-            return None
+            rr_data_json = self.get_collection_metadata()["rr_data"]
+        except (TypeError, KeyError):
+            return
         return ResearchReportData.model_validate_json(rr_data_json)
+
+    def get_collection_user_settings(
+        self, coll_name: str | None = None
+    ) -> CollectionUsers:
+        """
+        Get the collection user settings from the currently selected collection's 
+        metadata, or from the given collection name if provided
+        """
+        try:
+            collection_user_settings_json = self.get_collection_metadata(coll_name)[
+                COLLECTION_USERS_METADATA_KEY
+            ]
+        except (TypeError, KeyError):
+            return CollectionUsers()
+        return CollectionUsers.model_validate_json(collection_user_settings_json)
 
     def get_new_vectorstore(self, collection_name: str) -> ChromaDDG:
         """

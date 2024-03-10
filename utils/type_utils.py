@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any
 
 from langchain.callbacks.base import BaseCallbackHandler
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from utils.prepare import MODEL_NAME, TEMPERATURE
 
@@ -45,3 +45,21 @@ chat_modes_needing_llm = {
 class BotSettings(BaseModel):
     llm_model_name: str = MODEL_NAME
     temperature: float = TEMPERATURE
+
+
+AccessRole = Enum("AccessRole", "EDITOR VIEWER NONE")
+SharerRole = Enum("SharerRole", "EDITOR VIEWER NONE")
+
+
+class CollectionUserSettings(BaseModel):
+    access_role: AccessRole = AccessRole.NONE
+    sharer_role: SharerRole = SharerRole.NONE
+
+COLLECTION_USERS_METADATA_KEY = "collection_users"
+
+class CollectionUsers(BaseModel):
+    userid_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
+    # NOTE: key "" refers to settings for a general user
+
+    def get_settings(self, userid: str | None) -> CollectionUserSettings:
+        return self.userid_to_settings.get(userid or "", CollectionUserSettings())

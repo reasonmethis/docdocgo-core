@@ -219,7 +219,7 @@ def get_docs_chat_chain(
     )
 
 
-def do_intro_tasks(openai_api_key: str, collection_name: str | None = None):
+def do_intro_tasks(openai_api_key: str, collection_name: str | None = None)-> ChromaDDG:
     global default_vectorstore
 
     print(INTRO_ASCII_ART + "\n\n")
