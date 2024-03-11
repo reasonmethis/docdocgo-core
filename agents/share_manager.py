@@ -53,7 +53,7 @@ def handle_share_command(chat_state: ChatState) -> Props:
         # Form share link
         domain = os.getenv("DOMAIN_NAME_FOR_SHARING", "https://docdocgo.streamlit.app")
         link = (
-            f"{domain}/?collection={chat_state.vectorstore.name}"
+            f"{domain}?collection={chat_state.vectorstore.name}"
             f"&access_code={share_params.access_code}"
         )
         
