@@ -7,6 +7,7 @@ from _prepare_env import is_env_loaded
 from agents.dbmanager import get_user_facing_collection_name, handle_db_command
 from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
+from agents.share_manager import handle_share_command
 from components.chat_with_docs_chain import ChatWithDocsChain
 from components.chroma_ddg import ChromaDDG, load_vectorstore
 from components.chroma_ddg_retriever import ChromaDDGRetriever
@@ -83,6 +84,8 @@ def get_bot_response(chat_state: ChatState):
         return {"answer": answer}
     elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
+    elif chat_mode == ChatMode.SHARE_COMMAND_ID:  # /share command
+        return handle_share_command(chat_state)
     elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
         if not chat_state.parsed_query.message:
             return {"answer": HELP_MESSAGE, "needs_print": True}

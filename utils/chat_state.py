@@ -5,10 +5,12 @@ from components.chroma_ddg import ChromaDDG, load_vectorstore
 from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
     COLLECTION_USERS_METADATA_KEY,
+    AccessCodeSettings,
     BotSettings,
     CallbacksOrNone,
     ChatMode,
     CollectionUsers,
+    CollectionUserSettings,
     OperationMode,
     PairwiseChatHistory,
     Props,
@@ -98,18 +100,11 @@ class ChatState:
         if coll_name in (None, self.vectorstore.name):
             return self.vectorstore.get_collection_metadata()
 
-        tmp_vectorstore = self.get_new_vectorstore(coll_name)
-        return tmp_vectorstore.get_collection_metadata()
-
-    def save_rr_data(self, rr_data: ResearchReportData) -> None:
-        """
-        Update the currently selected collection's metadata with the given ResearchReportData
-        """
-        if self.vectorstore is None:
-            raise ValueError("No vectorstore selected")
-        coll_metadata = self.get_collection_metadata() or {}
-        coll_metadata["rr_data"] = rr_data.model_dump_json()
-        self.vectorstore.set_collection_metadata(coll_metadata)
+        if tmp_vectorstore := self.get_new_vectorstore(
+            coll_name, create_if_not_exists=False
+        ):
+            return tmp_vectorstore.get_collection_metadata()
+        return None
 
     def get_rr_data(self) -> ResearchReportData | None:
         """
@@ -121,11 +116,19 @@ class ChatState:
             return
         return ResearchReportData.model_validate_json(rr_data_json)
 
-    def get_collection_user_settings(
+    def save_rr_data(self, rr_data: ResearchReportData) -> None:
+        """
+        Update the currently selected collection's metadata with the given ResearchReportData
+        """
+        coll_metadata = self.get_collection_metadata() or {}
+        coll_metadata["rr_data"] = rr_data.model_dump_json()
+        self.vectorstore.set_collection_metadata(coll_metadata)
+
+    def get_all_collection_user_settings(
         self, coll_name: str | None = None
     ) -> CollectionUsers:
         """
-        Get the collection user settings from the currently selected collection's 
+        Get the collection user settings from the currently selected collection's
         metadata, or from the given collection name if provided
         """
         try:
@@ -136,12 +139,72 @@ class ChatState:
             return CollectionUsers()
         return CollectionUsers.model_validate_json(collection_user_settings_json)
 
-    def get_new_vectorstore(self, collection_name: str) -> ChromaDDG:
+    def save_all_collection_user_settings(
+        self, collection_user_settings: CollectionUsers
+    ) -> None:
         """
-        Get a new ChromaDDG instance with the given collection name
+        Update the currently selected collection's metadata with the given CollectionUsers
+        """
+        coll_metadata = self.get_collection_metadata() or {}
+        json_str = collection_user_settings.model_dump_json()
+        coll_metadata[COLLECTION_USERS_METADATA_KEY] = json_str
+        self.vectorstore.set_collection_metadata(coll_metadata)
+
+    def get_collection_settings_for_user(
+        self, user_id: str | None, coll_name: str | None = None
+    ) -> CollectionUserSettings:
+        """
+        Get the collection user settings for the given user from the currently selected collection's
+        metadata, or from the specified collection
+        """
+        return self.get_all_collection_user_settings(coll_name).get_user_settings(
+            user_id
+        )
+
+    def save_collection_settings_for_user(
+        self, user_id: str | None, settings: CollectionUserSettings
+    ) -> None:
+        """
+        Update the currently selected collection's metadata with the given CollectionUserSettings
+        """
+        collection_user_settings = self.get_all_collection_user_settings()
+        collection_user_settings.set_user_settings(user_id, settings)
+        self.save_all_collection_user_settings(collection_user_settings)
+
+    def get_access_code_settings(
+        self, access_code: str, coll_name: str | None = None
+    ) -> AccessCodeSettings:
+        """
+        Get the access code settings from the currently selected collection's metadata,
+        or from the specified collection
+        """
+        return self.get_all_collection_user_settings(
+            coll_name
+        ).get_access_code_settings(access_code)
+
+    def save_access_code_settings(
+        self, access_code: str, access_code_settings: AccessCodeSettings
+    ) -> None:
+        """
+        Update the currently selected collection's metadata with the given AccessCodeSettings
+        """
+        collection_user_settings = self.get_all_collection_user_settings()
+        collection_user_settings.set_access_code_settings(
+            access_code, access_code_settings
+        )
+        self.save_all_collection_user_settings(collection_user_settings)
+
+    def get_new_vectorstore(
+        self, collection_name: str, create_if_not_exists: bool = True
+    ) -> ChromaDDG | None:
+        """
+        Get a new ChromaDDG instance with the given collection name. If the collection
+        does not exist, either returns None or creates a new collection, depending on
+        the value of create_if_not_exists (default: True).
         """
         return load_vectorstore(
             collection_name,
             openai_api_key=self.openai_api_key,
             client=self.vectorstore.client,
+            create_if_not_exists=create_if_not_exists,
         )

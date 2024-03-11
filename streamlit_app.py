@@ -4,8 +4,6 @@ import streamlit as st
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
-    construct_full_collection_name,
-    get_collections,
     get_user_facing_collection_name,
     is_user_authorized_for_collection,
 )
@@ -136,46 +134,14 @@ with st.sidebar:
             # User is using their own key (or has unlocked the default key)
             chat_state.user_id = openai_api_key_to_use  # use the key as the user id
 
-        # If user (i.e. OpenAI API key) changed, reload the vectorstore
-        is_auth = is_user_authorized_for_collection(chat_state)
-        if openai_api_key_to_use != chat_state.openai_api_key or not is_auth:
-            # NOTE: the second condition is needed because the user could have
-            # entered the unlock pwd and is now a "private" user, without a key change
-            # TODO: REVIEW the need in light of allowing access to public collections to anyone
-            chat_state.openai_api_key = openai_api_key_to_use
-
-            chat_state.vectorstore = chat_state.get_new_vectorstore(
-                chat_state.vectorstore.name if is_auth else DEFAULT_COLLECTION_NAME,
-            )
-            chat_state.chat_and_command_history.append(
-                (
-                    None,
-                    "I see that the user key has changed. Welcome!"
-                    if is_auth
-                    else "The user has changed, so I switched to the default collection. Welcome!",
-                )
-            )
-            chat_state.sources_history.append(None)  # keep the lengths in sync
-
         # If the user has entered a collection name in the URL, switch to it
-        elif init_coll_name := st.session_state.initial_collection_name:
+        if init_coll_name := st.session_state.initial_collection_name:
             st.session_state.initial_collection_name = None
-
-            # Get full collection name (user will be auto-authorized for it by definition)
-            init_full_coll_name = construct_full_collection_name(
-                chat_state.user_id, init_coll_name
-            )
-
-            # Check if the collection exists
-            full_coll_names_for_user = set(
-                c.name
-                for c in get_collections(chat_state.vectorstore, chat_state.user_id)
-            )
-            if init_full_coll_name in full_coll_names_for_user:
+            if is_user_authorized_for_collection(
+                chat_state, init_coll_name, st.session_state.access_code
+            ):
                 # Switch to the new collection
-                chat_state.vectorstore = chat_state.get_new_vectorstore(
-                    init_full_coll_name
-                )
+                chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
                 chat_state.chat_and_command_history.append(
                     (
                         None,
@@ -188,11 +154,30 @@ with st.sidebar:
                 chat_state.chat_and_command_history.append(
                     (
                         None,
-                        f"Apologies, I could not find the `{init_coll_name}` collection. "
-                        "I will continue using the default collection. "
+                        "Apologies, the current URL doesn't provide access to the "
+                        f"requested collection `{init_coll_name}`. This can happen if the "
+                        "access code is invalid or if the collection doesn't exist. "
+                        "I will continue using the default collection.\n\n"
                         "To get help using me, just type `/help <your question>`.",
                     )
                 )
+            chat_state.sources_history.append(None)  # keep the lengths in sync
+
+        # If user (i.e. OpenAI API key) changed, reload the vectorstore
+        elif openai_api_key_to_use != chat_state.openai_api_key:
+            chat_state.openai_api_key = openai_api_key_to_use
+
+            chat_state.vectorstore = chat_state.get_new_vectorstore(
+                DEFAULT_COLLECTION_NAME,
+            ) # TODO: don't switch if we are already in the default collection or if 
+            # this is a public collection or the user is authorized for the collection
+            chat_state.chat_and_command_history.append(
+                (
+                    None,
+                    "Welcome! I see that the user key has changed, "
+                    "so I've switched to the default collection.",
+                )
+            )
             chat_state.sources_history.append(None)  # keep the lengths in sync
 
     # Settings

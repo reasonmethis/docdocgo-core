@@ -155,14 +155,21 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
 
 
 def load_vectorstore(
-    collection_name: str, *, openai_api_key: str, client: ClientAPI | None = None
-) -> ChromaDDG:
+    collection_name: str,
+    *,
+    openai_api_key: str,
+    client: ClientAPI | None = None,
+    create_if_not_exists: bool = True,
+) -> ChromaDDG | None:
     """
     Load a ChromaDDG vectorstore from a given collection name.
     """
-    vectorstore = ChromaDDG(
-        client=ensure_chroma_client(client),
+    client = ensure_chroma_client(client)
+    if not create_if_not_exists and not exists_collection(collection_name, client):
+        return
+
+    return ChromaDDG(
+        client=client,
         collection_name=collection_name,
         embedding_function=get_openai_embeddings(openai_api_key),
     )
-    return vectorstore

@@ -48,6 +48,8 @@ command_ids = {
     "/up": ChatMode.INGEST_COMMAND_ID,
     "/summarize": ChatMode.SUMMARIZE_COMMAND_ID,
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
+    "/share": ChatMode.SHARE_COMMAND_ID,
+    "/sh": ChatMode.SHARE_COMMAND_ID,
     # "/browse": ChatMode.BROWSE_COMMAND_ID,
 }
 
@@ -197,6 +199,14 @@ You can also view the reports:
 Remember, you can always ask me for help in using me - simply type `/help` followed by your question.\
 """
 # - `/research more <your new query>`: same as above, but ingest into current collection
+
+SHARE_COMMAND_HELP_MESSAGE = """\
+You can use the following commands to share the current collection with others:
+
+- `/share public`: share the collection with everyone
+- `/share edit code <any letters or numbers>`: share with an invite code and allow editing
+- `/share view code <any letters or numbers>`: share with an invite code for viewing only
+"""
 
 
 def print_no_newline(*args, **kwargs):

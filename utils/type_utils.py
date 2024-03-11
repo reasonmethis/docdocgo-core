@@ -28,6 +28,7 @@ class ChatMode(Enum):
     INGEST_COMMAND_ID = 9
     BROWSE_COMMAND_ID = 10
     SUMMARIZE_COMMAND_ID = 11
+    SHARE_COMMAND_ID = 12
 
 
 chat_modes_needing_llm = {
@@ -50,16 +51,41 @@ class BotSettings(BaseModel):
 AccessRole = Enum("AccessRole", "EDITOR VIEWER NONE")
 SharerRole = Enum("SharerRole", "EDITOR VIEWER NONE")
 
+AccessCodeType = Enum("AccessCodeType", "NEED_ALWAYS NEED_ONCE NO_ACCESS")
+
 
 class CollectionUserSettings(BaseModel):
     access_role: AccessRole = AccessRole.NONE
     sharer_role: SharerRole = SharerRole.NONE
 
+
+class AccessCodeSettings(BaseModel):
+    code_type: AccessCodeType = AccessCodeType.NO_ACCESS
+    access_role: AccessRole = AccessRole.NONE
+    sharer_role: SharerRole = SharerRole.NONE
+
+
 COLLECTION_USERS_METADATA_KEY = "collection_users"
 
+
 class CollectionUsers(BaseModel):
-    userid_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
+    user_id_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
     # NOTE: key "" refers to settings for a general user
 
-    def get_settings(self, userid: str | None) -> CollectionUserSettings:
-        return self.userid_to_settings.get(userid or "", CollectionUserSettings())
+    access_code_to_settings: dict[str, AccessCodeSettings] = Field(default_factory=dict)
+
+    def get_user_settings(self, user_id: str | None) -> CollectionUserSettings:
+        return self.user_id_to_settings.get(user_id or "", CollectionUserSettings())
+
+    def set_user_settings(
+        self, user_id: str | None, settings: CollectionUserSettings
+    ) -> None:
+        self.user_id_to_settings[user_id or ""] = settings
+
+    def get_access_code_settings(self, access_code: str) -> AccessCodeSettings:
+        return self.access_code_to_settings.get(access_code, AccessCodeSettings())
+    
+    def set_access_code_settings(
+        self, access_code: str, settings: AccessCodeSettings
+    ) -> None:
+        self.access_code_to_settings[access_code] = settings

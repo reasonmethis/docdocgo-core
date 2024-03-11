@@ -7,7 +7,7 @@ from typing import Any, Callable, Container
 from pydantic import BaseModel
 
 from utils.helpers import DEFAULT_CHAT_MODE, command_ids
-from utils.type_utils import ChatMode, Props
+from utils.type_utils import AccessCodeType, ChatMode, Props
 
 DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE EXIT NONE")
 db_command_to_enum = {
@@ -22,7 +22,7 @@ ResearchCommand = Enum(
     "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_SEARCH_QUERIES "
     "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES NONE",
 )
-research_commands_to_enum = {
+research_command_to_enum = {
     "iterate": ResearchCommand.ITERATE,
     "new": ResearchCommand.NEW,
     "more": ResearchCommand.MORE,
@@ -50,6 +50,18 @@ ingest_command_to_enum = {
 }
 # DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
 
+ShareCommand = Enum("ShareCommand", "PUBLIC EDITOR VIEWER NONE")
+share_command_to_enum = {
+    "public": ShareCommand.PUBLIC,
+    "editor": ShareCommand.EDITOR,
+    "viewer": ShareCommand.VIEWER,
+}
+share_subcommands_to_code_type = {
+    "pwd": AccessCodeType.NEED_ALWAYS,
+    "unlock-code": AccessCodeType.NEED_ONCE,
+    "uc": AccessCodeType.NEED_ONCE,
+}
+
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
@@ -57,8 +69,13 @@ class ResearchParams(BaseModel):
     num_iterations_left: int = 1
 
 
+class ShareParams(BaseModel):
+    share_type: ShareCommand
+    access_code_type: AccessCodeType | None = None
+    access_code: str | None = None
+
+
 class ParsedQuery(BaseModel):
-    # original_query: str | None = None
     chat_mode: ChatMode = ChatMode.NONE_COMMAND_ID
     message: str = ""
 
@@ -67,6 +84,7 @@ class ParsedQuery(BaseModel):
     research_params: ResearchParams | None = None
     db_command: DBCommand | None = None
     ingest_command: IngestCommand | None = None
+    share_params: ShareParams | None = None
 
     def is_ingestion_needed(self) -> bool:
         if self.research_params and self.research_params.task_type in {
@@ -244,7 +262,7 @@ def standardize_search_queries(query: str) -> str:
 
 
 def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
-    task_type, query = get_command(orig_query, research_commands_to_enum)
+    task_type, query = get_command(orig_query, research_command_to_enum)
 
     # Task types requiring a query but not a number of iterations or sub-task
     if task_type in {
@@ -294,6 +312,17 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     return ResearchParams(task_type=ResearchCommand.NEW), orig_query
 
 
+def parse_share_command(orig_query: str) -> ShareParams:
+    command, rest = get_command(orig_query, share_command_to_enum, ShareCommand.NONE)
+    if command == ShareCommand.NONE:
+        return ShareParams(share_type=ShareCommand.NONE)
+
+    subcommand, rest = get_command(rest, share_subcommands_to_code_type, None)
+    return ShareParams(
+        share_type=command, access_code_type=subcommand, access_code=rest
+    )
+
+
 def parse_query(
     query: str, predetermined_chat_mode: ChatMode | None = None
 ) -> ParsedQuery:
@@ -321,5 +350,9 @@ def parse_query(
     if chat_mode == ChatMode.RESEARCH_COMMAND_ID:
         r, m = parse_research_command(query)
         return ParsedQuery(chat_mode=chat_mode, research_params=r, message=m)
+
+    if chat_mode == ChatMode.SHARE_COMMAND_ID:
+        s = parse_share_command(query)
+        return ParsedQuery(chat_mode=chat_mode, share_params=s)
 
     return ParsedQuery(chat_mode=chat_mode, message=query)

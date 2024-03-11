@@ -52,7 +52,9 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
 
 
 def is_user_authorized_for_collection(
-    chat_state: ChatState, coll_name_full: str | None = None
+    chat_state: ChatState,
+    coll_name_full: str | None = None,
+    access_code: str | None = None,
 ) -> bool:
     """
     Check if the user is authorized to access the given collection.
@@ -71,10 +73,24 @@ def is_user_authorized_for_collection(
         return True
 
     # If can't be authorized with the simple checks above, check the collection's metadata
-    collection_user_settings = chat_state.get_collection_user_settings(coll_name_full)
-    return (
-        collection_user_settings.get_settings(chat_state.user_id) == AccessRole.EDITOR
+    collection_user_settings = chat_state.get_all_collection_user_settings(
+        coll_name_full
     )
+    print(f"collection_user_settings: {collection_user_settings}")
+    if (
+        collection_user_settings.get_user_settings(chat_state.user_id)
+        == AccessRole.EDITOR
+    ):
+        return True
+    
+    code_settings = collection_user_settings.get_access_code_settings(access_code)
+    if code_settings.access_role == AccessRole.EDITOR:
+        return True
+    # TODO: implement the NEED_ONCE case
+
+    return False
+
+
 # TODO - more fine-grained access control
 
 GET_ALL = "GET_ALL"
