@@ -31,8 +31,9 @@ def get_user_facing_collection_name(collection_name: str) -> str:
     Get the user-facing name of a collection by removing the internal prefix
     containing the user ID, if any.
     """
+    # Old collections: u-abcdef<name>, new collections: u-abcdef-<name>
     return (
-        collection_name[PRIVATE_COLLECTION_FULL_PREFIX_LENGTH:]
+        collection_name[PRIVATE_COLLECTION_FULL_PREFIX_LENGTH:].lstrip("-")
         if collection_name.startswith(PRIVATE_COLLECTION_PREFIX)
         else collection_name
     )
@@ -43,9 +44,8 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
     Construct the full collection name from the user ID and the user-facing name.
     """
     return (
-        PRIVATE_COLLECTION_PREFIX
-        + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
-        + collection_name
+        f"{PRIVATE_COLLECTION_PREFIX}{user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]}"
+        f"-{collection_name}"
         if user_id
         else collection_name
     )
