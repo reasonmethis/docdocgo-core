@@ -27,6 +27,19 @@ def handle_share_command(chat_state: ChatState) -> Props:
                 "Apologies, Dmitriy hasn't implemented this code type for me yet."
             )
         
+        # Check that the access code is not empty
+        if not share_params.access_code:
+            return format_nonstreaming_answer(
+                "Apologies, you need to specify an access code."
+                f"\n\n{SHARE_COMMAND_HELP_MESSAGE}"
+            )
+
+        # Check that the access code contains only letters and numbers
+        if not share_params.access_code.isalnum():
+            return format_nonstreaming_answer(
+                "Apologies, the access code can only contain letters and numbers."
+            )
+        
         access_code_settings = AccessCodeSettings(
             code_type=code_type,
             access_role=AccessRole.EDITOR,

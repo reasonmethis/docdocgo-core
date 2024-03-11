@@ -19,7 +19,7 @@ PRIVATE_COLLECTION_USER_ID_LENGTH = 6
 # The length of the prefix + the user ID (pre-calculated for efficiency)
 PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
     len(PRIVATE_COLLECTION_PREFIX) + PRIVATE_COLLECTION_USER_ID_LENGTH
-)
+) # does not include the hyphen btw prefix and collection name
 
 # If bot tries to create a community collection with the above prefix, use:
 SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
@@ -61,7 +61,7 @@ GREETING_MESSAGE = """\
 - chat using all sources fetched during research as a knowledge base
 - similarly chat using documents you provide as a knowledge base
 
-How? Just ask me! (or type `/help`) \
+How? Just ask me by! (or type `/help`) \
 """
 
 EXAMPLE_QUERIES = """\
@@ -117,7 +117,8 @@ Here's what each prefix does. Most important ones:
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
 - `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
 - `/db`: manage your doc collections (select, rename, etc.)
-- `/help <your query>`: get help with using DocDocGo
+- `/share`: share your collection with others
+- `/help <your question>`: ask me about how to use me
 
 Other prefixes:
 
@@ -145,8 +146,8 @@ Example queries:
 If you're in a reading mood, here's a [link to my full docs]\
 (https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
 
-Or simply ask me for help! I have "digested" my own documentation, so I can help you find what you need. \
-Just type `/help` followed by your question.\
+Or simply ask me for help! I have "digested" my own documentation, so I can help you find \
+what you need. Just type `/help` followed by your question.\
 """
 
 DB_COMMAND_HELP_TEMPLATE = """\
@@ -203,10 +204,16 @@ Remember, you can always ask me for help in using me - simply type `/help` follo
 SHARE_COMMAND_HELP_MESSAGE = """\
 You can use the following commands to share the current collection with others:
 
-- `/share public`: share the collection with everyone
-- `/share edit code <any letters or numbers>`: share with an invite code and allow editing
-- `/share view code <any letters or numbers>`: share with an invite code for viewing only
+- `/share editor pwd <any letters or numbers>`: give editor access to the current collection
+- other sharing options are in the works
+
+I will generate a link for you to share with others. If you go with the `pwd` option, the \
+recipient will always need to use that link to access the collection. If you opt for the \
+`unlock-code` option, the recipient will only need to use the link once, and then they will \
+be able to access the collection without it.
 """
+
+
 
 
 def print_no_newline(*args, **kwargs):
