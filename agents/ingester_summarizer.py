@@ -30,16 +30,14 @@ def get_ingester_summarizer_response(chat_state: ChatState):
     ingest_command = chat_state.parsed_query.ingest_command
 
     # Determine if we need to use the same collection or create a new one
+    coll_name_as_shown = get_user_facing_collection_name(
+        chat_state.user_id, chat_state.vectorstore.name
+    )
     if ingest_command == IngestCommand.ADD or (
         ingest_command == IngestCommand.DEFAULT
-        and get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
-            ADDITIVE_COLLECTION_PREFIX
-        )
+        and coll_name_as_shown.startswith(ADDITIVE_COLLECTION_PREFIX)
     ):
         # We will use the same collection
-        coll_name_as_shown = get_user_facing_collection_name(
-            chat_state.vectorstore.name
-        )
         coll_name_full = chat_state.vectorstore.name
 
         # Screen default collection

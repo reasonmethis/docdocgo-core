@@ -62,20 +62,18 @@ def extract_text(files, allow_all_ext):
 def ingest_docs(docs: list[Document], chat_state: ChatState):
     ingest_command = chat_state.parsed_query.ingest_command
 
+    uploaded_docs_coll_name_as_shown = get_user_facing_collection_name(
+        chat_state.user_id, chat_state.vectorstore.name
+    ) # might reassign below
     if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME and (
         ingest_command == IngestCommand.ADD
         or (
             ingest_command == IngestCommand.DEFAULT
-            and get_user_facing_collection_name(chat_state.vectorstore.name).startswith(
-                ADDITIVE_COLLECTION_PREFIX
-            )
+            and uploaded_docs_coll_name_as_shown.startswith(ADDITIVE_COLLECTION_PREFIX)
         )
     ):
         # We will use the same collection
         uploaded_docs_coll_name_full = chat_state.vectorstore.name
-        uploaded_docs_coll_name_as_shown = get_user_facing_collection_name(
-            uploaded_docs_coll_name_full
-        )
     else:
         # We will need to create a new collection
         uploaded_docs_coll_name_as_shown = (

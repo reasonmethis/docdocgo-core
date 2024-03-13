@@ -14,11 +14,12 @@ INTRO_ASCII_ART = """\
 MAIN_BOT_PREFIX = "DocDocGo: "
 
 PRIVATE_COLLECTION_PREFIX = "u-"
+PRIVATE_COLLECTION_PREFIX_LENGTH = len(PRIVATE_COLLECTION_PREFIX)
 PRIVATE_COLLECTION_USER_ID_LENGTH = 6
 
 # The length of the prefix + the user ID (pre-calculated for efficiency)
 PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
-    len(PRIVATE_COLLECTION_PREFIX) + PRIVATE_COLLECTION_USER_ID_LENGTH
+    PRIVATE_COLLECTION_PREFIX_LENGTH + PRIVATE_COLLECTION_USER_ID_LENGTH
 ) # does not include the hyphen btw prefix and collection name
 
 # If bot tries to create a community collection with the above prefix, use:

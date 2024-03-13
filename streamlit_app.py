@@ -169,7 +169,7 @@ with st.sidebar:
 
             chat_state.vectorstore = chat_state.get_new_vectorstore(
                 DEFAULT_COLLECTION_NAME,
-            ) # TODO: don't switch if we are already in the default collection or if 
+            )  # TODO: don't switch if we are already in the default collection or if
             # this is a public collection or the user is authorized for the collection
             chat_state.chat_and_command_history.append(
                 (
@@ -276,7 +276,7 @@ if files:
 
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
-coll_name_as_shown = get_user_facing_collection_name(coll_name_full)
+coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query

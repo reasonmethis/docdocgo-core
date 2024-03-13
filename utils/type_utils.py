@@ -48,8 +48,8 @@ class BotSettings(BaseModel):
     temperature: float = TEMPERATURE
 
 
-AccessRole = Enum("AccessRole", {"NONE": 0, "VIEWER": 1, "EDITOR": 2})
-SharerRole = Enum("SharerRole", "EDITOR VIEWER NONE")
+AccessRole = Enum("AccessRole", {"NONE": 0, "VIEWER": 1, "EDITOR": 2, "OWNER": 3})
+# SharerRole = Enum("SharerRole", "EDITOR VIEWER NONE")
 
 AccessCodeType = Enum("AccessCodeType", "NEED_ALWAYS NEED_ONCE NO_ACCESS")
 
@@ -68,7 +68,7 @@ class AccessCodeSettings(BaseModel):
 COLLECTION_USERS_METADATA_KEY = "collection_users"
 
 
-class CollectionUsers(BaseModel):
+class CollectionPermissions(BaseModel):
     user_id_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
     # NOTE: key "" refers to settings for a general user
 

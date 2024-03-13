@@ -516,7 +516,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if (
         rr_data.num_processed_links_from_latest_queries
         > NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES
-        or len(rr_data.unprocessed_links) < 6 # TODO: make customizable
+        or len(rr_data.unprocessed_links) < 6  # TODO: make customizable
     ):
         tmp = auto_update_search_queries_and_links(chat_state, cached_rr_data=rr_data)
         try:
@@ -887,7 +887,9 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     )
     num_failed_links = len(rr_data.link_data_dict) - num_obtained_ok_links
 
-    coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
+    coll_name_as_shown = get_user_facing_collection_name(
+        chat_state.user_id, chat_state.vectorstore.name
+    )
     nums_for_auto = get_nums_auto_iterations_for_top_level_reports(rr_data, 5)
     answer = (
         f"### Research overview for collection `{coll_name_as_shown}`\n\n"
