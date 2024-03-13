@@ -407,11 +407,15 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     words = words_excluding_small if len(words_excluding_small) > 2 else words
 
     new_coll_name = "-".join(words[:3])[:35].rstrip("-")
-    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
-    if len(new_coll_name) < 3:
-        # Can only happen for a public collection (no prefixed user_id)
-        new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+    # Screen for too short collection names or those that are convetible to a number
+    try:
+        if len(new_coll_name) < 3 or int(new_coll_name) is not None:
+            new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+    except ValueError:
+        pass
+
+    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
     rr_data.collection_name = new_coll_name
 
