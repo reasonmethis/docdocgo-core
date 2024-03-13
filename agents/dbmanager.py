@@ -91,7 +91,48 @@ def is_user_authorized_for_collection(
     return False
 
 
-# TODO - more fine-grained access control
+def get_collection_access_status(
+    chat_state: ChatState,
+    coll_name_full: str | None = None,
+    access_code: str | None = None,
+) -> AccessRole:
+    """
+    Get the access status for the current user to the current or specified collection.
+    """
+    coll_name_full = coll_name_full or chat_state.vectorstore.name
+
+    # The default collection is always accessible in read-only mode
+    if coll_name_full == DEFAULT_COLLECTION_NAME:
+        admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+        if admin_pwd and access_code == admin_pwd:
+            return AccessRole.EDITOR
+        return AccessRole.VIEWER
+    
+    # Public collections are always accessible
+    if not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX):
+        return AccessRole.EDITOR
+
+    # A private collection is accessible if it's the user's own collection
+    if chat_state.user_id and coll_name_full.startswith(
+        PRIVATE_COLLECTION_PREFIX
+        + chat_state.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+    ):
+        return AccessRole.EDITOR
+
+    # If can't be authorized with the simple checks above, check the collection's metadata
+    collection_user_settings = chat_state.get_all_collection_user_settings(
+        coll_name_full
+    )
+    print(f"collection_user_settings: {collection_user_settings}")
+    
+    user_settings = collection_user_settings.get_user_settings(chat_state.user_id)
+    code_settings = collection_user_settings.get_access_code_settings(access_code)
+
+    # Return the highest access role between the user and the access code
+    if code_settings.access_role.value > user_settings.access_role.value:
+        return code_settings.access_role
+    return user_settings.access_role
+
 
 GET_ALL = "GET_ALL"
 
