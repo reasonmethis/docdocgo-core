@@ -19,7 +19,6 @@ from utils.query_parsing import DBCommand
 from utils.type_utils import (
     AccessRole,
     CollectionUserSettings,
-    JSONish,
     OperationMode,
     Props,
 )

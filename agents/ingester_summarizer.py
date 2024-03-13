@@ -4,6 +4,7 @@ from langchain.schema import Document
 
 from agents.dbmanager import (
     construct_full_collection_name,
+    get_access_role,
     get_user_facing_collection_name,
 )
 from components.llm import get_prompt_llm_chain
@@ -16,10 +17,10 @@ from utils.helpers import (
     format_nonstreaming_answer,
 )
 from utils.lang_utils import limit_tokens_in_text
-from utils.prepare import CONTEXT_LENGTH, DEFAULT_COLLECTION_NAME
+from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import SUMMARIZER_PROMPT
 from utils.query_parsing import IngestCommand
-from utils.type_utils import ChatMode
+from utils.type_utils import AccessRole, ChatMode
 from utils.web import LinkData, get_batch_url_fetcher
 
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
@@ -40,11 +41,13 @@ def get_ingester_summarizer_response(chat_state: ChatState):
         # We will use the same collection
         coll_name_full = chat_state.vectorstore.name
 
-        # Screen default collection
-        if coll_name_full == DEFAULT_COLLECTION_NAME:
+        # Check for editor access
+        if get_access_role(chat_state).value < AccessRole.EDITOR.value:
             return format_invalid_input_answer(
-                "You cannot ingest content into the default collection.",
-                "You cannot ingest content into the default collection.",
+                "Apologies, you can't ingest content into the current collection "
+                "because you don't have editor access to it. You can ingest content "
+                "into a new collection instead. For example:\n\n"
+                f"```\n\n/ingest new {message}\n\n```"
             )
     else:
         # We will need to create a new collection
