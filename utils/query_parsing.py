@@ -52,11 +52,11 @@ ingest_command_to_enum = {
 
 ShareCommand = Enum("ShareCommand", "PUBLIC EDITOR VIEWER NONE")
 share_command_to_enum = {
-    "public": ShareCommand.PUBLIC,
+    # "public": ShareCommand.PUBLIC, # TODO 
     "editor": ShareCommand.EDITOR,
     "viewer": ShareCommand.VIEWER,
 }
-share_subcommands_to_code_type = {
+share_subcommand_to_code_type = {
     "pwd": AccessCodeType.NEED_ALWAYS,
     "unlock-code": AccessCodeType.NEED_ONCE,
     "uc": AccessCodeType.NEED_ONCE,
@@ -317,7 +317,7 @@ def parse_share_command(orig_query: str) -> ShareParams:
     if command == ShareCommand.NONE:
         return ShareParams(share_type=ShareCommand.NONE)
 
-    subcommand, rest = get_command(rest, share_subcommands_to_code_type, None)
+    subcommand, rest = get_command(rest, share_subcommand_to_code_type, None)
     return ShareParams(
         share_type=command, access_code_type=subcommand, access_code=rest
     )

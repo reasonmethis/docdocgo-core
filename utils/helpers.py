@@ -20,7 +20,7 @@ PRIVATE_COLLECTION_USER_ID_LENGTH = 6
 # The length of the prefix + the user ID (pre-calculated for efficiency)
 PRIVATE_COLLECTION_FULL_PREFIX_LENGTH = (
     PRIVATE_COLLECTION_PREFIX_LENGTH + PRIVATE_COLLECTION_USER_ID_LENGTH
-) # does not include the hyphen btw prefix and collection name
+)  # does not include the hyphen btw prefix and collection name
 
 # If bot tries to create a community collection with the above prefix, use:
 SUBSTITUTE_FOR_PRIVATE_COLLECTION_PREFIX = "uu-"  # TODO implement this
@@ -202,7 +202,7 @@ Remember, you can always ask me for help in using me - simply type `/help` follo
 """
 # - `/research more <your new query>`: same as above, but ingest into current collection
 
-SHARE_COMMAND_HELP_MESSAGE = """\
+SHARE_COMMAND_HELP_MSG = """\
 You can use the following commands to share the current collection with others:
 
 - `/share editor pwd <any letters or numbers>`: give editor access to the current collection
@@ -213,8 +213,6 @@ recipient will always need to use that link to access the collection. If you opt
 `unlock-code` option, the recipient will only need to use the link once, and then they will \
 be able to access the collection without it.
 """
-
-
 
 
 def print_no_newline(*args, **kwargs):
