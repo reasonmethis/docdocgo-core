@@ -346,6 +346,13 @@ Contributions are welcome! If you have any questions or suggestions, please open
 
 Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
 
+#### Q: How can I update the default collection?
+
+A: You can do it in two steps:
+
+1. Ingest the new content into a new collection using the `/ingest` command.
+2. Rename the new collection to `docdocgo-documentation` using the special admin command `/db rename --default <value of the BYPASS_SETTINGS_RESTRICTIONS_PASSWORD environment variable>`.
+
 #### Q: I want to fork this repository and use a vector database on my local machine. How do I make sure that when I pull updates from the original repository, I don't overwrite my local database?
 
 A: The easiest way is to set:
