@@ -9,12 +9,13 @@ from pydantic import BaseModel
 from utils.helpers import DEFAULT_CHAT_MODE, command_ids
 from utils.type_utils import AccessCodeType, ChatMode, Props
 
-DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE EXIT NONE")
+DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE STATUS EXIT NONE")
 db_command_to_enum = {
     "list": DBCommand.LIST,
     "use": DBCommand.USE,
     "rename": DBCommand.RENAME,
     "delete": DBCommand.DELETE,
+    "status": DBCommand.STATUS,
 }
 
 ResearchCommand = Enum(
@@ -50,13 +51,14 @@ ingest_command_to_enum = {
 }
 # DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
 
-ShareCommand = Enum("ShareCommand", "PUBLIC EDITOR VIEWER NONE")
+ShareCommand = Enum("ShareCommand", "PUBLIC OWNER EDITOR VIEWER NONE")
 share_command_to_enum = {
-    "public": ShareCommand.PUBLIC,
+    # "public": ShareCommand.PUBLIC, # TODO 
     "editor": ShareCommand.EDITOR,
     "viewer": ShareCommand.VIEWER,
+    "owner": ShareCommand.OWNER,
 }
-share_subcommands_to_code_type = {
+share_subcommand_to_code_type = {
     "pwd": AccessCodeType.NEED_ALWAYS,
     "unlock-code": AccessCodeType.NEED_ONCE,
     "uc": AccessCodeType.NEED_ONCE,
@@ -317,7 +319,7 @@ def parse_share_command(orig_query: str) -> ShareParams:
     if command == ShareCommand.NONE:
         return ShareParams(share_type=ShareCommand.NONE)
 
-    subcommand, rest = get_command(rest, share_subcommands_to_code_type, None)
+    subcommand, rest = get_command(rest, share_subcommand_to_code_type, None)
     return ShareParams(
         share_type=command, access_code_type=subcommand, access_code=rest
     )

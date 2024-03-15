@@ -328,6 +328,9 @@ Using them, please respond to the following query:
 
 <query>{query}</query>
 
+Strive to keep all information from both reports. For example, if both reports contain \
+lists of items, include all items from both reports (de-duplicate if necessary).
+
 """
     + REPORT_INSTRUCTION
 )

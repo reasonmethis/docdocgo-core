@@ -129,7 +129,9 @@ def get_bot_response(chat_state: ChatState):
     return chat_chain.invoke(
         {
             "question": chat_state.message,
-            "coll_name": get_user_facing_collection_name(chat_state.vectorstore.name),
+            "coll_name": get_user_facing_collection_name(
+                chat_state.user_id, chat_state.vectorstore.name
+            ),
             "chat_history": chat_state.chat_history,
             "search_params": chat_state.search_params,
         }
@@ -222,7 +224,9 @@ def get_docs_chat_chain(
     )
 
 
-def do_intro_tasks(openai_api_key: str, collection_name: str | None = None)-> ChromaDDG:
+def do_intro_tasks(
+    openai_api_key: str, collection_name: str | None = None
+) -> ChromaDDG:
     global default_vectorstore
 
     print(INTRO_ASCII_ART + "\n\n")
@@ -249,7 +253,9 @@ def do_intro_tasks(openai_api_key: str, collection_name: str | None = None)-> Ch
                 collection_name, openai_api_key=openai_api_key
             )
         except Exception as e:
-            print(f"Failed to load the {repr(collection_name)} collection. Error: {e}\n")
+            print(
+                f"Failed to load the {repr(collection_name)} collection. Error: {e}\n"
+            )
 
     print("Done!")
     return vectorstore

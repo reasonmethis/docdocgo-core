@@ -4,8 +4,9 @@ import streamlit as st
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
+    get_access_role,
+    get_short_user_id,
     get_user_facing_collection_name,
-    is_user_authorized_for_collection,
 )
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
@@ -28,7 +29,7 @@ from utils.streamlit.helpers import (
 from utils.streamlit.ingest import extract_text, ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import ChatMode, chat_modes_needing_llm
+from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
@@ -132,13 +133,16 @@ with st.sidebar:
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
-            chat_state.user_id = openai_api_key_to_use  # use the key as the user id
+            chat_state.user_id = get_short_user_id(openai_api_key_to_use)
 
         # If the user has entered a collection name in the URL, switch to it
         if init_coll_name := st.session_state.initial_collection_name:
             st.session_state.initial_collection_name = None
-            if is_user_authorized_for_collection(
-                chat_state, init_coll_name, st.session_state.access_code
+            if (
+                get_access_role(
+                    chat_state, init_coll_name, st.session_state.access_code
+                )
+                != AccessRole.NONE
             ):
                 # Switch to the new collection
                 chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
@@ -169,7 +173,7 @@ with st.sidebar:
 
             chat_state.vectorstore = chat_state.get_new_vectorstore(
                 DEFAULT_COLLECTION_NAME,
-            ) # TODO: don't switch if we are already in the default collection or if 
+            )  # TODO: don't switch if we are already in the default collection or if
             # this is a public collection or the user is authorized for the collection
             chat_state.chat_and_command_history.append(
                 (
@@ -276,7 +280,7 @@ if files:
 
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
-coll_name_as_shown = get_user_facing_collection_name(coll_name_full)
+coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query

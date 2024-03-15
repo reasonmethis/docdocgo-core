@@ -12,6 +12,7 @@ from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
 from agents.dbmanager import (
     construct_full_collection_name,
+    get_access_role,
     get_user_facing_collection_name,
 )
 from agents.researcher_data import Report, ResearchReportData
@@ -22,7 +23,7 @@ from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
-    RESEARCH_COMMAND_HELP_MESSAGE,
+    RESEARCH_COMMAND_HELP_MSG,
     format_invalid_input_answer,
     format_nonstreaming_answer,
     print_no_newline,
@@ -43,11 +44,18 @@ from utils.prompts import (
 from utils.query_parsing import ParsedQuery, ResearchCommand
 from utils.researcher_utils import get_links
 from utils.strings import extract_json
-from utils.type_utils import ChatMode, OperationMode, Props
+from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
 from utils.web import (
     LinkData,
     get_batch_url_fetcher,
 )
+
+NO_EDITOR_ACCESS_MSG = (
+    "Apologies, you don't have editor access to this collection. "
+    "To see how to start a new research instead or how to use any of my other "
+    "talents, just ask me by typing `/help <your question>`."
+)
+NO_EDITOR_ACCESS_STATUS = "No editor access to collection"
 
 WEB_SEARCH_API_ISSUE_MSG = (
     "Apologies, it seems I'm having an issue with the API I use to search the web."
@@ -407,11 +415,15 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     words = words_excluding_small if len(words_excluding_small) > 2 else words
 
     new_coll_name = "-".join(words[:3])[:35].rstrip("-")
-    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
-    if len(new_coll_name) < 3:
-        # Can only happen for a public collection (no prefixed user_id)
-        new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+    # Screen for too short collection names or those that are convetible to a number
+    try:
+        if len(new_coll_name) < 3 or int(new_coll_name) is not None:
+            new_coll_name = f"collection-{new_coll_name}".rstrip("-")
+    except ValueError:
+        pass
+
+    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
     rr_data.collection_name = new_coll_name
 
@@ -476,6 +488,13 @@ MAX_ITERATIONS_IF_OWN_KEY = 126
 
 
 def get_iterative_researcher_response(chat_state: ChatState) -> Props:
+    # Check for editor access
+    # NOTE: can cache collection metadata for get_rr_data
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     # Assign task type and get rr_data
     task_type = chat_state.parsed_query.research_params.task_type
     if task_type == ResearchCommand.AUTO:
@@ -516,7 +535,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if (
         rr_data.num_processed_links_from_latest_queries
         > NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES
-        or len(rr_data.unprocessed_links) < 6 # TODO: make customizable
+        or len(rr_data.unprocessed_links) < 6  # TODO: make customizable
     ):
         tmp = auto_update_search_queries_and_links(chat_state, cached_rr_data=rr_data)
         try:
@@ -758,6 +777,13 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
             earliest_uncombined_idx : earliest_uncombined_idx + NUM_REPORTS_TO_COMBINE
         ]
 
+    # Check for editor access
+    # NOTE: can cache collection metadata for get_rr_data
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rr_data: ResearchReportData | None = chat_state.get_rr_data()
     if not rr_data:
         return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
@@ -887,7 +913,9 @@ def get_research_view_response(chat_state: ChatState) -> Props:
     )
     num_failed_links = len(rr_data.link_data_dict) - num_obtained_ok_links
 
-    coll_name_as_shown = get_user_facing_collection_name(chat_state.vectorstore.name)
+    coll_name_as_shown = get_user_facing_collection_name(
+        chat_state.user_id, chat_state.vectorstore.name
+    )
     nums_for_auto = get_nums_auto_iterations_for_top_level_reports(rr_data, 5)
     answer = (
         f"### Research overview for collection `{coll_name_as_shown}`\n\n"
@@ -937,6 +965,13 @@ def get_research_view_response(chat_state: ChatState) -> Props:
 
 
 def get_research_set_response(chat_state: ChatState) -> Props:
+    # Check for editor access
+    # NOTE: can cache collection metadata for get_rr_data
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     parsed_query = chat_state.parsed_query
     rr_data = chat_state.get_rr_data()
     is_set_query = parsed_query.research_params.task_type == ResearchCommand.SET_QUERY
@@ -990,6 +1025,13 @@ def update_search_queries_and_links(
 
 
 def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
+    # Check for editor access
+    # NOTE: can cache collection metadata for get_rr_data
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     parsed_query = chat_state.parsed_query
     rr_data = chat_state.get_rr_data()
     new_queries = json.loads(parsed_query.message)  # validated by the parser
@@ -1013,6 +1055,8 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
 def auto_update_search_queries_and_links(
     chat_state: ChatState, cached_rr_data: ResearchReportData | None = None
 ) -> Props:
+    # We have checked for editor access upstream
+
     rr_data = cached_rr_data or chat_state.get_rr_data()
 
     # Construct query generator chain and inputs
@@ -1063,6 +1107,12 @@ def auto_update_search_queries_and_links(
 
 
 def get_research_auto_update_search_queries_response(chat_state: ChatState) -> Props:
+    # Check for editor access
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rsp = auto_update_search_queries_and_links(chat_state)
     try:
         rr_data = rsp["rr_data"]
@@ -1081,6 +1131,12 @@ def get_research_auto_update_search_queries_response(chat_state: ChatState) -> P
 
 
 def get_research_clear_response(chat_state: ChatState):
+    # Check for editor access
+    if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rr_data = chat_state.get_rr_data()
 
     rr_data.base_reports = []
@@ -1134,19 +1190,14 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.AUTO:
         response = get_report_combiner_response(chat_state)
 
-        # If no error, return the response
-        is_error = response.get("status.body") == INVALID_COMBINE_STATUS
-        assert is_error == bool(response.get("needs_print"))
-        if not response.get("needs_print") and not is_error:
-            return response
-
-        # Sanity check
-        assert is_error == bool(response.get("needs_print"))
+        # Return the response, unless it's the specific "can't combine" error
+        if response.get("status.body") != INVALID_COMBINE_STATUS:
+            return response  # success or auth error
 
         # We can't combine reports, so generate a new report instead
         return get_iterative_researcher_response(chat_state)
 
-    return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
+    return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MSG)
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:
@@ -1156,6 +1207,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     rr_data = chat_state.get_rr_data()
 
     # Screen commands that require pre-existing research
+    # TODO: probably should screen editor access here too
     if not rr_data and task_type not in {ResearchCommand.NEW, ResearchCommand.NONE}:
         return format_invalid_input_answer(
             "Apologies, this command is only valid when there is pre-existing research "

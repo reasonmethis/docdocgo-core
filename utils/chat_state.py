@@ -6,10 +6,11 @@ from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
     COLLECTION_USERS_METADATA_KEY,
     AccessCodeSettings,
+    AccessRole,
     BotSettings,
     CallbacksOrNone,
     ChatMode,
-    CollectionUsers,
+    CollectionPermissions,
     CollectionUserSettings,
     OperationMode,
     PairwiseChatHistory,
@@ -58,6 +59,7 @@ class ChatState:
         user_id: str | None = None,
         openai_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
+        access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
@@ -71,6 +73,7 @@ class ChatState:
         self.user_id = user_id
         self.openai_api_key = openai_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
+        self.access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
 
     @property
     def chat_mode(self) -> ChatMode:
@@ -124,29 +127,29 @@ class ChatState:
         coll_metadata["rr_data"] = rr_data.model_dump_json()
         self.vectorstore.set_collection_metadata(coll_metadata)
 
-    def get_all_collection_user_settings(
+    def get_collection_permissions(
         self, coll_name: str | None = None
-    ) -> CollectionUsers:
+    ) -> CollectionPermissions:
         """
         Get the collection user settings from the currently selected collection's
         metadata, or from the given collection name if provided
         """
         try:
-            collection_user_settings_json = self.get_collection_metadata(coll_name)[
+            collection_permissions_json = self.get_collection_metadata(coll_name)[
                 COLLECTION_USERS_METADATA_KEY
             ]
         except (TypeError, KeyError):
-            return CollectionUsers()
-        return CollectionUsers.model_validate_json(collection_user_settings_json)
+            return CollectionPermissions()
+        return CollectionPermissions.model_validate_json(collection_permissions_json)
 
-    def save_all_collection_user_settings(
-        self, collection_user_settings: CollectionUsers
+    def save_collection_permissions(
+        self, collection_permissions: CollectionPermissions
     ) -> None:
         """
         Update the currently selected collection's metadata with the given CollectionUsers
         """
         coll_metadata = self.get_collection_metadata() or {}
-        json_str = collection_user_settings.model_dump_json()
+        json_str = collection_permissions.model_dump_json()
         coll_metadata[COLLECTION_USERS_METADATA_KEY] = json_str
         self.vectorstore.set_collection_metadata(coll_metadata)
 
@@ -157,9 +160,7 @@ class ChatState:
         Get the collection user settings for the given user from the currently selected collection's
         metadata, or from the specified collection
         """
-        return self.get_all_collection_user_settings(coll_name).get_user_settings(
-            user_id
-        )
+        return self.get_collection_permissions(coll_name).get_user_settings(user_id)
 
     def save_collection_settings_for_user(
         self, user_id: str | None, settings: CollectionUserSettings
@@ -167,9 +168,9 @@ class ChatState:
         """
         Update the currently selected collection's metadata with the given CollectionUserSettings
         """
-        collection_user_settings = self.get_all_collection_user_settings()
-        collection_user_settings.set_user_settings(user_id, settings)
-        self.save_all_collection_user_settings(collection_user_settings)
+        collection_permissions = self.get_collection_permissions()
+        collection_permissions.set_user_settings(user_id, settings)
+        self.save_collection_permissions(collection_permissions)
 
     def get_access_code_settings(
         self, access_code: str, coll_name: str | None = None
@@ -178,9 +179,9 @@ class ChatState:
         Get the access code settings from the currently selected collection's metadata,
         or from the specified collection
         """
-        return self.get_all_collection_user_settings(
-            coll_name
-        ).get_access_code_settings(access_code)
+        return self.get_collection_permissions(coll_name).get_access_code_settings(
+            access_code
+        )
 
     def save_access_code_settings(
         self, access_code: str, access_code_settings: AccessCodeSettings
@@ -188,11 +189,11 @@ class ChatState:
         """
         Update the currently selected collection's metadata with the given AccessCodeSettings
         """
-        collection_user_settings = self.get_all_collection_user_settings()
-        collection_user_settings.set_access_code_settings(
+        collection_permissions = self.get_collection_permissions()
+        collection_permissions.set_access_code_settings(
             access_code, access_code_settings
         )
-        self.save_all_collection_user_settings(collection_user_settings)
+        self.save_collection_permissions(collection_permissions)
 
     def get_new_vectorstore(
         self, collection_name: str, create_if_not_exists: bool = True

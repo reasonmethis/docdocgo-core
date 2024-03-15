@@ -8,6 +8,7 @@ from utils.helpers import (
     DB_COMMAND_HELP_TEMPLATE,
     PRIVATE_COLLECTION_FULL_PREFIX_LENGTH,
     PRIVATE_COLLECTION_PREFIX,
+    PRIVATE_COLLECTION_PREFIX_LENGTH,
     PRIVATE_COLLECTION_USER_ID_LENGTH,
     format_nonstreaming_answer,
 )
@@ -15,7 +16,12 @@ from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import DBCommand
-from utils.type_utils import AccessRole, JSONish, OperationMode, Props
+from utils.type_utils import (
+    AccessRole,
+    CollectionUserSettings,
+    OperationMode,
+    Props,
+)
 
 menu_main = {
     DBCommand.LIST: "List collections",
@@ -26,15 +32,38 @@ menu_main = {
 }
 
 
-def get_user_facing_collection_name(collection_name: str) -> str:
+def get_short_user_id(user_id: str | None) -> str | None:
+    """
+    Get the last PRIVATE_COLLECTION_USER_ID_LENGTH characters of the user ID.
+    """
+    return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id is not None else None
+
+
+def get_main_owner_user_id(collection_name: str) -> str | None:
+    """
+    Get the user ID of the native owner of a collection. If the collection is public,
+    return None.
+    """
+    if collection_name.startswith(PRIVATE_COLLECTION_PREFIX):
+        return collection_name[
+            PRIVATE_COLLECTION_PREFIX_LENGTH:PRIVATE_COLLECTION_FULL_PREFIX_LENGTH
+        ]
+
+
+ALWAYS_REMOVE_PREFIX = "#=-, !"  # string that can't be a user id
+
+
+def get_user_facing_collection_name(user_id: str | None, collection_name: str) -> str:
     """
     Get the user-facing name of a collection by removing the internal prefix
-    containing the user ID, if any.
+    containing the user ID, if any. The prefix is removed only if the user ID
+    matches the one in the collection name.
     """
     # Old collections: u-abcdef<name>, new collections: u-abcdef-<name>
     return (
         collection_name[PRIVATE_COLLECTION_FULL_PREFIX_LENGTH:].lstrip("-")
         if collection_name.startswith(PRIVATE_COLLECTION_PREFIX)
+        and user_id == get_main_owner_user_id(collection_name)
         else collection_name
     )
 
@@ -44,54 +73,123 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
     Construct the full collection name from the user ID and the user-facing name.
     """
     return (
-        f"{PRIVATE_COLLECTION_PREFIX}{user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]}"
-        f"-{collection_name}"
+        f"{PRIVATE_COLLECTION_PREFIX}{get_short_user_id(user_id)}" f"-{collection_name}"
         if user_id
         else collection_name
     )
+    # NOTE: get_short_user_id is redundant but just to be safe
 
 
-def is_user_authorized_for_collection(
+# def is_user_authorized_for_collection(
+#     chat_state: ChatState,
+#     coll_name_full: str | None = None,
+#     access_code: str | None = None,
+# ) -> bool:
+#     """
+#     Check if the user is authorized to access the given collection.
+#     """
+#     coll_name_full = coll_name_full or chat_state.vectorstore.name
+
+#     # Public collections are always accessible
+#     if not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX):
+#         return True
+
+#     # A private collection is accessible if it's the user's own collection
+#     if chat_state.user_id and coll_name_full.startswith(
+#         PRIVATE_COLLECTION_PREFIX
+#         + chat_state.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+#     ):
+#         return True
+
+#     # If can't be authorized with the simple checks above, check the collection's metadata
+#     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
+#     print(f"collection_permissions: {collection_permissions}")
+#     if (
+#         collection_permissions.get_user_settings(chat_state.user_id)
+#         == AccessRole.EDITOR
+#     ):
+#         return True
+
+#     code_settings = collection_permissions.get_access_code_settings(access_code)
+#     if code_settings.access_role == AccessRole.EDITOR:
+#         return True
+#     # TODO: implement the NEED_ONCE case
+
+#     return False
+
+
+def get_access_role(
     chat_state: ChatState,
     coll_name_full: str | None = None,
     access_code: str | None = None,
-) -> bool:
+) -> AccessRole:
     """
-    Check if the user is authorized to access the given collection.
+    Get the access status for the current user to the current or specified collection.
     """
+    # TODO: can probably eliminate the need for fetching metadata in cases where
+    # all we need is the user's access role to be viewer and that's already stored in
+    # chat_state.
     coll_name_full = coll_name_full or chat_state.vectorstore.name
+
+    # The default collection is always accessible in read-only mode
+    if coll_name_full == DEFAULT_COLLECTION_NAME:
+        admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
+        if admin_pwd and access_code == admin_pwd:
+            return AccessRole.OWNER
+        return AccessRole.VIEWER
 
     # Public collections are always accessible
     if not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX):
-        return True
+        return AccessRole.OWNER
 
-    # A private collection is accessible if it's the user's own collection
+    # Check if it's the user's own collection
     if chat_state.user_id and coll_name_full.startswith(
         PRIVATE_COLLECTION_PREFIX
         + chat_state.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
     ):
-        return True
+        return AccessRole.OWNER
+
+    # If access code was used preiously, retrieve access role from chat_state
+    stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
+        coll_name_full, {}
+    ).get(chat_state.user_id, AccessRole.NONE)
+
+    # If no access code is being used, trust the stored access role to avoid fetching
+    # metadata. It's possible that a higher role was assigned to the user during this
+    # ession, but it's not worth the extra request to the server to check, since the
+    # user can always reload the page to get a new session.
+    if stored_access_role != AccessRole.NONE and access_code is None:
+        return stored_access_role
 
     # If can't be authorized with the simple checks above, check the collection's metadata
-    collection_user_settings = chat_state.get_all_collection_user_settings(
-        coll_name_full
+    collection_permissions = chat_state.get_collection_permissions(coll_name_full)
+    print(f"collection_permissions: {collection_permissions}")
+
+    user_settings = collection_permissions.get_user_settings(chat_state.user_id)
+    code_settings = collection_permissions.get_access_code_settings(access_code)
+
+    print(f"user_settings: {user_settings}")
+    print(f"code_settings: {code_settings}")
+    print(f"stored_access_role: {stored_access_role}")
+
+    # Determine the highest access role available
+    role = max(
+        code_settings.access_role,
+        user_settings.access_role,
+        stored_access_role,
+        key=lambda x: x.value,
     )
-    print(f"collection_user_settings: {collection_user_settings}")
-    if (
-        collection_user_settings.get_user_settings(chat_state.user_id)
-        == AccessRole.EDITOR
-    ):
-        return True
-    
-    code_settings = collection_user_settings.get_access_code_settings(access_code)
-    if code_settings.access_role == AccessRole.EDITOR:
-        return True
-    # TODO: implement the NEED_ONCE case
 
-    return False
+    print(f"role: {role}")
 
+    # Store the access role in chat_state for future use within the same session
+    if role.value > stored_access_role.value:
+        chat_state.access_role_by_user_id_by_coll.setdefault(coll_name_full, {})[
+            chat_state.user_id
+        ] = role
 
-# TODO - more fine-grained access control
+    return role
+
 
 GET_ALL = "GET_ALL"
 
@@ -132,7 +230,7 @@ def get_collections(
     ]
 
 
-def manage_dbs_console(chat_state: ChatState) -> JSONish:
+def manage_dbs_console(chat_state: ChatState) -> Props:
     """
     Manage collections from the console (using `input`).
     NOTE: In console mode, there's no separation of users.
@@ -212,6 +310,8 @@ def manage_dbs_console(chat_state: ChatState) -> JSONish:
                 chat_state.vectorstore.delete_collection(collection_name)
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
+        else:
+            print("This command is not available in console mode.")
 
 
 def sort_collection_names(
@@ -231,7 +331,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
     collections = get_collections(chat_state.vectorstore, chat_state.user_id)
     coll_names_full = [c.name for c in collections]
-    coll_names_as_shown = list(map(get_user_facing_collection_name, coll_names_full))
+    coll_names_as_shown = [
+        get_user_facing_collection_name(chat_state.user_id, n) for n in coll_names_full
+    ]
     coll_names_as_shown, coll_names_full = sort_collection_names(
         coll_names_as_shown, coll_names_full
     )
@@ -240,11 +342,21 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(coll_names_as_shown)])
         return f"Available collections:\n\n{tmp}"
 
-    def get_db_not_found_str(name: str) -> str:
-        return f"Collection {name} not found. {get_available_dbs_str()}"
+    def get_db_not_found_str(name: str, access_role: str = "owner") -> str:
+        return (
+            f"Collection `{name}` doesn't exist or you don't have {access_role} access to it. "
+            f"{get_available_dbs_str()}"
+        ).replace("  ", " ")
 
     admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
 
+    if command == DBCommand.STATUS:
+        access_role = get_access_role(chat_state)
+        return format_nonstreaming_answer(
+            f"Full collection name: `{chat_state.vectorstore.name}`\n\n"
+            f"Your access role: {access_role.name.lower()}"
+        )
+    
     if command == DBCommand.LIST:
         if value == admin_pwd:
             all_collections = get_collections(chat_state.vectorstore, GET_ALL)
@@ -268,49 +380,72 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "```\n/db use 3\n```"
             )
 
-        # Get the index of the collection to switch to
+        # Get the name of the collection to switch to
         try:
             idx = coll_names_as_shown.index(value)
+            coll_name_to_show = value
+            coll_name_full = coll_names_full[idx]
         except ValueError:
             try:
                 # See if the user provided an index directly instead of a name
                 idx = int(value) - 1
                 if idx < 0 or idx >= len(coll_names_as_shown):
                     raise ValueError
-                value = coll_names_as_shown[idx]
+                coll_name_to_show = coll_names_as_shown[idx]
+                coll_name_full = coll_names_full[idx]
             except ValueError:
-                return format_nonstreaming_answer(get_db_not_found_str(value))
+                # See if it's a non-native collection (shared with user)
+                if get_access_role(chat_state, value) == AccessRole.NONE:
+                    return format_nonstreaming_answer(get_db_not_found_str(value, ""))
+                coll_name_to_show = coll_name_full = value
 
-        return format_nonstreaming_answer(f"Switched to collection: `{value}`.") | {
-            "vectorstore": chat_state.get_new_vectorstore(coll_names_full[idx]),
-        }
+        vectorstore = chat_state.get_new_vectorstore(coll_name_full)
+        # NOTE: we are loading the same vectorstore twice if we used get_access_role
+        return format_nonstreaming_answer(
+            f"Switched to collection: `{coll_name_to_show}`."
+        ) | {"vectorstore": vectorstore}
 
     if command == DBCommand.RENAME:
-        if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
-            return format_nonstreaming_answer(
-                "You cannot rename the default collection."
-            )
         if not value:
             return format_nonstreaming_answer(
                 "To rename the current collection, you must provide a new name. Example:\n"
                 "```\n/db rename awesome-new-name\n```"
             )
 
-        # Admin can rename to the default collection's name by providing the password
-        if value == f"--default {admin_pwd}" and admin_pwd:
-            # Before renaming, we need to delete the default collection if it exists
-            chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
-            value = DEFAULT_COLLECTION_NAME
-
-        if not chat_state.user_id and value.startswith(PRIVATE_COLLECTION_PREFIX):
+        if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
             return format_nonstreaming_answer(
-                f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
+                "You cannot rename the default collection."
             )
 
+        # Admin can rename to the default collection's name by providing the password.
+        # If it's not a special admin command, check if the user has editor access
+        if value == f"--default {admin_pwd}" and admin_pwd:
+            # Before renaming, we need to delete the default collection if it exists
+            try:
+                chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
+            except Exception:
+                pass # The default collection likely was deleted already
+            value = DEFAULT_COLLECTION_NAME
+        elif get_access_role(chat_state).value < AccessRole.OWNER.value:
+            return format_nonstreaming_answer(
+                "You can't rename the current collection because you "
+                "don't have owner access to it."
+            )
+
+        # From this point on, the user has owner access to the collection
+
         # Get the full name of the collection to rename to
+        main_owner_user_id = get_main_owner_user_id(chat_state.vectorstore.name)
         if value == DEFAULT_COLLECTION_NAME:
             # Will usually fail, but ok if admin has deleted the default collection
             new_full_name = DEFAULT_COLLECTION_NAME
+        elif main_owner_user_id is None:
+            # Public collection remains public
+            new_full_name = value
+            if new_full_name.startswith(PRIVATE_COLLECTION_PREFIX):
+                return format_nonstreaming_answer(
+                    f"A public collection's name cannot start with `{PRIVATE_COLLECTION_PREFIX}`."
+                )
         else:
             new_full_name = construct_full_collection_name(chat_state.user_id, value)
 
@@ -322,6 +457,15 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 f"Error renaming collection:\n```\n{format_exception(e)}\n```"
             )
 
+        # Check if collection was taken away from the original owner and restore their access
+        if main_owner_user_id != chat_state.user_id:
+            chat_state.save_collection_settings_for_user(
+                main_owner_user_id,
+                CollectionUserSettings(access_role=AccessRole.OWNER),
+            )
+            print(f"Restored owner access to {main_owner_user_id}")
+
+        # Get vectorstore with updated name, form and return the answer
         return format_nonstreaming_answer(f"Collection renamed to `{value}`.") | {
             "vectorstore": chat_state.get_new_vectorstore(new_full_name),
         }
@@ -338,7 +482,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         if value == "-c" or value == "--current":
-            value = get_user_facing_collection_name(chat_state.vectorstore.name)
+            value = chat_state.vectorstore.name
 
         if value == DEFAULT_COLLECTION_NAME:
             return format_nonstreaming_answer(
@@ -346,7 +490,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         # Admin can delete the default collection by providing the password
-        if value == f"--default {admin_pwd}" and admin_pwd:
+        if (
+            value == f"--default {admin_pwd}"
+            and admin_pwd
+            and chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME
+        ):
             value = DEFAULT_COLLECTION_NAME
 
         # NOTE: the functionality below requires allow_reset=True in the settings
@@ -359,10 +507,21 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         # Get the full name(s) of the collection(s) to delete
         try:
+            # See if value is a name of a native collection (then no need for auth)
             full_names = [coll_names_full[coll_names_as_shown.index(value)]]
+        # NOTE: there's a small chance of an ambiguity if the user has
+        # a collection with the same name as a public collection, or if
+        # they have their own collection with the as-shown name of
+        # "u-<some other user's id>-<some other user's collection name>".
+        # In both cases, the name will be resolved to the user's own collection.
         except ValueError:
             try:
                 # See if the user provided index(es) directly instead of a name
+                # NOTE: this takes precedence over non-native collection name such as
+                # "123" (which could be a public collection name), but that's ok, we don't
+                # want to block the user from deleting a collection by its index and delete
+                # a public collection by mistake.
+                # NOTE: could prohibit collection names that are just numbers
                 if "-" in value:
                     # Admin can delete a range of collections by providing the password
                     if not value.endswith(f" {admin_pwd}") or not admin_pwd:
@@ -389,20 +548,42 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # Get the full names of the collections
                 full_names = [coll_names_full[idx] for idx in idxs]
             except ValueError:
-                return format_nonstreaming_answer(get_db_not_found_str(value))
+                # See if it's a non-native collection (shared with user)
+                # That's the only case where we need to check access role
+                if get_access_role(chat_state, value).value < AccessRole.OWNER.value:
+                    # NOTE: could have a separate NOT_EXIST "role" if we want to distinguish
+                    # between not found and not accessible even as a viewer
+                    return format_nonstreaming_answer(get_db_not_found_str(value))
+                full_names = [value]
 
         # Delete the collection(s)
+        deleted_names_as_shown = []
+        failed_names_as_shown = []
+        error_msgs = []
         for full_name in full_names:
-            chat_state.vectorstore.delete_collection(full_name)
+            name_as_shown = get_user_facing_collection_name(
+                chat_state.user_id, full_name
+            )
+            try:
+                chat_state.vectorstore.delete_collection(full_name)
+                deleted_names_as_shown.append(name_as_shown)
+            # NOTE: could stream progress here
+            except Exception as e:
+                # NOTE: will throw if someone deletes a collection that's being used
+                failed_names_as_shown.append(name_as_shown)
+                error_msgs.append(format_exception(e))
 
         # Form answer, and - if the current collection was deleted - initiate a switch
-        names_as_shown = [
-            get_user_facing_collection_name(full_name) for full_name in full_names
-        ]
-        s_or_no_s = "s" if len(names_as_shown) > 1 else ""
-        ans = format_nonstreaming_answer(
-            f"Collection{s_or_no_s} `{', '.join(names_as_shown)}` deleted."
-        )
+        s_or_no_s = "s" if len(deleted_names_as_shown) > 1 else ""
+        ans = f"Collection{s_or_no_s} `{', '.join(deleted_names_as_shown)}` deleted."
+        if failed_names_as_shown:
+            s_or_no_s = "s" if len(failed_names_as_shown) > 1 else ""
+            ans += f"\n\nFailed to delete collection{s_or_no_s} `{', '.join(failed_names_as_shown)}`."
+            ans += f"\n\nError message{s_or_no_s}:\n\n" + "\n\n".join(error_msgs)
+
+        ans = format_nonstreaming_answer(ans)
+
+        # If the current collection was deleted, initiate a switch to the default collection
         if any(full_name == chat_state.vectorstore.name for full_name in full_names):
             ans["vectorstore"] = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
 
