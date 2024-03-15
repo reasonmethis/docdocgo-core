@@ -287,6 +287,7 @@ You can use the following commands to manage your collections:
 - `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
 - `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
 - `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
+- `/db status`: show your access level for the current collection and related info
 - `/db`: show database management options
 
 Additional shorthands:
@@ -308,6 +309,22 @@ The `/summarize` command works similarly to the `/ingest` command, but it retrie
 Additionally, using the `/research` command automatically ingests the results of the web research into a new document collection.
 
 > The ingestion process for the console mode, which is a bit less streamlined, is described in the [Appendix](#ingesting-documents-in-console-mode).
+
+## Sharing your collection with others
+
+You can use the following commands to share the current collection with others:
+
+- `/share viewer pwd <any letters or numbers>`: give viewer access to the current collection
+- `/share editor pwd <any letters or numbers>`: give editor access to the current collection
+- `/share owner pwd <any letters or numbers>`: give owner access to the current collection
+
+What is the difference between _viewer_, _editor_, and _owner_?
+
+- _viewer_ can interact with the collection only in a way that does not modify it. For example, they can ask questions about its contents.
+- _editor_ can perform actions that modify the contact collection, for example by ingesting new documents into it. They can't, however, rename, delete, or share the collection.
+- _owner_ has unrestricted access to the collection
+
+After you enter your command as described above, you will get a link that you can share with others. If you go with the `pwd` option, the recipient will always need to use that link to access the collection. If you opt for the `unlock-code` option (not yet implemented), the recipient will only need to use the link once, and then they will be able to access the collection without it.
 
 ## Querying based on substrings
 
