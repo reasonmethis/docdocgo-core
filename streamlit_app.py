@@ -141,8 +141,8 @@ with st.sidebar:
             if (
                 get_access_role(
                     chat_state, init_coll_name, st.session_state.access_code
-                )
-                != AccessRole.NONE
+                ).value
+                > AccessRole.NONE.value # cmp value to avoid issues with streamlit imports
             ):
                 # Switch to the new collection
                 chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)

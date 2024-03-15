@@ -26,7 +26,7 @@ def handle_share_command(chat_state: ChatState) -> Props:
 
     # Check that the user is an owner
     access_role = get_access_role(chat_state)
-    if access_role != AccessRole.OWNER:
+    if access_role.value < AccessRole.OWNER.value:
         return format_nonstreaming_answer(
             "Apologies, you don't have owner-level access to this collection. "
             f"Your current access level: {access_role.name.lower()}."

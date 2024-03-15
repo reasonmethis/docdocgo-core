@@ -49,12 +49,14 @@ def get_main_owner_user_id(collection_name: str) -> str | None:
             PRIVATE_COLLECTION_PREFIX_LENGTH:PRIVATE_COLLECTION_FULL_PREFIX_LENGTH
         ]
 
+
 def is_main_owner(chat_state: ChatState, collection_name: str | None = None) -> bool:
     """
     Check if the user is the main owner of the collection.
     """
     collection_name = collection_name or chat_state.vectorstore.name
-    return get_main_owner_user_id(collection_name) == chat_state.user_id    
+    return get_main_owner_user_id(collection_name) == chat_state.user_id
+
 
 def get_user_facing_collection_name(user_id: str | None, collection_name: str) -> str:
     """
@@ -153,7 +155,7 @@ def get_access_role(
     ):
         return AccessRole.OWNER
 
-    # If access code was used preiously, retrieve access role from chat_state
+    # If access code was used previously, retrieve access role from chat_state
     if ignore_stored_access_role:
         stored_access_role = AccessRole.NONE
     else:
@@ -165,7 +167,7 @@ def get_access_role(
     # metadata. It's possible that a higher role was assigned to the user during this
     # session, but it's not worth the extra request to the server to check, since the
     # user can always reload the page to get a new session.
-    if stored_access_role != AccessRole.NONE and access_code is None:
+    if stored_access_role.value > AccessRole.NONE.value and access_code is None:
         return stored_access_role
 
     # If can't be authorized with the simple checks above, check the collection's metadata
@@ -366,10 +368,10 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         )
 
         # If the user has owner access, show more details
-        if access_role == AccessRole.OWNER:
+        if access_role.value >= AccessRole.OWNER.value:
             # NOTE: this refetches the permissions, could be optimized
             collection_permissions = chat_state.get_collection_permissions()
-            
+
             ans += "\n\nStored user access roles:"
             if not collection_permissions.user_id_to_settings:
                 ans += "\n- No roles stored"
@@ -379,7 +381,10 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             ans += "\n\nStored access codes:"
             if not collection_permissions.access_code_to_settings:
                 ans += "\n- No codes stored"
-            for code, settings in collection_permissions.access_code_to_settings.items():
+            for (
+                code,
+                settings,
+            ) in collection_permissions.access_code_to_settings.items():
                 ans += f"\n- Code `{code}`: {settings.access_role.name.lower()}"
 
         return format_nonstreaming_answer(ans)
@@ -508,21 +513,25 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 "/db delete 19\n/db delete -c\n```"
             )
 
+        is_admin = False
+        if len(value.split(maxsplit=1)) == 2:
+            value, is_admin = value.split(maxsplit=1)
+            is_admin = bool(admin_pwd) and is_admin == admin_pwd
+
         if value == "-c" or value == "--current":
             value = chat_state.vectorstore.name
+        elif value == "-d" or value == "--default":
+            value = DEFAULT_COLLECTION_NAME
 
         if value == DEFAULT_COLLECTION_NAME:
-            return format_nonstreaming_answer(
-                "You cannot delete the default collection."
-            )
-
-        # Admin can delete the default collection by providing the password
-        if (
-            value == f"--default {admin_pwd}"
-            and admin_pwd
-            and chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME
-        ):
-            value = DEFAULT_COLLECTION_NAME
+            if not is_admin:
+                return format_nonstreaming_answer(
+                    "You cannot delete the default collection."
+                )
+            if chat_state.vectorstore.name == DEFAULT_COLLECTION_NAME:
+                return format_nonstreaming_answer(
+                    "You cannot delete the default collection while it's in use."
+                )
 
         # NOTE: the functionality below requires allow_reset=True in the settings
         # or an ALLOW_RESET env variable **on the server**.
@@ -575,9 +584,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # Get the full names of the collections
                 full_names = [coll_names_full[idx] for idx in idxs]
             except ValueError:
-                # See if it's a non-native collection (shared with user)
+                # It's a non-native collection
                 # That's the only case where we need to check access role
-                if get_access_role(chat_state, value).value < AccessRole.OWNER.value:
+                if (
+                    not is_admin
+                    and get_access_role(chat_state, value).value
+                    < AccessRole.OWNER.value
+                ):
                     # NOTE: could have a separate NOT_EXIST "role" if we want to distinguish
                     # between not found and not accessible even as a viewer
                     return format_nonstreaming_answer(get_db_not_found_str(value))
