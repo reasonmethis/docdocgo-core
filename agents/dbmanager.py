@@ -421,7 +421,10 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         # If it's not a special admin command, check if the user has editor access
         if value == f"--default {admin_pwd}" and admin_pwd:
             # Before renaming, we need to delete the default collection if it exists
-            chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
+            try:
+                chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
+            except Exception:
+                pass # The default collection likely was deleted already
             value = DEFAULT_COLLECTION_NAME
         elif get_access_role(chat_state).value < AccessRole.OWNER.value:
             return format_nonstreaming_answer(
