@@ -69,18 +69,18 @@ COLLECTION_USERS_METADATA_KEY = "collection_users"
 
 
 class CollectionPermissions(BaseModel):
-    short_user_id_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
+    user_id_to_settings: dict[str, CollectionUserSettings] = Field(default_factory=dict)
     # NOTE: key "" refers to settings for a general user
 
     access_code_to_settings: dict[str, AccessCodeSettings] = Field(default_factory=dict)
 
     def get_user_settings(self, user_id: str | None) -> CollectionUserSettings:
-        return self.short_user_id_to_settings.get(user_id or "", CollectionUserSettings())
+        return self.user_id_to_settings.get(user_id or "", CollectionUserSettings())
 
     def set_user_settings(
         self, user_id: str | None, settings: CollectionUserSettings
     ) -> None:
-        self.short_user_id_to_settings[user_id or ""] = settings
+        self.user_id_to_settings[user_id or ""] = settings
 
     def get_access_code_settings(self, access_code: str) -> AccessCodeSettings:
         return self.access_code_to_settings.get(access_code, AccessCodeSettings())

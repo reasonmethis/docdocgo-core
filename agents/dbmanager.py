@@ -122,6 +122,7 @@ def get_access_role(
     chat_state: ChatState,
     coll_name_full: str | None = None,
     access_code: str | None = None,
+    ignore_stored_access_role: bool = False,
 ) -> AccessRole:
     """
     Get the access status for the current user to the current or specified collection.
@@ -150,13 +151,16 @@ def get_access_role(
         return AccessRole.OWNER
 
     # If access code was used preiously, retrieve access role from chat_state
-    stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
-        coll_name_full, {}
-    ).get(chat_state.user_id, AccessRole.NONE)
+    if ignore_stored_access_role:
+        stored_access_role = AccessRole.NONE
+    else:
+        stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
+            coll_name_full, {}
+        ).get(chat_state.user_id, AccessRole.NONE)
 
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
-    # ession, but it's not worth the extra request to the server to check, since the
+    # session, but it's not worth the extra request to the server to check, since the
     # user can always reload the page to get a new session.
     if stored_access_role != AccessRole.NONE and access_code is None:
         return stored_access_role
@@ -179,8 +183,6 @@ def get_access_role(
         stored_access_role,
         key=lambda x: x.value,
     )
-
-    print(f"role: {role}")
 
     # Store the access role in chat_state for future use within the same session
     if role.value > stored_access_role.value:
@@ -351,12 +353,34 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
 
     if command == DBCommand.STATUS:
-        access_role = get_access_role(chat_state)
-        return format_nonstreaming_answer(
+        # Get the access role (refresh from db just in case)
+        access_role = get_access_role(chat_state, ignore_stored_access_role=True)
+
+        # Form the answer
+        ans = (
             f"Full collection name: `{chat_state.vectorstore.name}`\n\n"
             f"Your access role: {access_role.name.lower()}"
         )
-    
+
+        # If the user has owner access, show more details
+        if access_role == AccessRole.OWNER:
+            # NOTE: this refetches the permissions, could be optimized
+            collection_permissions = chat_state.get_collection_permissions()
+            
+            ans += "\n\nStored user access roles:"
+            if not collection_permissions.user_id_to_settings:
+                ans += "\n- No roles stored"
+            for user_id, settings in collection_permissions.user_id_to_settings.items():
+                ans += f"\n- User `{user_id}`: {settings.access_role.name.lower()}"
+
+            ans += "\n\nStored access codes:"
+            if not collection_permissions.access_code_to_settings:
+                ans += "\n- No codes stored"
+            for code, settings in collection_permissions.access_code_to_settings.items():
+                ans += f"\n- Code `{code}`: {settings.access_role.name.lower()}"
+                
+        return format_nonstreaming_answer(ans)
+
     if command == DBCommand.LIST:
         if value == admin_pwd:
             all_collections = get_collections(chat_state.vectorstore, GET_ALL)
@@ -418,13 +442,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         # Admin can rename to the default collection's name by providing the password.
-        # If it's not a special admin command, check if the user has editor access
+        # If it's not a special admin command, check if the user has owner access
         if value == f"--default {admin_pwd}" and admin_pwd:
             # Before renaming, we need to delete the default collection if it exists
             try:
                 chat_state.vectorstore.delete_collection(DEFAULT_COLLECTION_NAME)
             except Exception:
-                pass # The default collection likely was deleted already
+                pass  # The default collection likely was deleted already
             value = DEFAULT_COLLECTION_NAME
         elif get_access_role(chat_state).value < AccessRole.OWNER.value:
             return format_nonstreaming_answer(
