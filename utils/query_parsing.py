@@ -50,11 +50,12 @@ ingest_command_to_enum = {
 }
 # DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
 
-ShareCommand = Enum("ShareCommand", "PUBLIC EDITOR VIEWER NONE")
+ShareCommand = Enum("ShareCommand", "PUBLIC OWNER EDITOR VIEWER NONE")
 share_command_to_enum = {
     # "public": ShareCommand.PUBLIC, # TODO 
     "editor": ShareCommand.EDITOR,
     "viewer": ShareCommand.VIEWER,
+    "owner": ShareCommand.OWNER,
 }
 share_subcommand_to_code_type = {
     "pwd": AccessCodeType.NEED_ALWAYS,

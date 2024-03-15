@@ -39,7 +39,7 @@ def get_short_user_id(user_id: str | None) -> str | None:
     return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id is not None else None
 
 
-def get_main_owner_short_user_id(collection_name: str) -> str | None:
+def get_main_owner_user_id(collection_name: str) -> str | None:
     """
     Get the user ID of the native owner of a collection. If the collection is public,
     return None.
@@ -63,7 +63,7 @@ def get_user_facing_collection_name(user_id: str | None, collection_name: str) -
     return (
         collection_name[PRIVATE_COLLECTION_FULL_PREFIX_LENGTH:].lstrip("-")
         if collection_name.startswith(PRIVATE_COLLECTION_PREFIX)
-        and get_short_user_id(user_id) == get_main_owner_short_user_id(collection_name)
+        and user_id == get_main_owner_user_id(collection_name)
         else collection_name
     )
 
@@ -77,6 +77,7 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
         if user_id
         else collection_name
     )
+    # NOTE: get_short_user_id is redundant but just to be safe
 
 
 # def is_user_authorized_for_collection(
@@ -167,6 +168,10 @@ def get_access_role(
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)
 
+    print(f"user_settings: {user_settings}")
+    print(f"code_settings: {code_settings}")
+    print(f"stored_access_role: {stored_access_role}")
+
     # Determine the highest access role available
     role = max(
         code_settings.access_role,
@@ -174,6 +179,8 @@ def get_access_role(
         stored_access_role,
         key=lambda x: x.value,
     )
+
+    print(f"role: {role}")
 
     # Store the access role in chat_state for future use within the same session
     if role.value > stored_access_role.value:
@@ -333,11 +340,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(coll_names_as_shown)])
         return f"Available collections:\n\n{tmp}"
 
-    def get_db_not_found_str(name: str) -> str:
+    def get_db_not_found_str(name: str, access_role: str = "owner") -> str:
         return (
-            f"Collection `{name}` doesn't exist or you don't have owner access to it. "
+            f"Collection `{name}` doesn't exist or you don't have {access_role} access to it. "
             f"{get_available_dbs_str()}"
-        )
+        ).replace("  ", " ")
 
     admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
 
@@ -380,7 +387,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             except ValueError:
                 # See if it's a non-native collection (shared with user)
                 if get_access_role(chat_state, value) == AccessRole.NONE:
-                    return format_nonstreaming_answer(get_db_not_found_str(value))
+                    return format_nonstreaming_answer(get_db_not_found_str(value, ""))
                 coll_name_to_show = coll_name_full = value
 
         vectorstore = chat_state.get_new_vectorstore(coll_name_full)
@@ -416,11 +423,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         # From this point on, the user has owner access to the collection
 
         # Get the full name of the collection to rename to
-        native_owner_user_id = get_main_owner_short_user_id(chat_state.vectorstore.name)
+        main_owner_user_id = get_main_owner_user_id(chat_state.vectorstore.name)
         if value == DEFAULT_COLLECTION_NAME:
             # Will usually fail, but ok if admin has deleted the default collection
             new_full_name = DEFAULT_COLLECTION_NAME
-        elif native_owner_user_id is None:
+        elif main_owner_user_id is None:
             # Public collection remains public
             new_full_name = value
             if new_full_name.startswith(PRIVATE_COLLECTION_PREFIX):
@@ -439,12 +446,12 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         # Check if collection was taken away from the original owner and restore their access
-        if native_owner_user_id != chat_state.user_id:
+        if main_owner_user_id != chat_state.user_id:
             chat_state.save_collection_settings_for_user(
-                native_owner_user_id,
+                main_owner_user_id,
                 CollectionUserSettings(access_role=AccessRole.OWNER),
             )
-            print(f"Restored owner access to {native_owner_user_id}")
+            print(f"Restored owner access to {main_owner_user_id}")
 
         # Get vectorstore with updated name, form and return the answer
         return format_nonstreaming_answer(f"Collection renamed to `{value}`.") | {

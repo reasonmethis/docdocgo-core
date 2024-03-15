@@ -5,6 +5,7 @@ import streamlit as st
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
     get_access_role,
+    get_short_user_id,
     get_user_facing_collection_name,
 )
 from components.llm import CallbackHandlerDDGStreamlit
@@ -132,7 +133,7 @@ with st.sidebar:
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
-            chat_state.user_id = openai_api_key_to_use  # use the key as the user id
+            chat_state.user_id = get_short_user_id(openai_api_key_to_use)
 
         # If the user has entered a collection name in the URL, switch to it
         if init_coll_name := st.session_state.initial_collection_name:
