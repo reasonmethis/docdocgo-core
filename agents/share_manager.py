@@ -1,9 +1,9 @@
 import os
 
-from agents.dbmanager import get_access_role
+from agents.dbmanager import get_access_role, is_main_owner
 from utils.chat_state import ChatState
 from utils.helpers import SHARE_COMMAND_HELP_MSG, format_nonstreaming_answer
-from utils.query_parsing import ShareCommand
+from utils.query_parsing import ShareCommand, ShareRevokeSubCommand
 from utils.type_utils import (
     AccessCodeSettings,
     AccessCodeType,
@@ -25,9 +25,11 @@ def handle_share_command(chat_state: ChatState) -> Props:
         return format_nonstreaming_answer(SHARE_COMMAND_HELP_MSG)
 
     # Check that the user is an owner
-    if get_access_role(chat_state) != AccessRole.OWNER:
+    access_role = get_access_role(chat_state)
+    if access_role != AccessRole.OWNER:
         return format_nonstreaming_answer(
-            "Apologies, you don't have owner-level access to this collection."
+            "Apologies, you don't have owner-level access to this collection. "
+            f"Your current access level: {access_role.name.lower()}."
         )
     # NOTE: this introduces redundant fetching of metadata (in get_access_role
     # and save_access_code_settings. Can optimize later.
@@ -85,6 +87,71 @@ def handle_share_command(chat_state: ChatState) -> Props:
             f"```\n{link}\n```"
         )
 
+    if share_params.share_type == ShareCommand.REVOKE:
+        collection_permissions = chat_state.get_collection_permissions()
+        match share_params.revoke_type:
+            case ShareRevokeSubCommand.ALL_CODES:
+                collection_permissions.access_code_to_settings = {}
+                ans = "All access codes have been revoked."
+
+            case ShareRevokeSubCommand.ALL_USERS:
+                # If user is not the main owner, don't delete their owner status
+                saved_entries = {}
+                if is_main_owner(chat_state):
+                    ans = "All users except you have been revoked."
+                else:
+                    try:
+                        saved_entries[chat_state.user_id] = (
+                            collection_permissions.user_id_to_settings[
+                                chat_state.user_id
+                            ]
+                        )
+                        ans = (
+                            "All users except the main owner and you have been revoked."
+                        )
+                    except KeyError:
+                        ans = "All users except the main owner have been revoked (including you)."
+
+                # Clear all user settings except saved_entries
+                collection_permissions.user_id_to_settings = saved_entries
+
+            case ShareRevokeSubCommand.CODE:
+                code = (share_params.code_or_user_to_revoke or "").strip()
+                if not code:
+                    return format_nonstreaming_answer(
+                        "Apologies, you need to specify an access code to revoke."
+                    )
+                try:
+                    collection_permissions.access_code_to_settings.pop(code)
+                    ans = "The access code has been revoked."
+                except KeyError:
+                    return format_nonstreaming_answer(
+                        "Apologies, the access code you specified doesn't exist."
+                    )
+
+            case ShareRevokeSubCommand.USER:
+                user_id = (share_params.code_or_user_to_revoke or "").strip()
+                if not user_id:
+                    return format_nonstreaming_answer(
+                        "Apologies, you need to specify a user to revoke."
+                    )
+                if user_id == "public":
+                    user_id = ""
+                try:
+                    collection_permissions.user_id_to_settings.pop(user_id)
+                    ans = "The user has been revoked."
+                except KeyError:
+                    return format_nonstreaming_answer(
+                        "Apologies, the user you specified doesn't have a stored access role."
+                    )
+            case _:
+                return format_nonstreaming_answer(
+                    "Apologies, Dmitriy hasn't implemented this share subcommand for me yet."
+                )
+
+        chat_state.save_collection_permissions(collection_permissions)
+        return format_nonstreaming_answer(ans)
+
     return format_nonstreaming_answer(
-        "Apologies, Dmitriy hasn't implemented this share type for me yet."
+        "Apologies, Dmitriy hasn't implemented this share subcommand for me yet."
     )

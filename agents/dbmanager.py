@@ -49,9 +49,12 @@ def get_main_owner_user_id(collection_name: str) -> str | None:
             PRIVATE_COLLECTION_PREFIX_LENGTH:PRIVATE_COLLECTION_FULL_PREFIX_LENGTH
         ]
 
-
-ALWAYS_REMOVE_PREFIX = "#=-, !"  # string that can't be a user id
-
+def is_main_owner(chat_state: ChatState, collection_name: str | None = None) -> bool:
+    """
+    Check if the user is the main owner of the collection.
+    """
+    collection_name = collection_name or chat_state.vectorstore.name
+    return get_main_owner_user_id(collection_name) == chat_state.user_id    
 
 def get_user_facing_collection_name(user_id: str | None, collection_name: str) -> str:
     """
@@ -378,7 +381,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 ans += "\n- No codes stored"
             for code, settings in collection_permissions.access_code_to_settings.items():
                 ans += f"\n- Code `{code}`: {settings.access_role.name.lower()}"
-                
+
         return format_nonstreaming_answer(ans)
 
     if command == DBCommand.LIST:

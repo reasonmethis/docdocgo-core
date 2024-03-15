@@ -51,17 +51,29 @@ ingest_command_to_enum = {
 }
 # DEFAULT means: if collection starts with INGESTED_DOCS_INIT_PREFIX, use ADD, else use NEW
 
-ShareCommand = Enum("ShareCommand", "PUBLIC OWNER EDITOR VIEWER NONE")
+ShareCommand = Enum("ShareCommand", "PUBLIC OWNER EDITOR VIEWER REVOKE NONE")
+ShareRevokeSubCommand = Enum(
+    "ShareRevokeSubCommand", "CODE USER ALL_CODES ALL_USERS NONE"
+)
 share_command_to_enum = {
-    # "public": ShareCommand.PUBLIC, # TODO 
+    # "public": ShareCommand.PUBLIC, # TODO
     "editor": ShareCommand.EDITOR,
     "viewer": ShareCommand.VIEWER,
     "owner": ShareCommand.OWNER,
+    "revoke": ShareCommand.REVOKE,
 }
 share_subcommand_to_code_type = {
     "pwd": AccessCodeType.NEED_ALWAYS,
     "unlock-code": AccessCodeType.NEED_ONCE,
     "uc": AccessCodeType.NEED_ONCE,
+}
+share_revoke_subcommand_to_enum = {
+    "code": ShareRevokeSubCommand.CODE,
+    "pwd": ShareRevokeSubCommand.CODE,
+    "user": ShareRevokeSubCommand.USER,
+    "all-codes": ShareRevokeSubCommand.ALL_CODES,
+    "all-pwds": ShareRevokeSubCommand.ALL_CODES,
+    "all-users": ShareRevokeSubCommand.ALL_USERS,
 }
 
 
@@ -75,6 +87,8 @@ class ShareParams(BaseModel):
     share_type: ShareCommand
     access_code_type: AccessCodeType | None = None
     access_code: str | None = None
+    revoke_type: ShareRevokeSubCommand | None = None
+    code_or_user_to_revoke: str | None = None
 
 
 class ParsedQuery(BaseModel):
@@ -318,6 +332,18 @@ def parse_share_command(orig_query: str) -> ShareParams:
     command, rest = get_command(orig_query, share_command_to_enum, ShareCommand.NONE)
     if command == ShareCommand.NONE:
         return ShareParams(share_type=ShareCommand.NONE)
+
+    if command == ShareCommand.REVOKE:
+        subcommand, rest = get_command(
+            rest, share_revoke_subcommand_to_enum, ShareRevokeSubCommand.NONE
+        )
+        if subcommand == ShareRevokeSubCommand.NONE:
+            return ShareParams(share_type=ShareCommand.NONE)
+        return ShareParams(
+            share_type=ShareCommand.REVOKE,
+            revoke_type=subcommand,
+            code_or_user_to_revoke=rest,
+        )
 
     subcommand, rest = get_command(rest, share_subcommand_to_code_type, None)
     return ShareParams(

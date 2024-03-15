@@ -204,11 +204,18 @@ Remember, you can always ask me for help in using me - simply type `/help` follo
 # - `/research more <your new query>`: same as above, but ingest into current collection
 
 SHARE_COMMAND_HELP_MSG = """\
-You can use the following commands to share the current collection with others:
+If you have owner-level access, you can use the following commands to share the current collection with others:
 
 - `/share viewer pwd <any letters or numbers>`: give viewer access to the current collection
 - `/share editor pwd <any letters or numbers>`: give editor access to the current collection
 - `/share owner pwd <any letters or numbers>`: give owner access to the current collection
+
+You can also revoke access:
+
+- `/share revoke pwd <any letters or numbers>`: revoke a specific access code
+- `/share revoke all-pwds`: revoke all access codes
+- `/share revoke user <user ID>`: revoke access for a specific user
+- `/share revoke all-users`: revoke access for all users
 
 What is the difference between _viewer_, _editor_, and _owner_?
 
@@ -217,6 +224,8 @@ What is the difference between _viewer_, _editor_, and _owner_?
 - _owner_ has unrestricted access to the collection
 
 After you enter your command as described above, you will get a link that you can share with others. If you go with the `pwd` option, the recipient will always need to use that link to access the collection. If you opt for the `unlock-code` option (not yet implemented), the recipient will only need to use the link once, and then they will be able to access the collection without it.
+
+**Tip:** If you have owner access to a collection, you can use `/db status` to see the access level of other users.\
 """
 
 
