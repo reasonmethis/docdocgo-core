@@ -422,7 +422,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 coll_name_full = coll_names_full[idx]
             except ValueError:
                 # See if it's a non-native collection (shared with user)
-                if get_access_role(chat_state, value) == AccessRole.NONE:
+                if get_access_role(chat_state, value).value <= AccessRole.NONE.value:
                     return format_nonstreaming_answer(get_db_not_found_str(value, ""))
                 coll_name_to_show = coll_name_full = value
 
