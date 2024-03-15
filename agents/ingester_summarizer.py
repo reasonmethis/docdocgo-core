@@ -25,6 +25,8 @@ from utils.web import LinkData, get_batch_url_fetcher
 
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 
+NO_EDITOR_ACCESS_STATUS = "No editor access to collection"  # a bit of duplication
+
 
 def get_ingester_summarizer_response(chat_state: ChatState):
     message = chat_state.parsed_query.message
@@ -43,11 +45,17 @@ def get_ingester_summarizer_response(chat_state: ChatState):
 
         # Check for editor access
         if get_access_role(chat_state).value < AccessRole.EDITOR.value:
+            cmd_str = (
+                "summarize"
+                if chat_state.chat_mode == ChatMode.SUMMARIZE_COMMAND_ID
+                else "ingest"
+            )
             return format_invalid_input_answer(
                 "Apologies, you can't ingest content into the current collection "
                 "because you don't have editor access to it. You can ingest content "
                 "into a new collection instead. For example:\n\n"
-                f"```\n\n/ingest new {message}\n\n```"
+                f"```\n\n/{cmd_str} new {message}\n\n```",
+                NO_EDITOR_ACCESS_STATUS,
             )
     else:
         # We will need to create a new collection
