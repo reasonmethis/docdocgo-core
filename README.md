@@ -342,9 +342,9 @@ Contributions are welcome! If you have any questions or suggestions, please open
 
 ## Appendix
 
-Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
-
 ### Dev QnA
+
+Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
 
 #### Q: I want to fork this repository and use a vector database on my local machine. How do I make sure that when I pull updates from the original repository, I don't overwrite my local database?
 
