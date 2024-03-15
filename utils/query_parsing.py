@@ -9,12 +9,13 @@ from pydantic import BaseModel
 from utils.helpers import DEFAULT_CHAT_MODE, command_ids
 from utils.type_utils import AccessCodeType, ChatMode, Props
 
-DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE EXIT NONE")
+DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE STATUS EXIT NONE")
 db_command_to_enum = {
     "list": DBCommand.LIST,
     "use": DBCommand.USE,
     "rename": DBCommand.RENAME,
     "delete": DBCommand.DELETE,
+    "status": DBCommand.STATUS,
 }
 
 ResearchCommand = Enum(

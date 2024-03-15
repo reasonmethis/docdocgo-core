@@ -23,7 +23,7 @@ from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
-    RESEARCH_COMMAND_HELP_MESSAGE,
+    RESEARCH_COMMAND_HELP_MSG,
     format_invalid_input_answer,
     format_nonstreaming_answer,
     print_no_newline,
@@ -61,7 +61,6 @@ WEB_SEARCH_API_ISSUE_MSG = (
     "Apologies, it seems I'm having an issue with the API I use to search the web."
 )
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
-
 
 
 def get_timestamp():
@@ -492,7 +491,9 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Check for editor access
     # NOTE: can cache collection metadata for get_rr_data
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)      
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
 
     # Assign task type and get rr_data
     task_type = chat_state.parsed_query.research_params.task_type
@@ -779,8 +780,10 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
     # Check for editor access
     # NOTE: can cache collection metadata for get_rr_data
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)
-    
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rr_data: ResearchReportData | None = chat_state.get_rr_data()
     if not rr_data:
         return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
@@ -962,11 +965,13 @@ def get_research_view_response(chat_state: ChatState) -> Props:
 
 
 def get_research_set_response(chat_state: ChatState) -> Props:
-    # Check for editor access 
+    # Check for editor access
     # NOTE: can cache collection metadata for get_rr_data
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)
-    
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     parsed_query = chat_state.parsed_query
     rr_data = chat_state.get_rr_data()
     is_set_query = parsed_query.research_params.task_type == ResearchCommand.SET_QUERY
@@ -1020,11 +1025,13 @@ def update_search_queries_and_links(
 
 
 def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
-    # Check for editor access 
+    # Check for editor access
     # NOTE: can cache collection metadata for get_rr_data
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)
-        
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     parsed_query = chat_state.parsed_query
     rr_data = chat_state.get_rr_data()
     new_queries = json.loads(parsed_query.message)  # validated by the parser
@@ -1102,8 +1109,10 @@ def auto_update_search_queries_and_links(
 def get_research_auto_update_search_queries_response(chat_state: ChatState) -> Props:
     # Check for editor access
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)
-    
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rsp = auto_update_search_queries_and_links(chat_state)
     try:
         rr_data = rsp["rr_data"]
@@ -1124,8 +1133,10 @@ def get_research_auto_update_search_queries_response(chat_state: ChatState) -> P
 def get_research_clear_response(chat_state: ChatState):
     # Check for editor access
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
-        return format_invalid_input_answer(NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS)
-    
+        return format_invalid_input_answer(
+            NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
+        )
+
     rr_data = chat_state.get_rr_data()
 
     rr_data.base_reports = []
@@ -1179,14 +1190,14 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.AUTO:
         response = get_report_combiner_response(chat_state)
 
-        # Return the response, unless it's the specific "can't combine" error 
+        # Return the response, unless it's the specific "can't combine" error
         if response.get("status.body") != INVALID_COMBINE_STATUS:
-            return response # success or auth error
+            return response  # success or auth error
 
         # We can't combine reports, so generate a new report instead
         return get_iterative_researcher_response(chat_state)
 
-    return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MESSAGE)
+    return format_nonstreaming_answer(RESEARCH_COMMAND_HELP_MSG)
 
 
 def get_researcher_response(chat_state: ChatState) -> Props:

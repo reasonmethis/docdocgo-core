@@ -310,6 +310,8 @@ def manage_dbs_console(chat_state: ChatState) -> Props:
                 chat_state.vectorstore.delete_collection(collection_name)
                 print(f"Collection {collection_name} deleted.")
                 return {"answer": ""}
+        else:
+            print("This command is not available in console mode.")
 
 
 def sort_collection_names(
@@ -348,6 +350,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
     admin_pwd = os.getenv("BYPASS_SETTINGS_RESTRICTIONS_PASSWORD")
 
+    if command == DBCommand.STATUS:
+        access_role = get_access_role(chat_state)
+        return format_nonstreaming_answer(
+            f"Full collection name: `{chat_state.vectorstore.name}`\n\n"
+            f"Your access role: {access_role.name.lower()}"
+        )
+    
     if command == DBCommand.LIST:
         if value == admin_pwd:
             all_collections = get_collections(chat_state.vectorstore, GET_ALL)
