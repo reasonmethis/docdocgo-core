@@ -138,7 +138,9 @@ def handle_share_command(chat_state: ChatState) -> Props:
                 if user_id == "public":
                     user_id = ""
                 try:
+                    print(collection_permissions.user_id_to_settings)
                     collection_permissions.user_id_to_settings.pop(user_id)
+                    print(collection_permissions.user_id_to_settings)
                     ans = "The user has been revoked."
                 except KeyError:
                     return format_nonstreaming_answer(

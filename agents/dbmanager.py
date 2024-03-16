@@ -85,49 +85,10 @@ def construct_full_collection_name(user_id: str | None, collection_name: str) ->
     # NOTE: get_short_user_id is redundant but just to be safe
 
 
-# def is_user_authorized_for_collection(
-#     chat_state: ChatState,
-#     coll_name_full: str | None = None,
-#     access_code: str | None = None,
-# ) -> bool:
-#     """
-#     Check if the user is authorized to access the given collection.
-#     """
-#     coll_name_full = coll_name_full or chat_state.vectorstore.name
-
-#     # Public collections are always accessible
-#     if not coll_name_full.startswith(PRIVATE_COLLECTION_PREFIX):
-#         return True
-
-#     # A private collection is accessible if it's the user's own collection
-#     if chat_state.user_id and coll_name_full.startswith(
-#         PRIVATE_COLLECTION_PREFIX
-#         + chat_state.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
-#     ):
-#         return True
-
-#     # If can't be authorized with the simple checks above, check the collection's metadata
-#     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
-#     print(f"collection_permissions: {collection_permissions}")
-#     if (
-#         collection_permissions.get_user_settings(chat_state.user_id)
-#         == AccessRole.EDITOR
-#     ):
-#         return True
-
-#     code_settings = collection_permissions.get_access_code_settings(access_code)
-#     if code_settings.access_role == AccessRole.EDITOR:
-#         return True
-#     # TODO: implement the NEED_ONCE case
-
-#     return False
-
-
 def get_access_role(
     chat_state: ChatState,
     coll_name_full: str | None = None,
     access_code: str | None = None,
-    ignore_stored_access_role: bool = False,
 ) -> AccessRole:
     """
     Get the access status for the current user to the current or specified collection.
@@ -156,12 +117,9 @@ def get_access_role(
         return AccessRole.OWNER
 
     # If access code was used previously, retrieve access role from chat_state
-    if ignore_stored_access_role:
-        stored_access_role = AccessRole.NONE
-    else:
-        stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
-            coll_name_full, {}
-        ).get(chat_state.user_id, AccessRole.NONE)
+    stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
+        coll_name_full, {}
+    ).get(chat_state.user_id, AccessRole.NONE)
 
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
@@ -172,7 +130,7 @@ def get_access_role(
 
     # If can't be authorized with the simple checks above, check the collection's metadata
     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
-    print(f"collection_permissions: {collection_permissions}")
+    print(f"\ncollection_permissions: {collection_permissions}")
 
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)
@@ -190,6 +148,7 @@ def get_access_role(
     )
 
     # Store the access role in chat_state for future use within the same session
+    # We need this, because the access code is given only once, on load
     if role.value > stored_access_role.value:
         chat_state.access_role_by_user_id_by_coll.setdefault(coll_name_full, {})[
             chat_state.user_id
@@ -359,7 +318,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
     if command == DBCommand.STATUS:
         # Get the access role (refresh from db just in case)
-        access_role = get_access_role(chat_state, ignore_stored_access_role=True)
+        access_role = get_access_role(chat_state)
 
         # Form the answer
         ans = (

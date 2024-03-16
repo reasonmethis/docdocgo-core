@@ -138,6 +138,7 @@ class ChatState:
             collection_permissions_json = self.get_collection_metadata(coll_name)[
                 COLLECTION_USERS_METADATA_KEY
             ]
+            print("\ncollection_permissions_json:\n", collection_permissions_json)
         except (TypeError, KeyError):
             return CollectionPermissions()
         return CollectionPermissions.model_validate_json(collection_permissions_json)
