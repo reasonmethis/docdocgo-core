@@ -1,8 +1,5 @@
 import os
 
-from chromadb import Collection
-
-from components.chroma_ddg import ChromaDDG
 from utils.chat_state import ChatState
 from utils.helpers import (
     DB_COMMAND_HELP_TEMPLATE,
@@ -96,7 +93,7 @@ def get_access_role(
     # TODO: can probably eliminate the need for fetching metadata in cases where
     # all we need is the user's access role to be viewer and that's already stored in
     # chat_state.
-    coll_name_full = coll_name_full or chat_state.vectorstore.name
+    coll_name_full = coll_name_full or chat_state.collection_name
 
     # The default collection is always accessible in read-only mode
     if coll_name_full == DEFAULT_COLLECTION_NAME:
@@ -117,21 +114,19 @@ def get_access_role(
         return AccessRole.OWNER
 
     # If access code was used previously, retrieve access role from chat_state
-    stored_access_role = chat_state.access_role_by_user_id_by_coll.get(
-        coll_name_full, {}
-    ).get(chat_state.user_id, AccessRole.NONE)
+    cached_access_role = chat_state.get_cached_access_role(coll_name_full)
 
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
     # session, but it's not worth the extra request to the server to check, since the
     # user can always reload the page to get a new session.
-    if stored_access_role.value > AccessRole.NONE.value and access_code is None:
-        return stored_access_role
+    if cached_access_role.value > AccessRole.NONE.value and access_code is None:
+        return cached_access_role
 
     # If can't be authorized with the simple checks above, check the collection's metadata
     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
     print(f"\ncollection_permissions: {collection_permissions}")
-    print(f"stored_access_role: {stored_access_role}")
+    print(f"stored_access_role: {cached_access_role}")
 
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)
@@ -140,57 +135,16 @@ def get_access_role(
     role = max(
         code_settings.access_role,
         user_settings.access_role,
-        stored_access_role,
+        cached_access_role,
         key=lambda x: x.value,
     )
 
     # Store the access role in chat_state for future use within the same session
     # We need this, because the access code is given only once, on load
-    if role.value > stored_access_role.value:
-        chat_state.access_role_by_user_id_by_coll.setdefault(coll_name_full, {})[
-            chat_state.user_id
-        ] = role
+    if role.value > cached_access_role.value:
+        chat_state.set_cached_access_role(role, coll_name_full)
 
     return role
-
-
-GET_ALL = "GET_ALL"
-
-
-def get_collections(
-    vectorstore: ChromaDDG, user_id: str | None, include_default_collection=True
-) -> list[Collection]:
-    """
-    Get the collections for the given user. If `user_id` is None, return only public
-    collections. If `include_default_collection` is False, don't return the default
-    collection. If `user_id` is GET_ALL, return all collections.
-    """
-    collections = vectorstore.client.list_collections()
-    if not user_id:
-        # Return only public collections
-        return [
-            c for c in collections if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
-        ]
-
-    if user_id == GET_ALL:
-        return collections
-
-    if len(user_id) < PRIVATE_COLLECTION_USER_ID_LENGTH:
-        raise ValueError(f"Invalid user_id: {user_id}")
-
-    # User's collections are prefixed with:
-    prefix = PRIVATE_COLLECTION_PREFIX + user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
-
-    if not include_default_collection:
-        # Return only the user's collections
-        return [c for c in collections if c.name.startswith(prefix)]
-
-    # Return the user's collections and the default collection
-    return [
-        c
-        for c in collections
-        if c.name.startswith(prefix) or c.name == DEFAULT_COLLECTION_NAME
-    ]
 
 
 def manage_dbs_console(chat_state: ChatState) -> Props:
@@ -292,7 +246,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
     command = chat_state.parsed_query.db_command
     value = chat_state.parsed_query.message
 
-    collections = get_collections(chat_state.vectorstore, chat_state.user_id)
+    collections = chat_state.get_user_collections()
     coll_names_full = [c.name for c in collections]
     coll_names_as_shown = [
         get_user_facing_collection_name(chat_state.user_id, n) for n in coll_names_full
@@ -347,7 +301,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
     if command == DBCommand.LIST:
         if value == admin_pwd:
-            all_collections = get_collections(chat_state.vectorstore, GET_ALL)
+            all_collections = chat_state.get_all_collections()
             all_coll_names_full = [c.name for c in all_collections]
             tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(all_coll_names_full)])
             return format_nonstreaming_answer(

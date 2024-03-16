@@ -1,7 +1,10 @@
+from chromadb import Collection
 from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
+from utils.helpers import PRIVATE_COLLECTION_PREFIX, PRIVATE_COLLECTION_USER_ID_LENGTH
+from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
     COLLECTION_USERS_METADATA_KEY,
@@ -56,7 +59,7 @@ class ChatState:
         chat_and_command_history: PairwiseChatHistory | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
-        user_id: str | None = None,
+        user_id: str | None = None,  # NOTE: should switch to "" instead of None
         openai_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
@@ -73,7 +76,11 @@ class ChatState:
         self.user_id = user_id
         self.openai_api_key = openai_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
-        self.access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
+        self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
+
+    @property
+    def collection_name(self) -> str:
+        return self.vectorstore.name
 
     @property
     def chat_mode(self) -> ChatMode:
@@ -88,12 +95,44 @@ class ChatState:
         return self.parsed_query.search_params or {}
 
     @property
-    def vectorstore_client(self):
+    def db_client(self):
         return self.vectorstore.client
 
     def update(self, **kwargs) -> None:
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def get_all_collections(self) -> list[Collection]:
+        """Get all collections."""
+        return self.db_client.list_collections()
+
+    def get_user_collections(self) -> list[Collection]:
+        """
+        Get the collections for the current user.
+        """
+        collections = self.db_client.list_collections()
+
+        if not self.user_id:
+            # Return only public collections
+            return [
+                c
+                for c in collections
+                if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
+            ]
+
+        # User's collections are prefixed with:
+        prefix = (
+            PRIVATE_COLLECTION_PREFIX
+            + self.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+        )
+        # NOTE: I made it so that shortening user_id is redundant, but just in case
+
+        # Return the user's collections and the default collection
+        return [
+            c
+            for c in collections
+            if c.name.startswith(prefix) or c.name == DEFAULT_COLLECTION_NAME
+        ]
 
     def fetch_collection_metadata(self, coll_name: str | None = None) -> Props | None:
         """
@@ -195,6 +234,25 @@ class ChatState:
             access_code, access_code_settings
         )
         self.save_collection_permissions(collection_permissions)
+
+    def get_cached_access_role(self, coll_name: str | None = None) -> AccessRole:
+        """
+        Get the access role for the current or provided collection that was cached
+        in the chat state during the current session.
+        """
+        return self._access_role_by_user_id_by_coll.get(
+            coll_name or self.collection_name, {}
+        ).get(self.user_id or "", AccessRole.NONE)
+
+    def set_cached_access_role(
+        self, access_role: AccessRole, coll_name: str | None = None
+    ):
+        """
+        Cache the user's access role for the current or provided collection.
+        """
+        self._access_role_by_user_id_by_coll.setdefault(
+            coll_name or self.collection_name, {}
+        )[self.user_id or ""] = access_role
 
     def get_new_vectorstore(
         self, collection_name: str, create_if_not_exists: bool = True
