@@ -216,6 +216,7 @@ You can also revoke access:
 - `/share revoke all-pwds`: revoke all access codes
 - `/share revoke user <user ID>`: revoke access for a specific user
 - `/share revoke all-users`: revoke access for all users
+- `/share delete ...`: same as `revoke`
 
 What is the difference between _viewer_, _editor_, and _owner_?
 

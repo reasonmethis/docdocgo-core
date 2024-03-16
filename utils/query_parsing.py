@@ -61,11 +61,12 @@ share_command_to_enum = {
     "viewer": ShareCommand.VIEWER,
     "owner": ShareCommand.OWNER,
     "revoke": ShareCommand.REVOKE,
+    "delete": ShareCommand.REVOKE,
 }
 share_subcommand_to_code_type = {
     "pwd": AccessCodeType.NEED_ALWAYS,
-    "unlock-code": AccessCodeType.NEED_ONCE,
-    "uc": AccessCodeType.NEED_ONCE,
+    # "unlock-code": AccessCodeType.NEED_ONCE,
+    # "uc": AccessCodeType.NEED_ONCE,
 }
 share_revoke_subcommand_to_enum = {
     "code": ShareRevokeSubCommand.CODE,
