@@ -108,6 +108,35 @@ class ChatState:
 
     def get_user_collections(self) -> list[Collection]:
         """
+        Get the accessible collections for the current user.
+        """
+        collections = self.db_client.list_collections()
+        cached_accessible_coll_names = {
+            coll_name
+            for coll_name in self._access_role_by_user_id_by_coll.keys()
+            if self.get_cached_access_role(coll_name).value > AccessRole.NONE.value
+        }  # some may have been deleted or renamed but that's taken care of below
+
+        if self.user_id:
+            short_user_id = self.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
+            prefix = PRIVATE_COLLECTION_PREFIX + short_user_id
+
+            cached_accessible_coll_names.add(DEFAULT_COLLECTION_NAME)  # for efficiency
+            return [
+                c
+                for c in collections
+                if c.name.startswith(prefix) or c.name in cached_accessible_coll_names
+            ]
+        else:
+            return [
+                c
+                for c in collections
+                if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
+                or c.name in cached_accessible_coll_names
+            ]
+
+    def get_user_collections_old(self) -> list[Collection]:
+        """
         Get the collections for the current user.
         """
         collections = self.db_client.list_collections()
