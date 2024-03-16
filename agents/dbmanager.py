@@ -131,13 +131,10 @@ def get_access_role(
     # If can't be authorized with the simple checks above, check the collection's metadata
     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
     print(f"\ncollection_permissions: {collection_permissions}")
+    print(f"stored_access_role: {stored_access_role}")
 
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)
-
-    print(f"user_settings: {user_settings}")
-    print(f"code_settings: {code_settings}")
-    print(f"stored_access_role: {stored_access_role}")
 
     # Determine the highest access role available
     role = max(

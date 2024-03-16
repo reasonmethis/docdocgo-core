@@ -95,18 +95,18 @@ class ChatState:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def get_collection_metadata(self, coll_name: str | None = None) -> Props | None:
+    def fetch_collection_metadata(self, coll_name: str | None = None) -> Props | None:
         """
-        Get metadata for the currently selected collection, or for the given
+        Fetch metadata for the currently selected collection, or for the given
         collection name if provided
         """
         if coll_name in (None, self.vectorstore.name):
-            return self.vectorstore.get_collection_metadata()
+            return self.vectorstore.fetch_collection_metadata()
 
         if tmp_vectorstore := self.get_new_vectorstore(
             coll_name, create_if_not_exists=False
         ):
-            return tmp_vectorstore.get_collection_metadata()
+            return tmp_vectorstore.fetch_collection_metadata()
         return None
 
     def get_rr_data(self) -> ResearchReportData | None:
@@ -114,7 +114,7 @@ class ChatState:
         Extract ResearchReportData from the currently selected collection's metadata
         """
         try:
-            rr_data_json = self.get_collection_metadata()["rr_data"]
+            rr_data_json = self.fetch_collection_metadata()["rr_data"]
         except (TypeError, KeyError):
             return
         return ResearchReportData.model_validate_json(rr_data_json)
@@ -123,9 +123,9 @@ class ChatState:
         """
         Update the currently selected collection's metadata with the given ResearchReportData
         """
-        coll_metadata = self.get_collection_metadata() or {}
+        coll_metadata = self.fetch_collection_metadata() or {}
         coll_metadata["rr_data"] = rr_data.model_dump_json()
-        self.vectorstore.set_collection_metadata(coll_metadata)
+        self.vectorstore.save_collection_metadata(coll_metadata)
 
     def get_collection_permissions(
         self, coll_name: str | None = None
@@ -135,7 +135,7 @@ class ChatState:
         metadata, or from the given collection name if provided
         """
         try:
-            collection_permissions_json = self.get_collection_metadata(coll_name)[
+            collection_permissions_json = self.fetch_collection_metadata(coll_name)[
                 COLLECTION_USERS_METADATA_KEY
             ]
             print("\ncollection_permissions_json:\n", collection_permissions_json)
@@ -149,10 +149,10 @@ class ChatState:
         """
         Update the currently selected collection's metadata with the given CollectionUsers
         """
-        coll_metadata = self.get_collection_metadata() or {}
+        coll_metadata = self.fetch_collection_metadata() or {}
         json_str = collection_permissions.model_dump_json()
         coll_metadata[COLLECTION_USERS_METADATA_KEY] = json_str
-        self.vectorstore.set_collection_metadata(coll_metadata)
+        self.vectorstore.save_collection_metadata(coll_metadata)
 
     def get_collection_settings_for_user(
         self, user_id: str | None, coll_name: str | None = None

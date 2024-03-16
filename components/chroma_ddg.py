@@ -42,11 +42,21 @@ class ChromaDDG(Chroma):
         """The underlying chromadb client."""
         return self._client
 
-    def get_collection_metadata(self) -> dict[str, Any] | None:
-        """Get metadata for the underlying chromadb collection."""
+    def get_cached_ollection_metadata(self) -> dict[str, Any] | None:
+        """Get locally cached metadata for the underlying chromadb collection."""
         return self._collection.metadata
 
-    def set_collection_metadata(self, metadata: dict[str, Any]) -> None:
+    def fetch_collection_metadata(self) -> dict[str, Any]:
+        """Fetch metadata for the underlying chromadb collection."""
+        # We have to get the collection again to ensure we have the latest metadata
+        print(f"Fetching metadata for collection {self.name}")
+        print(f"embedding_function: {self._collection._embedding_function}")
+        self._collection = self._client.get_collection(
+            self.name, embedding_function=self._collection._embedding_function
+        )
+        return self._collection.metadata
+
+    def save_collection_metadata(self, metadata: dict[str, Any]) -> None:
         """Set metadata for the underlying chromadb collection."""
         self._collection.modify(metadata=metadata)
 
