@@ -79,7 +79,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
         res = format_nonstreaming_answer(
             f"The resource `{message}` has been ingested into the collection "
             f"`{coll_name_as_shown}`. If you don't need to ingest "
-            "more content into it, rename it by with `/db rename my-cool-collection-name`."
+            "more content into it, rename it with `/db rename my-cool-collection-name`."
         )
     else:
         # "/summarize https://some.url.com" command
