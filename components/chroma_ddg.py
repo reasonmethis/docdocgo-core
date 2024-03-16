@@ -50,7 +50,6 @@ class ChromaDDG(Chroma):
         """Fetch metadata for the underlying chromadb collection."""
         # We have to get the collection again to ensure we have the latest metadata
         print(f"Fetching metadata for collection {self.name}")
-        print(f"embedding_function: {self._collection._embedding_function}")
         self._collection = self._client.get_collection(
             self.name, embedding_function=self._collection._embedding_function
         )
