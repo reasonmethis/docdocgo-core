@@ -500,6 +500,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         deleted_names_as_shown = []
         failed_names_as_shown = []
         error_msgs = []
+        should_switch_to_default = False
         for full_name in full_names:
             name_as_shown = get_user_facing_collection_name(
                 chat_state.user_id, full_name
@@ -516,15 +517,24 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
                 chat_state.vectorstore.delete_collection(full_name)
                 deleted_names_as_shown.append(name_as_shown)
+                
+                # If the current collection was deleted, initiate a switch to the default collection
+                if chat_state.collection_name == full_name:
+                    should_switch_to_default = True
             # NOTE: could stream progress here
             except Exception as e:
                 # NOTE: will throw if someone deletes a collection that's being used
                 failed_names_as_shown.append(name_as_shown)
-                error_msgs.append(format_exception(e))
+                error_msgs.append(str(e))
+                # error_msgs.append(format_exception(e))
 
         # Form answer
         s_or_no_s = "s" if len(deleted_names_as_shown) > 1 else ""
-        ans = f"Collection{s_or_no_s} `{', '.join(deleted_names_as_shown)}` deleted."
+        ans = (
+            f"Collection{s_or_no_s} `{', '.join(deleted_names_as_shown)}` deleted."
+            if deleted_names_as_shown
+            else ""
+        )
         if failed_names_as_shown:
             s_or_no_s = "s" if len(failed_names_as_shown) > 1 else ""
             ans += (
@@ -537,7 +547,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         ans = format_nonstreaming_answer(ans)
 
         # If the current collection was deleted, initiate a switch to the default collection
-        if any(full_name == chat_state.vectorstore.name for full_name in full_names):
+        if should_switch_to_default:
             ans["vectorstore"] = chat_state.get_new_vectorstore(DEFAULT_COLLECTION_NAME)
 
         return ans
