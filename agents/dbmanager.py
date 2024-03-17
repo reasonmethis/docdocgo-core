@@ -396,7 +396,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             chat_state.vectorstore.rename_collection(new_full_name)
         except Exception as e:
             return format_nonstreaming_answer(
-                f"Error renaming collection:\n```\n{format_exception(e)}\n```"
+                f"Error renaming collection: {e}"
             )
 
         # Check if collection was taken away from the original owner and restore their access
@@ -424,9 +424,11 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
             )
 
         is_admin = False
-        if len(value.split(maxsplit=1)) == 2:
-            value, is_admin = value.split(maxsplit=1)
-            is_admin = bool(admin_pwd) and is_admin == admin_pwd
+        if admin_pwd and len(value.rsplit(maxsplit=1)) == 2:
+            tmp, maybe_admin_pwd = value.rsplit(maxsplit=1)
+            if maybe_admin_pwd == admin_pwd:
+                value = tmp
+                is_admin = True
 
         if value == "-c" or value == "--current":
             value = chat_state.vectorstore.name
