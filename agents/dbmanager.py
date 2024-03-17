@@ -453,7 +453,6 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         # Get the full name(s) of the collection(s) to delete
         try:
-            # See if value is a name of a native collection (then no need for auth)
             full_names = [coll_names_full[coll_names_as_shown.index(value)]]
         # NOTE: there's a small chance of an ambiguity if the user has
         # a collection with the same name as a public collection, or if
@@ -494,16 +493,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # Get the full names of the collections
                 full_names = [coll_names_full[idx] for idx in idxs]
             except ValueError:
-                # It's a non-native collection
-                # That's the only case where we need to check access role
-                if (
-                    not is_admin
-                    and get_access_role(chat_state, value).value
-                    < AccessRole.OWNER.value
-                ):
-                    # NOTE: could have a separate NOT_EXIST "role" if we want to distinguish
-                    # between not found and not accessible even as a viewer
-                    return format_nonstreaming_answer(get_db_not_found_str(value))
+                # It's a non-native collection (or bad input)
                 full_names = [value]
 
         # Delete the collection(s)
@@ -515,6 +505,15 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 chat_state.user_id, full_name
             )
             try:
+                if (
+                    not is_admin
+                    and get_access_role(chat_state, full_name).value
+                    < AccessRole.OWNER.value
+                ):
+                    # NOTE: could have a separate NOT_EXIST "role" if we want to distinguish
+                    # between not found and not accessible even as a viewer
+                    raise ValueError("You don't have owner access to this collection.")
+
                 chat_state.vectorstore.delete_collection(full_name)
                 deleted_names_as_shown.append(name_as_shown)
             # NOTE: could stream progress here
@@ -523,13 +522,17 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 failed_names_as_shown.append(name_as_shown)
                 error_msgs.append(format_exception(e))
 
-        # Form answer, and - if the current collection was deleted - initiate a switch
+        # Form answer
         s_or_no_s = "s" if len(deleted_names_as_shown) > 1 else ""
         ans = f"Collection{s_or_no_s} `{', '.join(deleted_names_as_shown)}` deleted."
         if failed_names_as_shown:
             s_or_no_s = "s" if len(failed_names_as_shown) > 1 else ""
-            ans += f"\n\nFailed to delete collection{s_or_no_s} `{', '.join(failed_names_as_shown)}`."
-            ans += f"\n\nError message{s_or_no_s}:\n\n" + "\n\n".join(error_msgs)
+            ans += (
+                f"\n\nFailed to delete collection{s_or_no_s} `{', '.join(failed_names_as_shown)}`."
+                f"\n\nError message{s_or_no_s}:\n"
+            )
+            for name, msg in zip(failed_names_as_shown, error_msgs):
+                ans += f"\n- `{name}`: {msg}"
 
         ans = format_nonstreaming_answer(ans)
 
