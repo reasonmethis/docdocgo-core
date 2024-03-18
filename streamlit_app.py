@@ -17,7 +17,12 @@ from utils.helpers import (
     GREETING_MESSAGE,
 )
 from utils.output import format_exception
-from utils.prepare import DEFAULT_COLLECTION_NAME, TEMPERATURE
+from utils.prepare import (
+    BYPASS_SETTINGS_RESTRICTIONS,
+    BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
+    DEFAULT_COLLECTION_NAME,
+    TEMPERATURE,
+)
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
     STAND_BY_FOR_INGESTION_MESSAGE,
@@ -83,106 +88,127 @@ chat_state: ChatState = st.session_state.chat_state
 ####### Sidebar #######
 with st.sidebar:
     st.header("DocDocGo")
-    # Set the env variable for the OpenAI API key.
-    # Init value of text field is determined by the init value of the env variable.
+
     with st.expander(
         "OpenAI API Key", expanded=not st.session_state.llm_api_key_ok_status
     ):
-        user_openai_api_key = st.text_input(
+        supplied_openai_api_key = st.text_input(
             "OpenAI API Key",
             label_visibility="collapsed",
             key="openai_api_key",
             type="password",
         )
 
-        # If the user has entered a non-empty OpenAI API key, use it
-        if user_openai_api_key:
-            # If a non-empty correct unlock pwd was entered, keep using the
-            # default key but unlock the full settings
-            if user_openai_api_key == os.getenv(
-                "BYPASS_SETTINGS_RESTRICTIONS_PASSWORD"
-            ):
-                user_openai_api_key = ""
-                if not st.session_state.allow_all_settings_for_default_key:
-                    st.session_state.allow_all_settings_for_default_key = True
-                    st.session_state.llm_api_key_ok_status = True  # collapse key field
-                    st.rerun()  # otherwise won't collapse until next interaction
-            else:
-                # Otherwise, use the key entered by the user as the OpenAI API key
-                openai_api_key_to_use = user_openai_api_key
+        if not supplied_openai_api_key:
+            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            is_community_key = not BYPASS_SETTINGS_RESTRICTIONS
 
-        # If the user has not entered a key (or entered the unlock pwd) use the default
-        if not user_openai_api_key:
-            openai_api_key_to_use = st.session_state.default_openai_api_key
-        is_community_key = (
-            openai_api_key_to_use
-            and not user_openai_api_key
-            and not st.session_state.allow_all_settings_for_default_key
-        )
-        chat_state.is_community_key = is_community_key  # in case it changed
-        if is_community_key:
+        elif supplied_openai_api_key in ("public", "community"):
+            # TODO: document this
+            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            is_community_key = True
+
+        elif supplied_openai_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
+            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            is_community_key = False
+
+            # Collapse key field (not super important, but nice)
+            if not st.session_state.llm_api_key_ok_status:
+                st.session_state.llm_api_key_ok_status = True  # collapse key field
+                st.rerun()  # otherwise won't collapse until next interaction
+
+        else:
+            # Use the key entered by the user as the OpenAI API key
+            openai_api_key_to_use: str = supplied_openai_api_key
+            is_community_key = False
+
+        # In case there's no community key available, set is_community_key to False
+        if not openai_api_key_to_use:
+            is_community_key = False
+            st.caption("To use this app, you'll need an OpenAI API key.")
+            "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+            chat_state.user_id = None
+        elif is_community_key:
             st.caption(
                 "Using the default OpenAI API key (some settings are restricted, "
                 "your collections are public)."
             )
             "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
             chat_state.user_id = None
-        elif not openai_api_key_to_use:
-            st.caption("To use this app, you'll need an OpenAI API key.")
-            "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
-            chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
             chat_state.user_id = get_short_user_id(openai_api_key_to_use)
+            # TODO: use full api key as user id (but show only the short version)
 
-        # If the user has entered a collection name in the URL, switch to it
-        if init_coll_name := st.session_state.initial_collection_name:
-            st.session_state.initial_collection_name = None
-            if (
-                get_access_role(
-                    chat_state, init_coll_name, st.session_state.access_code
-                ).value
-                > AccessRole.NONE.value # cmp value to avoid issues with streamlit imports
-            ):
-                # Switch to the new collection
-                chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
-                chat_state.chat_and_command_history.append(
-                    (
-                        None,
-                        f"Welcome! You are now using the `{init_coll_name}` collection. "
-                        "When chatting, I will use its content as my knowledge base. "
-                        "To get help using me, just type `/help <your question>`.",
-                    )
-                )
-            else:
-                chat_state.chat_and_command_history.append(
-                    (
-                        None,
-                        "Apologies, the current URL doesn't provide access to the "
-                        f"requested collection `{init_coll_name}`. This can happen if the "
-                        "access code is invalid or if the collection doesn't exist. "
-                        "I will continue using the default collection.\n\n"
-                        "To get help using me, just type `/help <your question>`.",
-                    )
-                )
-            chat_state.sources_history.append(None)  # keep the lengths in sync
+        chat_state.is_community_key = is_community_key  # in case it changed
 
-        # If user (i.e. OpenAI API key) changed, reload the vectorstore
-        elif openai_api_key_to_use != chat_state.openai_api_key:
+        # If user key field changed, reset user/vectorstore as needed
+        if supplied_openai_api_key != st.session_state.prev_supplied_openai_api_key:
+            is_initial_load = st.session_state.prev_supplied_openai_api_key is None
+            st.session_state.prev_supplied_openai_api_key = supplied_openai_api_key
             chat_state.openai_api_key = openai_api_key_to_use
 
-            chat_state.vectorstore = chat_state.get_new_vectorstore(
-                DEFAULT_COLLECTION_NAME,
-            )  # TODO: don't switch if we are already in the default collection or if
-            # this is a public collection or the user is authorized for the collection
-            chat_state.chat_and_command_history.append(
-                (
-                    None,
-                    "Welcome! I see that the user key has changed, "
-                    "so I've switched to the default collection.",
-                )
+            # Determine which collection to use and whether user has access to it
+            init_coll_name = (
+                st.session_state.init_collection_name or chat_state.collection_name
             )
-            chat_state.sources_history.append(None)  # keep the lengths in sync
+            access_role = get_access_role(
+                chat_state, init_coll_name, st.session_state.access_code
+            )
+            is_authorised = access_role.value > AccessRole.NONE.value
+
+            # Different logic depending on whether collection is supplied in URL or not
+            if st.session_state.init_collection_name:
+                if is_authorised:
+                    chat_state.chat_and_command_history.append(
+                        (
+                            None,
+                            f"Welcome! You are now using the `{init_coll_name}` collection. "
+                            "When chatting, I will use its content as my knowledge base. "
+                            "To get help using me, just type `/help <your question>`.",
+                        )
+                    )
+                else:
+                    chat_state.chat_and_command_history.append(
+                        (
+                            None,
+                            "Apologies, the current URL doesn't provide access to the "
+                            f"requested collection `{init_coll_name}`. This can happen if the "
+                            "access code is invalid or if the collection doesn't exist.\n\n"
+                            "I have switched to my default collection.\n\n"
+                            "To get help using me, just type `/help <your question>`.",
+                        )
+                    )
+                    init_coll_name = DEFAULT_COLLECTION_NAME
+            elif not is_initial_load:
+                # If no collection is supplied in the URL, use current or default collection
+                should_add_msg_and_load_collection = True
+                if is_authorised:
+                    chat_state.chat_and_command_history.append(
+                        (
+                            None,
+                            "Welcome! The user credentials have changed but you are still "
+                            "authorised for the current collection.",
+                        )
+                    )
+                else:
+                    chat_state.chat_and_command_history.append(
+                        (
+                            None,
+                            "Welcome! I see that the user key has changed, "
+                            "so I've switched to the default collection.",                        
+                        )
+                    )
+                    init_coll_name = DEFAULT_COLLECTION_NAME
+
+            # In either of the above cases, load the collection. The only case when we don't
+            # need to (re-)load is if it's the initial run and there's no collection in the URL.
+            if st.session_state.init_collection_name or not is_initial_load:                
+                # Switch to the new collection (or just reload the current one)
+                chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
+
+                # Since we added a message, we must inc sources_history's length
+                chat_state.sources_history.append(None) 
 
     # Settings
     with st.expander("Settings", expanded=False):

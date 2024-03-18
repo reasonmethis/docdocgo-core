@@ -11,22 +11,16 @@ from utils.type_utils import OperationMode
 
 
 def prepare_app():
-    # Usually start with settings restrictions, user can unlock by entering pwd or OpenAI key
-    st.session_state.allow_all_settings_for_default_key = bool(
-        os.getenv("BYPASS_SETTINGS_RESTRICTIONS")
-    )
-
     # Whether or not the OpenAI API key has succeeded at least once
     st.session_state.llm_api_key_ok_status = False
 
     print("query params:", st.query_params)
-    st.session_state.initial_collection_name = st.query_params.get("collection")
+    st.session_state.init_collection_name = st.query_params.get("collection")
     st.session_state.access_code = st.query_params.get("access_code")
+    DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
     try:
         remove_tornado_fix()  # used to be run on every rerun
-        vectorstore = do_intro_tasks(
-            openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
-        )
+        vectorstore = do_intro_tasks(openai_api_key=DEFAULT_OPENAI_API_KEY)
     except Exception as e:
         st.error(
             "Apologies, I could not load the vector database. This "
@@ -42,10 +36,11 @@ def prepare_app():
             CallbackHandlerDDGConsole(),
             "placeholder for CallbackHandlerDDGStreamlit",
         ],
-        openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY"),
+        openai_api_key=DEFAULT_OPENAI_API_KEY,
     )
 
-    st.session_state.default_openai_api_key = os.getenv("DEFAULT_OPENAI_API_KEY", "")
+    st.session_state.prev_supplied_openai_api_key = None
+    st.session_state.default_openai_api_key = DEFAULT_OPENAI_API_KEY or ""
     if st.session_state.default_openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
         st.session_state.default_openai_api_key = ""
 

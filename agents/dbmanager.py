@@ -10,7 +10,6 @@ from utils.helpers import (
     format_nonstreaming_answer,
 )
 from utils.input import get_choice_from_dict_menu, get_menu_choice
-from utils.output import format_exception
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import DBCommand
 from utils.type_utils import (
@@ -395,9 +394,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         try:
             chat_state.vectorstore.rename_collection(new_full_name)
         except Exception as e:
-            return format_nonstreaming_answer(
-                f"Error renaming collection: {e}"
-            )
+            return format_nonstreaming_answer(f"Error renaming collection: {e}")
 
         # Check if collection was taken away from the original owner and restore their access
         if main_owner_user_id != chat_state.user_id:
@@ -519,7 +516,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
                 chat_state.vectorstore.delete_collection(full_name)
                 deleted_names_as_shown.append(name_as_shown)
-                
+
                 # If the current collection was deleted, initiate a switch to the default collection
                 if chat_state.collection_name == full_name:
                     should_switch_to_default = True
