@@ -195,7 +195,7 @@ with st.sidebar:
                     chat_state.chat_and_command_history.append(
                         (
                             None,
-                            "Welcome! I see that the user key has changed, "
+                            "Welcome! The user credentials have changed, "
                             "so I've switched to the default collection.",                        
                         )
                     )
