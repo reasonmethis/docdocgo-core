@@ -12,9 +12,10 @@
 - [Database Management](#database-management)
 - [Ingesting Documents](#ingesting-documents)
 - [Querying based on substrings](#querying-based-on-substrings)
+- [FAQ](#faq)
 - [Contributing](#contributing)
 - [Appendix](#appendix)
-  - [Dev QnA](#dev-qna)
+  - [Dev FAQ](#dev-faq)
   - [Minified Requirements](#minified-requirements)
   - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
   - [Running the Containerized Application](#running-the-containerized-application)
@@ -346,13 +347,29 @@ When is "Christopher" scheduled to attend the conference?
 
 DocDocGo will only consider document chunks that contain the substring "Christopher" when answering your query.
 
+## FAQ
+
+This section provides answers to frequently asked questions for using DocDocGo. For development-related questions, please see the [Dev FAQ](#dev-faq) in the Appendix.
+
+### Accessing collections
+
+#### Q: I entered my own OpenAI API key and now can't see collections I saw before. What happened?
+
+A: Before you entered your own OpenAI API key, you were using the community key and could see and create public collections (accessible to everyone). After entering your own key, collections you create are private to you, and running `/db list` will only show your own collections.
+
+You still have access to the public collections, you can switch to any public collection by typing `/db use <collection name>`. If you want to see all available public collections again, you can switch back to the community key by simply deleting the key you entered and pressing Enter, then running `/db list` again.
+
+#### Q: I got a shareable link to a collection but using it reloads the app, so it ends up in its default state of using the community key. How can I use the link with my own OpenAI API key?
+
+A: Simply enter your key in the OpenAI API key field after the app has reloaded. The access code will still be valid.
+
 ## Contributing
 
 Contributions are welcome! If you have any questions or suggestions, please open an issue or a pull request.
 
 ## Appendix
 
-### Dev QnA
+### Dev FAQ
 
 Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
 
@@ -374,6 +391,12 @@ VECTORDB_DIR="some-custom-dir-name-outside-of-project-dir/" # directory of your 
 That way you don't have to worry about the `chroma/` directory being freshly pulled from this repo. To make sure your custom directory contains the default collection `docdocgo-documentation`, which is what the `chroma/` directory contains initially, you should be able to simply copy the contents of `chroma/` to your chosen custom directory.
 
 As an alternative way to handle the issue of the default collection, you can create your own version of the default collection by ingesting this README, along with any other files you wish to be included. To make the resulting collection the default collection, use the command `/db rename --default <admin pwd you set>`, where the admin password is the value you assigned to the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable.
+
+#### Q: What is the `BYPASS_SETTINGS_RESTRICTIONS` environment variable?
+
+A: Normally, when this variable is not defined (or is an empty string), the app will start in a "community key" mode, where you can only see and create public collections and there are restriction on allowed settings (e.g. you can't change the model in the UI). The key used as the community key is controlled by the `DEFAULT_OPENAI_API_KEY` environment variable. You can remove these restrictions and switch to using that same key as a private key by entering the admin password (the value of the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable) in rhe OpenAI API key field.
+
+However, when the `BYPASS_SETTINGS_RESTRICTIONS` variable is set to a non-empty string, the app will start in the "private key" mode right away, without you having to enter the admin password. This is useful if you use the app in a private setting and don't want to have to enter the admin password every time you start the app.
 
 ### Minified Requirements
 
