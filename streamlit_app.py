@@ -163,8 +163,8 @@ with st.sidebar:
                     chat_state.chat_and_command_history.append(
                         (
                             None,
-                            f"Welcome! You are now using the `{init_coll_name}` collection. "
-                            "When chatting, I will use its content as my knowledge base. "
+                            f"Welcome! You are now using the `{init_coll_name}` collection. ",
+                            "When chatting, I will use its content as my knowledge base. ",
                             "To get help using me, just type `/help <your question>`.",
                         )
                     )
@@ -172,10 +172,10 @@ with st.sidebar:
                     chat_state.chat_and_command_history.append(
                         (
                             None,
-                            "Apologies, the current URL doesn't provide access to the "
-                            f"requested collection `{init_coll_name}`. This can happen if the "
-                            "access code is invalid or if the collection doesn't exist.\n\n"
-                            "I have switched to my default collection.\n\n"
+                            "Apologies, the current URL doesn't provide access to the ",
+                            f"requested collection `{init_coll_name}`. This can happen if the ",
+                            "access code is invalid or if the collection doesn't exist.\n\n",
+                            "I have switched to my default collection.\n\n",
                             "To get help using me, just type `/help <your question>`.",
                         )
                     )
@@ -187,7 +187,7 @@ with st.sidebar:
                     chat_state.chat_and_command_history.append(
                         (
                             None,
-                            "Welcome! The user credentials have changed but you are still "
+                            "Welcome! The user credentials have changed but you are still ",
                             "authorised for the current collection.",
                         )
                     )
@@ -195,7 +195,7 @@ with st.sidebar:
                     chat_state.chat_and_command_history.append(
                         (
                             None,
-                            "Welcome! The user credentials have changed, "
+                            "Welcome! The user credentials have changed, ",
                             "so I've switched to the default collection.",                        
                         )
                     )
