@@ -62,8 +62,10 @@ GREETING_MESSAGE = """\
 - chat using all sources fetched during research as a knowledge base
 - similarly chat using documents you provide as a knowledge base
 
-How? Just ask me by! (or type `/help`) \
 """
+
+GREETING_MESSAGE_PREFIX_DEFAULT = "How? Just ask me! (or type `/help`)"
+GREETING_MESSAGE_PREFIX_OTHER = "How? Just ask me by typing `/help <your question>`."
 
 EXAMPLE_QUERIES = """\
 To showcase some of my talents, feel free to try the following queries in sequence:

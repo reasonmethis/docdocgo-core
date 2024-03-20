@@ -15,6 +15,8 @@ from utils.helpers import (
     DELIMITER,
     EXAMPLE_QUERIES,
     GREETING_MESSAGE,
+    GREETING_MESSAGE_PREFIX_DEFAULT,
+    GREETING_MESSAGE_PREFIX_OTHER,
 )
 from utils.output import format_exception
 from utils.prepare import (
@@ -196,19 +198,19 @@ with st.sidebar:
                         (
                             None,
                             "Welcome! The user credentials have changed, "
-                            "so I've switched to the default collection.",                        
+                            "so I've switched to the default collection.",
                         )
                     )
                     init_coll_name = DEFAULT_COLLECTION_NAME
 
             # In either of the above cases, load the collection. The only case when we don't
             # need to (re-)load is if it's the initial run and there's no collection in the URL.
-            if st.session_state.init_collection_name or not is_initial_load:                
+            if st.session_state.init_collection_name or not is_initial_load:
                 # Switch to the new collection (or just reload the current one)
                 chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
 
                 # Since we added a message, we must inc sources_history's length
-                chat_state.sources_history.append(None) 
+                chat_state.sources_history.append(None)
 
     # Settings
     with st.expander("Settings", expanded=False):
@@ -245,7 +247,11 @@ with st.sidebar:
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 ####### Main page #######
-st.markdown(GREETING_MESSAGE)
+if chat_state.collection_name == DEFAULT_COLLECTION_NAME:
+    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_PREFIX_DEFAULT)
+else:
+    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_PREFIX_OTHER)
+
 with st.expander("See a quick walkthrough"):
     st.markdown(EXAMPLE_QUERIES)
 # NOTE: weirdly, if the following two lines are switched, a strange bug occurs
