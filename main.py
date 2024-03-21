@@ -52,7 +52,6 @@ def chat():
 
         # Get the user's message and other info from the request
         data = request.json
-        username = data["username"]
         message = data["message"].strip()
 
         api_key = data["api_key"]  # DocDocGo API key
@@ -101,7 +100,7 @@ def chat():
             )
 
         # Print and validate the user's message
-        print(f"GOT MESSAGE FROM {username}:\n{message}")
+        print(f"GOT MESSAGE FROM {user_id}:\n{message}")
         if not message:
             return format_simple_response(
                 "Apologies, I received an empty message from you."
@@ -120,15 +119,21 @@ def chat():
             f"compose a response to you. The error reads:\n\n{e}"
         )
 
-    # Print and return the response
-    print()  # print("AI:", reply) - no need, we are streaming to stdout now
+    # Print and form the response
+    # print("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
     if source_links:
-        print("Sources:")
-        print("\n".join(source_links))
-        print(DELIMITER)
+        print("Sources:" + "\n".join(source_links) + DELIMITER)
 
     rsp = {"content": reply, "sources": source_links}
+
+    # If collection was changed, return the new collection name
+    try:
+        rsp["collection_name"] = result["vectorstore"].collection_name
+    except KeyError:
+        pass
+
+    # Return the response
     return jsonify(rsp)
 
 

@@ -352,7 +352,7 @@ if full_query:
 # Get and display response from the bot
 with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     # Prepare status container and display initial status
-    # TODO: needs to be improved significantly
+    # TODO: statuses need to be updated to correspond with reality
     try:
         if is_ingest_via_file_uploader:
             raise KeyError  # to skip the status
