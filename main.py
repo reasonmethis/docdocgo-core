@@ -1,30 +1,25 @@
-""" 
+"""
 The flask server that enables API access to DocDocGo.
 NOTE: The logic below needs to be updated to catch up with the latest features in
 docdocgo.py. Specifically, we need to add support for the /db command and the
-/research command. 
+/research command.
 """
-import json
+
 import os
-from collections import defaultdict
 
 from flask import Flask, jsonify, request
 
 from _prepare_env import is_env_loaded
-from docdocgo import do_intro_tasks, get_bot_response, get_source_links
+from agents.dbmanager import get_access_role, get_short_user_id
+from components.chroma_ddg import load_vectorstore
+from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
-from utils.helpers import DEFAULT_CHAT_MODE, DELIMITER
+from utils.helpers import DELIMITER
+from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import parse_query
-from utils.type_utils import ChatMode, JSONish, OperationMode, PairwiseChatHistory
-
-RETRY_COMMAND_ID = 1000  # unique to the flask server
-
-vectorstore = do_intro_tasks()
+from utils.type_utils import AccessRole, JSONish, OperationMode, PairwiseChatHistory
 
 app = Flask(__name__)
-
-prev_input_by_user = defaultdict(dict)
-prev_outputs = defaultdict(dict)
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
@@ -45,103 +40,96 @@ def convert_chat_history(
     return chat_history
 
 
+def format_simple_response(msg: str):
+    return jsonify({"content": msg})
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     """Handles a chat message from the user and returns a response from the bot"""
     try:
-        # Get the user's message from the request
+        DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
+
+        # Get the user's message and other info from the request
         data = request.json
         username = data["username"]
-        message = data["message"]
-        command_id = data["command_id"]
-        api_key = data["api_key"]
+        message = data["message"].strip()
+
+        api_key = data["api_key"]  # DocDocGo API key
+        openai_api_key = data.get("openai_api_key", DEFAULT_OPENAI_API_KEY)
+        user_id = get_short_user_id(openai_api_key)
+        # TODO: use full api key as user id (but show only the short version)
+
         chat_history = convert_chat_history(data["chat_history"])
+        collection_name = data.get("collection", DEFAULT_COLLECTION_NAME)
+        access_code = data.get("access_code")
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
             print(f"Invalid API key: {api_key}")
-            return jsonify({"content": "Invalid DocDocGo API key"})
+            return format_simple_response("Invalid API key")
 
-        # Process special command, unique to the flask server
-        if command_id == RETRY_COMMAND_ID:  # /retry command
-            return jsonify(
-                {
-                    "prev_user_msg": prev_input_by_user[username].get("message", ""),
-                    "prev_command_id": prev_input_by_user[username].get(
-                        "command_id", -1
-                    ),
-                    "prev_search_params": prev_input_by_user[username].get(
-                        "search_params", {}
-                    ),
-                    "content": prev_outputs[username].get("content", ""),
-                    "sources": prev_outputs[username].get("sources", ""),
-                }
-            )
+        # Parse the query
+        parsed_query = parse_query(message)
 
-        # Parse the query to extract search params, if any
+        # Initialize vectorstore and chat state
         try:
-            chat_mode = ChatMode(command_id)
-        except ValueError:
-            chat_mode = DEFAULT_CHAT_MODE
+            vectorstore = load_vectorstore(
+                collection_name, openai_api_key=openai_api_key
+            )
+        except Exception as e:
+            return format_simple_response(
+                "Apologies, I could not load the vector database. This "
+                "could be due to a misconfiguration of the environment variables "
+                f"or missing files. The error reads: \n\n{e}"
+            )
+        chat_state = ChatState(
+            operation_mode=OperationMode.FLASK,
+            vectorstore=vectorstore,
+            chat_history=chat_history,
+            chat_and_command_history=chat_history,  # not used in flask mode
+            openai_api_key=openai_api_key,
+            user_id=user_id,
+            parsed_query=parsed_query,
+        )
 
-        parsed_query = parse_query(message, chat_mode)
-        message, search_params = parsed_query.message, parsed_query.search_params
-
-        # Save the user's message (for the /retry command; will save response later)
-        prev_input_by_user[username] = {
-            "message": message,
-            "command_id": command_id,
-            "search_params": search_params,
-        }
+        # Validate (and cache, for this request) the user's access level
+        access_role = get_access_role(chat_state, None, access_code)
+        if access_role.value <= AccessRole.NONE.value:
+            return format_simple_response(
+                "Apologies, you do not have access to the collection."
+            )
 
         # Print and validate the user's message
-        print(f"GOT MESSAGE FROM {username} with cmd id {command_id}:\n{message}")
-        if search_params:
-            print("\nSEARCH PARAMS:")
-            print(json.dumps(search_params, indent=4))
-        print(DELIMITER)
-
+        print(f"GOT MESSAGE FROM {username}:\n{message}")
         if not message:
-            prev_outputs[username] = {
-                "content": f"Apologies {username}, I received an empty message from you."
-            }
-            return jsonify(prev_outputs[username])
-
-        # Initialize the chain with the right settings and get the bot's response
-        result = get_bot_response(
-            # TODO: add rr_data and callbacks and bot_settings (if needed)
-            ChatState(
-                operation_mode=OperationMode.FLASK,
-                parsed_query=parsed_query,
-                chat_history=chat_history,
-                chat_and_command_history=chat_history,  # chat_and_command_history is not used in flask mode
-                vectorstore=vectorstore,
-                openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
+            return format_simple_response(
+                "Apologies, I received an empty message from you."
             )
-        )
+
+        # Get the bot's response
+        result = get_bot_response(chat_state)
 
         # Get the reply and sources from the bot's response
         reply = result["answer"]
         source_links = get_source_links(result)
     except Exception as e:
         print(e)
-        # Save the response we are about to return, then return it
-        prev_outputs[username] = {
-            "content": f"{username}, I am sorry, I encountered an error while trying to "
-            f"compose a response to you. The error reads:\n\n{e}",
-        }
-        return jsonify(prev_outputs[username])
+        return format_simple_response(
+            "Apologies, I encountered an error while trying to "
+            f"compose a response to you. The error reads:\n\n{e}"
+        )
 
     # Print and return the response
-    print()  # ("AI:", reply) - no need, we are streaming to stdout now
+    print()  # print("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
     if source_links:
         print("Sources:")
         print("\n".join(source_links))
         print(DELIMITER)
 
-    prev_outputs[username] = {"content": reply, "sources": source_links}
-    return jsonify(prev_outputs[username])
+    rsp = {"content": reply, "sources": source_links}
+    return jsonify(rsp)
 
 
 if __name__ == "__main__":
