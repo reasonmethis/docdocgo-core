@@ -138,5 +138,5 @@ def chat():
 
 
 if __name__ == "__main__":
-    print("Please run the server using waitress or gunicorn instead.")
-    # app.run(host="0.0.0.0", debug=True)  # listening on all public IPs
+    # print("Please run the server using waitress or gunicorn instead.")
+    app.run(host="0.0.0.0", debug=True)  # listening on all public IPs
