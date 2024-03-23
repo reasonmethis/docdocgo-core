@@ -8,6 +8,7 @@ docdocgo.py. Specifically, we need to add support for the /db command and the
 import os
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import get_access_role, get_short_user_id
@@ -20,6 +21,12 @@ from utils.query_parsing import parse_query
 from utils.type_utils import AccessRole, JSONish, OperationMode, PairwiseChatHistory
 
 app = Flask(__name__)
+
+# Allow all domains/origins
+CORS(app)
+
+# Or, for more granular control, specify domains:
+# CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
