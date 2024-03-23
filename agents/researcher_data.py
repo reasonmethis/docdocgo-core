@@ -27,7 +27,6 @@ class ResearchReportData(BaseModel):
     num_obtained_unprocessed_ok_links: int = 0
     num_links_from_latest_queries: int | None = None
     evaluation: str | None = None
-    collection_name: str | None = None  # TODO: remove this
 
     @model_validator(mode="after")
     def validate(self):

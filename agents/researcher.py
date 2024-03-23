@@ -363,7 +363,9 @@ def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM)
     if mode == WebsearcherMode.QUICK:
         return get_websearcher_response_quick(chat_state)
     elif mode == WebsearcherMode.MEDIUM:
-        return get_web_research_response_no_ingestion(chat_state)
+        res = get_web_research_response_no_ingestion(chat_state)
+        res.pop("rr_data", None)  # only need in get_initial_iterative_researcher_resp
+        return res
     raise ValueError(f"Invalid mode: {mode}")
 
 
@@ -377,10 +379,12 @@ SMALL_WORDS |= {"some", "any"}
 
 
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
+    """Process "new" command."""
     response = get_web_research_response_no_ingestion(chat_state)
 
     try:
-        rr_data: ResearchReportData = response["rr_data"]
+        # Get and remove rr_data from response
+        rr_data: ResearchReportData = response.pop("rr_data")
     except KeyError:
         # We received a non-streaming answer due to an error
         return response
@@ -423,16 +427,17 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     except ValueError:
         pass
 
+    # Construct full collection name (preliminary)
     new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
 
-    rr_data.collection_name = new_coll_name
+    new_coll_name_final = new_coll_name
 
     # Check if collection exists, if so, add a number to the end
     chroma_client: ClientAPI = chat_state.vectorstore.client
     for i in range(2, 1000000):
-        if not exists_collection(rr_data.collection_name, chroma_client):
+        if not exists_collection(new_coll_name_final, chroma_client):
             break
-        rr_data.collection_name = f"{new_coll_name}-{i}"
+        new_coll_name_final = f"{new_coll_name}-{i}"
 
     # Convert website content into documents for ingestion
     print_no_newline("\nIngesting fetched content into ChromaDB...")
@@ -451,9 +456,9 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
             collection_metadata = {"rr_data": rr_data.model_dump_json()}
             # NOTE: might want to remove collection_name from collection_metadata
             # since the user can rename the collection without updating the metadata
-            ingest_docs_into_chroma(
+            response["vectorstore"] = ingest_docs_into_chroma(
                 docs,
-                collection_name=rr_data.collection_name,
+                collection_name=new_coll_name_final,
                 openai_api_key=chat_state.openai_api_key,
                 chroma_client=chroma_client,
                 collection_metadata=collection_metadata,
@@ -464,12 +469,12 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
                 raise e  # i == 1 means tried normal name and random name, give up
 
             # Create a random valid collection name and try again
-            rr_data.collection_name = construct_full_collection_name(
+            new_coll_name_final = construct_full_collection_name(
                 chat_state.user_id, "collection-" + uuid.uuid4().hex[:8]
             )
 
     print("Done")
-    return response  # has answer, rr_data
+    return response  # has answer, vectorstore
 
 
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
@@ -488,6 +493,7 @@ MAX_ITERATIONS_IF_OWN_KEY = 126
 
 
 def get_iterative_researcher_response(chat_state: ChatState) -> Props:
+    """Process "iterate" and "more" commands."""
     # Check for editor access
     # NOTE: can cache collection metadata for get_rr_data
     if get_access_role(chat_state).value < AccessRole.EDITOR.value:
@@ -610,7 +616,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         chat_state.save_rr_data(rr_data)
         return {
             "answer": "There are no more usable sources to incorporate into the report",
-            "rr_data": rr_data,
+            # "rr_data": rr_data, NOTE: saved in chat_state
             "needs_print": True,  # NOTE: this won't be streamed
         }
 
@@ -727,14 +733,14 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         print_no_newline("\nIngesting new documents into ChromaDB...")
         ingest_docs_into_chroma(
             docs,
-            collection_name=rr_data.collection_name,
+            collection_name=chat_state.collection_name,
             chroma_client=chat_state.vectorstore.client,
             openai_api_key=chat_state.openai_api_key,
         )
     else:
         print_no_newline("No new documents to ingest. Saving rr_data...")
 
-    # Save new rr_data in chat_state (which saves it in the database) and
+    # Save new rr_data in chat_state (which saves it in the database)
     for link_data in link_datas_to_ingest:
         link_data.is_ingested = True  # this will be saved in rr_data
     chat_state.save_rr_data(rr_data)
@@ -742,7 +748,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
 
     return {
         "answer": answer,
-        "rr_data": rr_data,
+        # "rr_data": rr_data, NOTE: saved in chat_state
         "source_links": links_to_include,
     }  # NOTE: look into removing rr_data from the response
 
@@ -847,7 +853,8 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
     # Save new rr_data in chat_state (which saves it in the database) and return
     chat_state.save_rr_data(rr_data)
     sources = rr_data.get_sources(new_report)
-    return {"answer": answer, "rr_data": rr_data, "source_links": sources}
+    return {"answer": answer, "source_links": sources}
+    # return {"answer": answer, "rr_data": rr_data, "source_links": sources}
 
 
 def get_num_reports_per_level(rr_data: ResearchReportData) -> list[int]:

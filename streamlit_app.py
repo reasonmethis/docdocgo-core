@@ -37,6 +37,7 @@ from utils.streamlit.ingest import extract_text, ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
+from icecream import ic
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
@@ -470,8 +471,10 @@ if is_ingest_via_file_uploader:
     files, allow_all_ext = show_uploader(is_new_widget=True)
 
 # Update vectorstore if needed
+ic(chat_state.vectorstore.name, coll_name_full)
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
+ic(chat_state.vectorstore.name, coll_name_full)
 
 # If there are scheduled queries, rerun to run the next one
 if chat_state.scheduled_queries:

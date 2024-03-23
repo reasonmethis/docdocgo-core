@@ -53,18 +53,7 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:  # /summarize command
         return get_ingester_summarizer_response(chat_state)
     elif chat_mode == ChatMode.RESEARCH_COMMAND_ID:  # /research command
-        # Get response from iterative researcher
-        res_from_bot = get_researcher_response(chat_state)
-        rr_data = res_from_bot.get("rr_data")
-
-        # Load the new vectorstore if needed
-        partial_res = {}
-        if rr_data and rr_data.collection_name != chat_state.vectorstore.name:
-            vectorstore = chat_state.get_new_vectorstore(rr_data.collection_name)
-            partial_res["vectorstore"] = vectorstore
-
-        # Return response, including the new vectorstore if needed
-        return partial_res | res_from_bot
+        return get_researcher_response(chat_state)  # includes "vectorstore" if created
     elif chat_mode == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
