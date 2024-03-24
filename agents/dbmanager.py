@@ -88,6 +88,11 @@ def get_access_role(
 ) -> AccessRole:
     """
     Get the access status for the current user to the current or specified collection.
+
+    Warning: it tries to avoid making a db request and, if possible, determines the
+    access role based on the collection's name. As a result, it will return OWNER for
+    a non-existent collection "hjdfyuirewncx" just because it doesn't start with
+    PRIVATE_COLLECTION_PREFIX.
     """
     # TODO: can probably eliminate the need for fetching metadata in cases where
     # all we need is the user's access role to be viewer and that's already stored in
@@ -340,8 +345,17 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                     return format_nonstreaming_answer(get_db_not_found_str(value, ""))
                 coll_name_to_show = coll_name_full = value
 
-        vectorstore = chat_state.get_new_vectorstore(coll_name_full)
-        # NOTE: we are loading the same vectorstore twice if we used get_access_role
+        vectorstore = chat_state.get_new_vectorstore(
+            coll_name_full, create_if_not_exists=False
+        )
+        # NOTE: we are loading the same vectorstore twice if we used get_access_role and it had to
+        # fetch the metadata.
+
+        if vectorstore is None:
+            return format_nonstreaming_answer(
+                get_db_not_found_str(coll_name_to_show, "")
+            )
+
         return format_nonstreaming_answer(
             f"Switched to collection: `{coll_name_to_show}`."
         ) | {"vectorstore": vectorstore}

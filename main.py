@@ -67,7 +67,7 @@ def chat():
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data["chat_history"])
-        collection_name = data.get("collection", DEFAULT_COLLECTION_NAME)
+        collection_name = data.get("collection_name", DEFAULT_COLLECTION_NAME)
         access_code = data.get("access_code")
 
         # Validate the user's API key
@@ -134,11 +134,11 @@ def chat():
 
     rsp = {"content": reply, "sources": source_links}
 
-    # If collection was changed, return the new collection name
+    # Return the current collection name
     try:
-        rsp["collection_name"] = result["vectorstore"].collection_name
+        rsp["collection_name"] = result["vectorstore"].name
     except KeyError:
-        pass
+        rsp["collection_name"] = collection_name
 
     # Return the response
     return jsonify(rsp)

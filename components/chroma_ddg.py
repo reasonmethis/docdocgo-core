@@ -176,6 +176,9 @@ def load_vectorstore(
     client = ensure_chroma_client(client)
     if not create_if_not_exists and not exists_collection(collection_name, client):
         return
+    # TODO: Chroma uses get_or_create_collection, but it should be possible to use 
+    # get_collection instead, if create_if_not_exists is False to save a call
+    # to the db.
 
     return ChromaDDG(
         client=client,
