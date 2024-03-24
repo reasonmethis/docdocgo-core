@@ -11,14 +11,24 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from _prepare_env import is_env_loaded
-from agents.dbmanager import get_access_role, get_short_user_id
+from agents.dbmanager import (
+    get_access_role,
+    get_short_user_id,
+    get_user_facing_collection_name,
+)
 from components.chroma_ddg import load_vectorstore
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
 from utils.helpers import DELIMITER
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import parse_query
-from utils.type_utils import AccessRole, JSONish, OperationMode, PairwiseChatHistory
+from utils.type_utils import (
+    AccessRole,
+    JSONish,
+    OperationMode,
+    PairwiseChatHistory,
+    Props,
+)
 
 app = Flask(__name__)
 
@@ -58,17 +68,17 @@ def chat():
         DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 
         # Get the user's message and other info from the request
-        data = request.json
-        message = data["message"].strip()
+        data: Props = request.json
+        message: str = data["message"].strip()
 
-        api_key = data["api_key"]  # DocDocGo API key
-        openai_api_key = data.get("openai_api_key", DEFAULT_OPENAI_API_KEY)
+        api_key: str = data["api_key"]  # DocDocGo API key
+        openai_api_key: str = data.get("openai_api_key") or DEFAULT_OPENAI_API_KEY
         user_id = get_short_user_id(openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data["chat_history"])
-        collection_name = data.get("collection_name", DEFAULT_COLLECTION_NAME)
-        access_code = data.get("access_code")
+        collection_name: str = data.get("collection_name") or DEFAULT_COLLECTION_NAME
+        access_code: str | None = data.get("access_code")
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -136,9 +146,15 @@ def chat():
 
     # Return the current collection name
     try:
-        rsp["collection_name"] = result["vectorstore"].name
+        collection_name = result["vectorstore"].name
     except KeyError:
-        rsp["collection_name"] = collection_name
+        pass
+    rsp |= {
+        "collection_name": collection_name,
+        "user_facing_collection_name": get_user_facing_collection_name(
+            chat_state.user_id, collection_name
+        ),
+    }
 
     # Return the response
     return jsonify(rsp)

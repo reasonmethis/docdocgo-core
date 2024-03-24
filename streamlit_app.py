@@ -471,7 +471,6 @@ if is_ingest_via_file_uploader:
     files, allow_all_ext = show_uploader(is_new_widget=True)
 
 # Update vectorstore if needed
-ic(chat_state.vectorstore.name, coll_name_full)
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
 ic(chat_state.vectorstore.name, coll_name_full)
