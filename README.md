@@ -119,13 +119,19 @@ If you prefer to chat with the bot in the console, you can instead run:
 python docdocgo.py
 ```
 
-Finally, DocDocGo also comes with a flask server, which can be run with:
+Finally, DocDocGo also comes with a flask API server, which can be run with:
 
 ```bash
-waitress-serve --listen=0.0.0.0:8000 main:app
+waitress-serve --listen=0.0.0.0:8000 api:app
 ```
 
-We won't cover the details of using the flask server in this README, but the necessary format for requests can be relatively easily gleaned from `main.py`. The server was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+or, if you prefer to run it in development mode:
+
+```bash
+python api.py
+```
+
+We won't cover the details of using the flask server in this README, but the necessary format for requests can be relatively easily gleaned from `api.py`. The server was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
