@@ -1,8 +1,5 @@
 """
 The flask server that enables API access to DocDocGo.
-NOTE: The logic below needs to be updated to catch up with the latest features in
-docdocgo.py. Specifically, we need to add support for the /db command and the
-/research command.
 """
 
 import os
@@ -44,7 +41,7 @@ is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 def convert_chat_history(
     chat_history_in_role_format: list[JSONish],
 ) -> PairwiseChatHistory:
-    """Converts the chat history into a list of tuples of the form (user_message, bot_message)"""
+    """Convert the chat history into a list of tuples of the form (user_message, bot_message)"""
 
     chat_history = []
     user_message = ""
@@ -63,7 +60,7 @@ def format_simple_response(msg: str):
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """Handles a chat message from the user and returns a response from the bot"""
+    """Handle a chat message from the user and returns a response from the bot"""
     try:
         DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 
@@ -140,7 +137,7 @@ def chat():
     # print("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
     if source_links:
-        print("Sources:" + "\n".join(source_links) + DELIMITER)
+        print("Sources:" + "\n".join(source_links) + "\n" + DELIMITER)
 
     rsp = {"content": reply, "sources": source_links}
 
