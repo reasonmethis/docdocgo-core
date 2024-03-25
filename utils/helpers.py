@@ -206,7 +206,7 @@ Remember, you can always ask me for help in using me - simply type `/help` follo
 # - `/research more <your new query>`: same as above, but ingest into current collection
 
 SHARE_COMMAND_HELP_MSG = """\
-If you have owner-level access, you can use the following commands to share the current collection with others:
+If you have owner-level access to the current collection, you can use the following commands to share it with others:
 
 - `/share viewer pwd <any letters or numbers>`: give viewer access to the current collection
 - `/share editor pwd <any letters or numbers>`: give editor access to the current collection
@@ -223,7 +223,7 @@ You can also revoke access:
 What is the difference between _viewer_, _editor_, and _owner_?
 
 - _viewer_ can interact with the collection only in a way that does not modify it. For example, they can ask questions about its contents.
-- _editor_ can perform actions that modify the contact collection, for example by ingesting new documents into it. They can't, however, rename, delete, or share the collection.
+- _editor_ can perform actions that modify the collection, for example by ingesting new documents into it. They can't, however, rename, delete, or share the collection.
 - _owner_ has unrestricted access to the collection
 
 After you enter your command as described above, you will get a link that you can share with others. If you go with the `pwd` option, the recipient will always need to use that link to access the collection. If you opt for the `unlock-code` option (not yet implemented), the recipient will only need to use the link once, and then they will be able to access the collection without it.
