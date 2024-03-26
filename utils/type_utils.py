@@ -11,7 +11,7 @@ Props = dict[str, Any]
 PairwiseChatHistory = list[tuple[str, str]]
 CallbacksOrNone = list[BaseCallbackHandler] | None
 
-OperationMode = Enum("OperationMode", "CONSOLE STREAMLIT FLASK")
+OperationMode = Enum("OperationMode", "CONSOLE STREAMLIT FASTAPI")
 
 
 class ChatMode(Enum):
