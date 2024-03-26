@@ -29,8 +29,6 @@ executing==2.0.1
 fake-useragent==1.4.0
 fastapi==0.108.0
 filelock==3.13.1
-Flask==3.0.0
-Flask-Cors==4.0.0
 flatbuffers==23.5.26
 frozenlist==1.4.1
 fsspec==2023.12.2
