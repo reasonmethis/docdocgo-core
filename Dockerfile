@@ -8,16 +8,14 @@ FROM python:3.11-bookworm
 #     && apt-get clean \
 #     && rm -rf /var/lib/apt/lists/*
 
-# Install Python package dependencies
-RUN pip install langchain chromadb openai tiktoken beautifulsoup4 trafilatura \
-    fake-useragent python-dotenv streamlit playwright Flask unstructured waitress \
-    beautifulsoup4 Pillow pytesseract docx2txt pdf2image xlrd reportlab svglib \
-    google-cloud-firestore
+WORKDIR /app
 
-# Copy all application files into the container
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# RUN mkdir /test-docs
-# RUN mkdir /test-dbs
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
 
 

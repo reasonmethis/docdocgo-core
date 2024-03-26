@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+*.log
+dist/
+.DS_Store
+*.egg-info/
+*.egg
+
+.my-chroma*
+docs-private/
+DOCS-APPENDIX.md
