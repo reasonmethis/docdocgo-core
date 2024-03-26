@@ -16,7 +16,6 @@
 - [Contributing](#contributing)
 - [Appendix](#appendix)
   - [Dev FAQ](#dev-faq)
-  - [Minified Requirements](#minified-requirements)
   - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
   - [Running the Containerized Application](#running-the-containerized-application)
   - [License](#license)
@@ -37,7 +36,7 @@ That's it, happy chatting!
 
 ## Features
 
-- Comes with a Streamlit UI, but can also be run in console mode or as a flask app
+- Comes with a Streamlit UI, but can also be run in console mode or as a FastAPI app
 - Provides [multiple response modes](#using-docdocgo) ("chat", "detailed report", "quotes", "quick web research", "infinite web research", "URL or local docs ingestion", "URL summarization")
 - Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
 - Allows to create and switch between multiple document collections
@@ -87,8 +86,6 @@ Run:
 pip install -r requirements.txt
 ```
 
-> Note: if you would like to see a "minified" version of the requirements, please see the [Appendix](#minified-requirements).
-
 It's possible you may get the error message:
 
 ```bash
@@ -119,19 +116,13 @@ If you prefer to chat with the bot in the console, you can instead run:
 python docdocgo.py
 ```
 
-Finally, DocDocGo also comes with a flask API server, which can be run with:
+Finally, DocDocGo also comes with a FastAPI server, which can be run with (for local development):
 
 ```bash
-waitress-serve --listen=0.0.0.0:8000 api:app
+uvicorn api:app --reload
 ```
 
-or, if you prefer to run it in development mode:
-
-```bash
-python api.py
-```
-
-We won't cover the details of using the flask server in this README, but the necessary format for requests can be relatively easily gleaned from `api.py`. The server was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+We won't cover the details of using the FastAPI server in this README, but the necessary format for requests can be relatively easily gleaned from `api.py`. The server (or rather its Flask predecessor) was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
@@ -214,7 +205,7 @@ Let's go over the commands in more detail to get a better understanding of what 
 
 If you type `/research iterate`, DocDocGo will fetch more content from the web and use it to try to improve the report. If you type `/research iterate N`, DocDocGo will automatically do `N` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report. All fetched content will be added to a KB (aka _collection_) for any follow-up questions.
 
-> If you are doing multiple iterations and want to abort, simply reload the app.
+> If you are doing multiple iterations and want to abort, simply reload the app (in the Streamlit mode).
 
 ### The `deeper` subcommand
 
@@ -311,7 +302,7 @@ Once the documents are ingested, you can continue adding more documents or URLs 
 
 You can also explicitly control whether the documents are ingested into a new collection or added to the current collection. To ingest into a new collection, use `/ingest new`. To add to the current collection, use `/ingest add`. See [Using DocDocGo](#using-docdocgo) for more details.
 
-The `/summarize` command works similarly to the `/ingest` command, but it retrieves the content of the URL and summarizes it before ingesting it into a collection.
+The `/summarize` command works similarly to the `/ingest` command, except, in addition to ingesting the content of the URL it also generates a summary of the content (the summary is not itself ingested).
 
 Additionally, using the `/research` command automatically ingests the results of the web research into a new document collection.
 
@@ -404,29 +395,6 @@ A: Normally, when this variable is not defined (or is an empty string), the app 
 
 However, when the `BYPASS_SETTINGS_RESTRICTIONS` variable is set to a non-empty string, the app will start in the "private key" mode right away, without you having to enter the admin password. This is useful if you use the app in a private setting and don't want to have to enter the admin password every time you start the app.
 
-### Minified Requirements
-
-Installing the following packages will also install all of the other requirements:
-
-```bash
-langchain==0.1.6
-langchain_openai==0.0.5
-chromadb==0.4.21
-openai==1.6.1
-tiktoken==0.5.2
-beautifulsoup4==4.12.2
-docx2txt==0.8
-pypdf==4.0.0
-trafilatura==1.6.3
-fake-useragent==1.4.0
-python-dotenv==1.0.0
-streamlit==1.29.0
-playwright==1.40.0
-Flask==3.0.0
-google-cloud-firestore==2.14.0
-icecream==2.1.3
-```
-
 ### Ingesting Documents in Console Mode
 
 In the console mode, the ingestion process is currently a bit less convenient than in the (default) Streamlit mode:
@@ -452,9 +420,7 @@ The script will show you the ingestion settings and ask for confirmation before 
 
 ### Running the Containerized Application
 
-> Note: check the Dockerfile to make sure the requirements are up to date.
-
-DocDocGo is also containerized with Docker. The following steps can be used to run the containerized flask server.
+DocDocGo is also containerized with Docker. The following steps can be used to run the containerized FastAPI server.
 
 #### 1. Build the Docker image
 
@@ -469,29 +435,6 @@ Run the Docker container and expose port 8000:
 ```bash
 docker run --name docdocgo -p 8000:8000 -d -i -t docdocgo:latest /bin/bash
 ```
-
-#### 3. Open a terminal inside the container
-
-```bash
-docker exec -it docdocgo /bin/bash
-```
-
-#### 4. Start the application
-
-Start the flask server inside the Docker container:
-
-```bash
-waitress-serve --listen=0.0.0.0:8000 main:app
-```
-
-If there are changes to the code or database, you will need to rebuild and rerun the container. Start by stopping and removing the container:
-
-```bash
-docker stop docdocgo
-docker rm docdocgo
-```
-
-After that, follow the above steps to rebuild the container and restart the service.
 
 ### License
 
