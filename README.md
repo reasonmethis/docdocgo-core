@@ -367,6 +367,8 @@ Contributions are welcome! If you have any questions or suggestions, please open
 
 ## Appendix
 
+Here we provides additional information that may be useful, mostly for developers, as opposed to users of the bot.
+
 ### Using the FastAPI server
 
 The FastAPI server is a RESTful API that can be used to interact with DocDocGo programmatically. The following endpoints are available:
@@ -423,9 +425,13 @@ class ChatResponseData(BaseModel):
     user_facing_collection_name: str | None = None
 ```
 
+#### The `/upload` endpoint
+
+This endpoint is currently under development.
+
 ### Dev FAQ
 
-Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
+Here we provide answers to frequently asked questions for developers.
 
 #### Q: How can I update the default collection?
 
