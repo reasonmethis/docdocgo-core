@@ -61,7 +61,7 @@ def convert_chat_history(
 # Define Pydantic models for request and response
 class ChatRequestData(BaseModel):
     message: str
-    api_key: str = "somekey"  # "api-test"
+    api_key: str
     openai_api_key: str | None = None
     chat_history: list[JSONish] = []
     collection_name: str | None = None
