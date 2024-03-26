@@ -15,6 +15,7 @@
 - [FAQ](#faq)
 - [Contributing](#contributing)
 - [Appendix](#appendix)
+  - [Using the FastAPI server](#using-the-fastapi-server)
   - [Dev FAQ](#dev-faq)
   - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
   - [Running the Containerized Application](#running-the-containerized-application)
@@ -122,7 +123,7 @@ Finally, DocDocGo also comes with a FastAPI server, which can be run with (for l
 uvicorn api:app --reload
 ```
 
-We won't cover the details of using the FastAPI server in this README, but the necessary format for requests can be relatively easily gleaned from `api.py`. The server (or rather its Flask predecessor) was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+The details of using the API are described in the [Appendix](#using-the-fastapi-server). The server (or rather its Flask predecessor) was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
@@ -365,6 +366,52 @@ A: Simply enter your key in the OpenAI API key field after the app has reloaded.
 Contributions are welcome! If you have any questions or suggestions, please open an issue or a pull request.
 
 ## Appendix
+
+### Using the FastAPI server
+
+The FastAPI server is a RESTful API that can be used to interact with DocDocGo programmatically. The following endpoints are available:
+
+- `/chat`: send a message to the bot
+- `/upload`: upload files to the bot
+
+#### The `/chat` endpoint
+
+The `/chat` endpoint is used to send a message to the bot. The API works similar to, e.g., the OpenAI API in the sense that it's stateless. For example, since the server doesn't "remember" the previous chat history, you are welcome to send either the actual or completely made up chat history. The message should be sent as a POST request with the body as a JSON object that corresponds to the following schema:
+
+```python
+class ChatRequestData(BaseModel):
+    message: str
+    api_key: str
+    openai_api_key: str | None = None
+    chat_history: list[JSONish] = []
+    collection_name: str | None = None
+    access_code: str | None = None
+```
+
+The chat history (which represents what you would like the bot to assume has been said before) should be in the following format:
+
+```json
+[
+    {
+        "role": "user",
+        "content": "Hello, how are you?"
+    },
+    {
+        "role": "assistant",
+        "content": "I'm doing well, thank you. How can I help you today?"
+    },
+    {
+        "role": "user",
+        "content": "/research What are the most important AI news this month?"
+    }
+]
+```
+
+The `collection_name` field is used to specify the collection that the bot should use when responding to the message. If not specified, the default collection will be used. The optional `access_code` field is used to specify the access code for the collection. The bot will determine your access level and respond accordingly.
+
+The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` variable in the `.env` file.
+
+The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, if it's specified by the `DEFAULT_OPENAI_API_KEY` variable in the `.env` file.
 
 ### Dev FAQ
 
