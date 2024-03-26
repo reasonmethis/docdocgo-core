@@ -1,11 +1,12 @@
 """
-The flask server that enables API access to DocDocGo.
+The FastAPI server that enables API access to DocDocGo.
 """
 
 import os
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
@@ -19,18 +20,25 @@ from utils.chat_state import ChatState
 from utils.helpers import DELIMITER
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import parse_query
+from icecream import ic
 from utils.type_utils import (
     AccessRole,
     JSONish,
     OperationMode,
     PairwiseChatHistory,
-    Props,
 )
 
-app = Flask(__name__)
+app = FastAPI()
 
 # Allow all domains/origins
-CORS(app)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 
 # Or, for more granular control, specify domains:
 # CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
@@ -55,27 +63,35 @@ def convert_chat_history(
 
 
 def format_simple_response(msg: str):
-    return jsonify({"content": msg})
+    return {"content": msg}
 
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    """Handle a chat message from the user and returns a response from the bot"""
+class ChatRequestData(BaseModel):
+    message: str
+    api_key: str
+    openai_api_key: str = os.getenv("DEFAULT_OPENAI_API_KEY", "")
+    chat_history: list[JSONish]
+    collection_name: str
+    access_code: str | None = None
+
+
+@app.post("/chat/")
+def chat(data: ChatRequestData):
+    """Handle a chat message from the user and return a response from the bot"""
     try:
-        DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
+        ic(data)
+        # Get the user's message and other info from the request data
+        message = data.message.strip()
 
-        # Get the user's message and other info from the request
-        data: Props = request.json
-        message: str = data["message"].strip()
-
-        api_key: str = data["api_key"]  # DocDocGo API key
-        openai_api_key: str = data.get("openai_api_key") or DEFAULT_OPENAI_API_KEY
+        api_key = data.api_key  # DocDocGo API key
+        openai_api_key = data.openai_api_key
         user_id = get_short_user_id(openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
-        chat_history = convert_chat_history(data["chat_history"])
-        collection_name: str = data.get("collection_name") or DEFAULT_COLLECTION_NAME
-        access_code: str | None = data.get("access_code")
+        chat_history = convert_chat_history(data.chat_history)
+        data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
+        collection_name = data.collection_name
+        access_code = data.access_code
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -154,9 +170,9 @@ def chat():
     }
 
     # Return the response
-    return jsonify(rsp)
+    return rsp
 
 
 if __name__ == "__main__":
-    # print("Please run the server using waitress or gunicorn instead.")
-    app.run(host="0.0.0.0", debug=True)  # listening on all public IPs
+    print("Please run the server using `uvicorn api:app --reload` instead.")
+    # app.run(host="0.0.0.0", debug=True)  # listening on all public IPs
