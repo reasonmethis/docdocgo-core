@@ -413,6 +413,16 @@ The `api_key` field is used to specify the API key for the FastAPI server. The s
 
 The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, if it's specified by the `DEFAULT_OPENAI_API_KEY` variable in the `.env` file.
 
+The response will be a JSON object conforming to the following schema:
+
+```python
+class ChatResponseData(BaseModel):
+    content: str
+    sources: list[str] | None = None
+    collection_name: str | None = None
+    user_facing_collection_name: str | None = None
+```
+
 ### Dev FAQ
 
 Here we provide additional information that may be useful, mostly for developers, as opposed to users of the bot.
