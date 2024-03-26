@@ -4,7 +4,7 @@ The FastAPI server that enables API access to DocDocGo.
 
 import os
 
-from fastapi import Body, FastAPI
+from fastapi import Body, FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from icecream import ic
 from pydantic import BaseModel
@@ -67,6 +67,10 @@ class ChatRequestData(BaseModel):
     collection_name: str | None = None
     access_code: str | None = None
 
+@app.post("/upload/")
+def upload(files: list[UploadFile]):
+    for file in files:
+        print(file.filename)
 
 class ChatResponseData(BaseModel):
     content: str
