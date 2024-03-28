@@ -117,12 +117,18 @@ async def ingest(
             status_code=413,
             detail="The total size of the files exceeds the permitted limit.",
         )
-
+    
+    # Apparently if Upload is clicked in the browser with no file selected,
+    # then `files` will NOT be empty, but will contain 1 file with no bytes.
+    if total_size == 0:
+        files = []
+        
     docs, failed_files, unsupported_ext_files = extract_text(files, allow_all_ext=True)
 
     # We need to decode the parameters from the form data because they are JSON strings
-    # or None. In particular, even string fields are passed as JSON strings. One reason
-    # for this is that passing an empty string in a form field causes a 422 error.
+    # or None. In particular, I made it so that even string fields are expected to be encoded.
+    # One reason for this is that passing an empty string in a form field causes a 422 error.
+    # The problem is solved if we encode all strings - then an empty string becomes '""'.
     try:
         data = ChatRequestData(
             message=decode_param(message),
