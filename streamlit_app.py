@@ -1,6 +1,7 @@
 import os
 
 import streamlit as st
+from icecream import ic
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
@@ -18,6 +19,7 @@ from utils.helpers import (
     GREETING_MESSAGE_PREFIX_DEFAULT,
     GREETING_MESSAGE_PREFIX_OTHER,
 )
+from utils.ingest import extract_text, format_ingest_failure
 from utils.output import format_exception
 from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
@@ -33,12 +35,10 @@ from utils.streamlit.helpers import (
     status_config,
     write_slowly,
 )
-from utils.ingest import extract_text
 from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
-from icecream import ic
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
@@ -289,23 +289,12 @@ if files:
     # Display failed files, if any
     if failed_files or unsupported_ext_files:
         with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
-            tmp = (
-                "Apologies, the following files failed to process:\n```\n"
-                + "\n".join(unsupported_ext_files + failed_files)
-                + "\n```"
-            )
+            tmp = format_ingest_failure(failed_files, unsupported_ext_files)
             if unsupported_ext_files:
-                unsupported_extentions = sorted(
-                    list(set(os.path.splitext(x)[1] for x in unsupported_ext_files))
-                )
-                tmp += "\n\nUnsupported file extensions: " + ", ".join(
-                    f"`{x.lstrip('.') or '<no extension>'}`"
-                    for x in unsupported_extentions
-                )
                 tmp += (
-                    "\n\nIf your files with unsupported extensions can be treated as "
-                    "text files, check the `Allow all extensions` box and try again."
-                )
+                "\n\nIf your files with unsupported extensions can be treated as "
+                "text files, check the `Allow all extensions` box and try again."
+            )
             st.markdown(fix_markdown(tmp))
 
     # Ingest the docs into the vectorstore, if any

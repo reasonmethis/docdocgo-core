@@ -85,3 +85,18 @@ def extract_text(files, allow_all_ext):
 
     ic(len(docs), failed_files, unsupported_ext_files)
     return docs, failed_files, unsupported_ext_files
+
+def format_ingest_failure(failed_files, unsupported_ext_files):
+    res = (
+        "Apologies, the following files failed to process:\n```\n"
+        + "\n".join(unsupported_ext_files + failed_files)
+        + "\n```"
+    )
+    if unsupported_ext_files:
+        unsupported_extentions = sorted(
+            list(set(os.path.splitext(x)[1] for x in unsupported_ext_files))
+        )
+        res += "\n\nUnsupported file extensions: " + ", ".join(
+            f"`{x.lstrip('.') or '<no extension>'}`" for x in unsupported_extentions
+        )
+    return res

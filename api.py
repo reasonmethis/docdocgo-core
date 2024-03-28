@@ -21,7 +21,7 @@ from components.chroma_ddg import load_vectorstore
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
 from utils.helpers import DELIMITER
-from utils.ingest import extract_text
+from utils.ingest import extract_text, format_ingest_failure
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import parse_query
 from utils.type_utils import (
@@ -117,13 +117,11 @@ async def ingest(
             status_code=413,
             detail="The total size of the files exceeds the permitted limit.",
         )
-    
+
     # Apparently if Upload is clicked in the browser with no file selected,
-    # then `files` will NOT be empty, but will contain 1 file with no bytes.
+    # then 'files' will NOT be empty, but will contain 1 file with no bytes.
     if total_size == 0:
         files = []
-        
-    docs, failed_files, unsupported_ext_files = extract_text(files, allow_all_ext=True)
 
     # We need to decode the parameters from the form data because they are JSON strings
     # or None. In particular, I made it so that even string fields are expected to be encoded.
@@ -159,15 +157,25 @@ async def ingest(
             print(f"Invalid API key: {api_key}")
             return ChatResponseData(content="Invalid API key.")
 
-        # Print and validate the user's message
+        # Extract text from the files and convert to list of Document
+        docs, failed_files, unsupported_ext_files = extract_text(
+            files, allow_all_ext=True
+        )
+
+        # Print and validate the user's message and successful upload
         print(f"GOT MESSAGE FROM {user_id}:\n{message}")
-        if docs:
-            print(f"GOT {len(docs)} DOCUMENTS")
+        if files:
+            print(f"GOT {len(files)} FILES, {len(docs)} DOCUMENTS")
+        if failed_files or unsupported_ext_files:
+            return ChatResponseData(
+                content=format_ingest_failure(failed_files, unsupported_ext_files)
+            )
+            
         if not message and not docs:  # LLM doesn't like empty strings
             return ChatResponseData(
                 content="Apologies, I received an empty message from you."
             )
-        
+
         # Parse the query
         # Special case: if docs uploaded with empty message, interpret as "/upload"
         parsed_query = parse_query(message or "/upload")
@@ -222,12 +230,12 @@ async def ingest(
     # Prepare the response
     rsp = ChatResponseData(
         content=result["answer"],
-        sources = get_source_links(result) or None,
+        sources=get_source_links(result) or None,
         instruction=result.get("instruction"),
         collection_name=collection_name,
         user_facing_collection_name=get_user_facing_collection_name(
             chat_state.user_id, collection_name
-        )
+        ),
     )
 
     # Return the response
