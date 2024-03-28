@@ -83,5 +83,5 @@ def extract_text(files, allow_all_ext):
             ic(e)
             failed_files.append(file_name)
 
-    ic(docs, failed_files, unsupported_ext_files)
+    ic(len(docs), failed_files, unsupported_ext_files)
     return docs, failed_files, unsupported_ext_files

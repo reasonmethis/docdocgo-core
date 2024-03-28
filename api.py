@@ -78,12 +78,15 @@ class ChatResponseData(BaseModel):
     sources: list[str] | None = None
     collection_name: str | None = None
     user_facing_collection_name: str | None = None
+    instruction: str | None = None
 
 
 DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 
+
 def decode_param(param: str | None) -> str | dict | list | None:
     return None if param is None else json.loads(param)
+
 
 @app.post("/ingest/", response_model=ChatResponseData)
 async def ingest(
@@ -96,7 +99,7 @@ async def ingest(
     access_code: Annotated[str | None, Form()] = None,
 ):
     """
-    Handle a chat message from the user, which may include files, and return a 
+    Handle a chat message from the user, which may include files, and return a
     response from the bot.
     """
     # Validate the total size of the files
@@ -150,8 +153,18 @@ async def ingest(
             print(f"Invalid API key: {api_key}")
             return ChatResponseData(content="Invalid API key.")
 
+        # Print and validate the user's message
+        print(f"GOT MESSAGE FROM {user_id}:\n{message}")
+        if docs:
+            print(f"GOT {len(docs)} DOCUMENTS")
+        if not message and not docs:  # LLM doesn't like empty strings
+            return ChatResponseData(
+                content="Apologies, I received an empty message from you."
+            )
+        
         # Parse the query
-        parsed_query = parse_query(message)
+        # Special case: if docs uploaded with empty message, interpret as "/upload"
+        parsed_query = parse_query(message or "/upload")
 
         # Initialize vectorstore and chat state
         try:
@@ -172,6 +185,7 @@ async def ingest(
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
+            uploaded_docs=docs,
         )
 
         # Validate (and cache, for this request) the user's access level
@@ -181,19 +195,8 @@ async def ingest(
                 content="Apologies, you do not have access to the collection."
             )
 
-        # Print and validate the user's message
-        print(f"GOT MESSAGE FROM {user_id}:\n{message}")
-        if not message:  # LLM doesn't like empty strings
-            return ChatResponseData(
-                content="Apologies, I received an empty message from you."
-            )
-
         # Get the bot's response
         result = get_bot_response(chat_state)
-
-        # Get the reply and sources from the bot's response
-        reply = result["answer"]
-        sources = get_source_links(result)
     except Exception as e:
         print(e)
         return ChatResponseData(
@@ -204,26 +207,32 @@ async def ingest(
     # print("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
 
-    # Prepare the response
-    rsp = ChatResponseData(content=reply)
-    if sources:
-        rsp.sources = sources
-        print("Sources:" + "\n".join(sources) + "\n" + DELIMITER)
-
     # Determine the current collection name
     try:
         collection_name = result["vectorstore"].name
     except KeyError:
         pass
-    rsp.collection_name = collection_name
-    rsp.user_facing_collection_name = get_user_facing_collection_name(
-        chat_state.user_id, collection_name
+
+    # Prepare the response
+    rsp = ChatResponseData(
+        content=result["answer"],
+        sources = get_source_links(result) or None,
+        instruction=result.get("instruction"),
+        collection_name=collection_name,
+        user_facing_collection_name=get_user_facing_collection_name(
+            chat_state.user_id, collection_name
+        )
     )
 
     # Return the response
+    if rsp.sources:
+        print("Sources:" + "\n".join(rsp.sources) + "\n" + DELIMITER)
+
     return rsp
 
+
 # TODO: unify the two endpoints since they have the same core logic
+
 
 @app.post("/chat/", response_model=ChatResponseData)
 async def chat(data: ChatRequestData = Body(...)):

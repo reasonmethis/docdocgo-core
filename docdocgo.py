@@ -98,22 +98,20 @@ def get_bot_response(chat_state: ChatState):
         return res
     elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
         # If a URL is given, fetch and ingest it. Otherwise, upload local docs
-        if chat_state.parsed_query.message:
-            return get_ingester_summarizer_response(chat_state)
-        elif chat_state.operation_mode.value == OperationMode.STREAMLIT.value:
+        if (
+            chat_state.operation_mode.value == OperationMode.CONSOLE.value
+            and not chat_state.parsed_query.message
+        ):
             # NOTE: "value" is needed because OperationMode, ChromaDDG, etc. sometimes
             # get imported twice (I think when Streamlit reloads the code).
-            return {"answer": "Please select your documents to upload and ingest."}
-        elif chat_state.operation_mode.value == OperationMode.CONSOLE.value:
             return {
-                "answer": "Sorry, the /ingest command is only supported in Streamlit mode. "
-                + "In console mode, please run `python ingest_local_docs.py`."
+                "answer": "Sorry, the /ingest command with no URL is not supported "
+                "in console mode. Please run `python ingest_local_docs.py`."
             }
-        else:
-            return {"answer": "Sorry, this is only supported in Streamlit mode."}
+        return get_ingester_summarizer_response(chat_state)
     else:
         # Should never happen
-        raise ValueError(f"Invalid command id: {chat_mode}")
+        raise ValueError(f"Invalid chat mode: {chat_mode}")
 
     return chat_chain.invoke(
         {

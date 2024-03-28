@@ -1,3 +1,4 @@
+from langchain.schema import Document
 from chromadb import Collection
 from pydantic import BaseModel, Field
 
@@ -63,6 +64,7 @@ class ChatState:
         openai_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
+        uploaded_docs: list[Document] | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
@@ -77,6 +79,7 @@ class ChatState:
         self.openai_api_key = openai_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
+        self.uploaded_docs = uploaded_docs or []
 
     @property
     def collection_name(self) -> str:
