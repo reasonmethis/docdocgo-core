@@ -5,17 +5,6 @@ import streamlit as st
 
 from utils.type_utils import ChatMode
 
-allowed_extensions = [
-    "",
-    ".txt",
-    ".md",
-    ".rtf",
-    ".log",
-    ".pdf",
-    ".docx",
-    ".html",
-    ".htm",
-]
 
 POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL = """\
 Your documents have been uploaded to a new collection: `{coll_name}`. \

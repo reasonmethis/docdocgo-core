@@ -33,7 +33,8 @@ from utils.streamlit.helpers import (
     status_config,
     write_slowly,
 )
-from utils.streamlit.ingest import extract_text, ingest_docs
+from utils.ingest import extract_text
+from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm

@@ -1,10 +1,6 @@
-import os
-import re
 import uuid
 
-import docx2txt
 import streamlit as st
-from bs4 import BeautifulSoup
 from langchain.schema import Document
 
 from agents.dbmanager import (
@@ -14,49 +10,12 @@ from agents.dbmanager import (
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import ADDITIVE_COLLECTION_PREFIX, INGESTED_DOCS_INIT_PREFIX
-from utils.ingest import get_page_texts_from_pdf
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import IngestCommand
 from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
-    allowed_extensions,
 )
-
-
-def extract_text(files, allow_all_ext):
-    docs = []
-    failed_files = []
-    unsupported_ext_files = []
-    for file in files:
-        try:
-            extension = os.path.splitext(file.name)[1]
-            if not allow_all_ext and extension not in allowed_extensions:
-                unsupported_ext_files.append(file.name)
-                continue
-            if extension == ".pdf":
-                for i, text in enumerate(get_page_texts_from_pdf(file)):
-                    metadata = {"source": f"{file.name} (page {i + 1})"}
-                    docs.append(Document(page_content=text, metadata=metadata))
-            else:
-                if extension == ".docx":
-                    text = docx2txt.process(file)
-                elif extension in [".html", ".htm"]:
-                    soup = BeautifulSoup(file, "html.parser")
-                    # Remove script and style elements
-                    for script_or_style in soup(["script", "style"]):
-                        script_or_style.extract()
-                    text = soup.get_text()
-                    # Replace multiple newlines with single newlines
-                    text = re.sub(r"\n{2,}", "\n\n", text)
-                    print(text)
-                else:
-                    text = file.getvalue().decode("utf-8")  # NOTE: can try other enc.
-                docs.append(Document(page_content=text, metadata={"source": file.name}))
-        except Exception:
-            failed_files.append(file.name)
-
-    return docs, failed_files, unsupported_ext_files
 
 
 def ingest_docs(docs: list[Document], chat_state: ChatState):
@@ -64,7 +23,7 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
 
     uploaded_docs_coll_name_as_shown = get_user_facing_collection_name(
         chat_state.user_id, chat_state.vectorstore.name
-    ) # might reassign below
+    )  # might reassign below
     if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME and (
         ingest_command == IngestCommand.ADD
         or (
