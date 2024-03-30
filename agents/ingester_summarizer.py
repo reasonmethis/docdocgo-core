@@ -39,7 +39,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
     ingest_command = chat_state.parsed_query.ingest_command
 
     # If there's no message and no docs, just return request for files
-    if not message and not (docs := chat_state.uploaded_docs):
+    if not (docs := chat_state.uploaded_docs) and not message:
         return format_special_instruction_answer(
             "Please select your documents to upload and ingest.", INSTRUCT_SHOW_UPLOADER
         )
