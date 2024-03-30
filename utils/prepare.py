@@ -48,6 +48,7 @@ BYPASS_SETTINGS_RESTRICTIONS_PASSWORD = os.getenv(
     "BYPASS_SETTINGS_RESTRICTIONS_PASSWORD"
 )
 
+DOMAIN_NAME_FOR_SHARING = os.getenv("DOMAIN_NAME_FOR_SHARING", "shared")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 
 # Check that the necessary environment variables are set

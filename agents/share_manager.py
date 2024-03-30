@@ -1,8 +1,7 @@
-import os
-
 from agents.dbmanager import get_access_role, is_main_owner
 from utils.chat_state import ChatState
 from utils.helpers import SHARE_COMMAND_HELP_MSG, format_nonstreaming_answer
+from utils.prepare import DOMAIN_NAME_FOR_SHARING
 from utils.query_parsing import ShareCommand, ShareRevokeSubCommand
 from utils.type_utils import (
     AccessCodeSettings,
@@ -74,9 +73,8 @@ def handle_share_command(chat_state: ChatState) -> Props:
         )
 
         # Form share link
-        domain = os.getenv("DOMAIN_NAME_FOR_SHARING", "https://docdocgo.streamlit.app")
         link = (
-            f"{domain}?collection={chat_state.vectorstore.name}"
+            f"{DOMAIN_NAME_FOR_SHARING}?collection={chat_state.vectorstore.name}"
             f"&access_code={share_params.access_code}"
         )
 
