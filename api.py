@@ -22,7 +22,7 @@ from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
 from utils.helpers import DELIMITER
 from utils.ingest import extract_text, format_ingest_failure
-from utils.prepare import DEFAULT_COLLECTION_NAME
+from utils.prepare import DEFAULT_COLLECTION_NAME, MAX_UPLOAD_BYTES
 from utils.query_parsing import parse_query
 from utils.type_utils import (
     AccessRole,
@@ -103,7 +103,6 @@ async def ingest(
     response from the bot.
     """
     # Validate the total size of the files
-    max_size_bytes = 1 * 1024 * 1024  # TODO
     total_size = 0
 
     for ufile in files:
@@ -112,7 +111,7 @@ async def ingest(
         total_size += ufile.file.tell()  # Position = size
         ufile.file.seek(0)  # Reset for any further operations
 
-    if total_size > max_size_bytes:
+    if total_size > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
             detail="The total size of the files exceeds the permitted limit.",
@@ -170,7 +169,7 @@ async def ingest(
             return ChatResponseData(
                 content=format_ingest_failure(failed_files, unsupported_ext_files)
             )
-            
+
         if not message and not docs:  # LLM doesn't like empty strings
             return ChatResponseData(
                 content="Apologies, I received an empty message from you."
