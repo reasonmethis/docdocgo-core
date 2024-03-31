@@ -1,8 +1,11 @@
 import os
 
+from icecream import ic
+
 from utils.chat_state import ChatState
 from utils.helpers import (
     DB_COMMAND_HELP_TEMPLATE,
+    INSTRUCT_CACHE_ACCESS_CODE,
     PRIVATE_COLLECTION_FULL_PREFIX_LENGTH,
     PRIVATE_COLLECTION_PREFIX,
     PRIVATE_COLLECTION_PREFIX_LENGTH,
@@ -149,6 +152,29 @@ def get_access_role(
         chat_state.set_cached_access_role(role, coll_name_full)
 
     return role
+
+
+def parse_shareable_link(link: str) -> tuple[str | None, str | None]:
+    """
+    Parse a shareable link to a collection and return the collection name and access code.
+    """
+    try:
+        idx = link.index("?collection=") + 1  # start of "collection="
+    except ValueError:
+        return None, None
+
+    parts = link[idx:].split("&")
+
+    query_params = {}
+    for part in parts:
+        key_value = part.split("=")
+        if len(key_value) != 2:
+            return None, None
+        query_params[key_value[0]] = key_value[1]
+
+    collection_name = query_params.get("collection")
+    access_code = query_params.get("access_code")
+    return collection_name, access_code
 
 
 def manage_dbs_console(chat_state: ChatState) -> Props:
@@ -321,29 +347,48 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         if not value:
             return format_nonstreaming_answer(
                 get_available_dbs_str()
-                + "\n\nTo switch collections, you must provide the name or number "
-                "of the collection to switch to. Example:\n"
-                "```\n/db use 3\n```"
+                + "\n\nTo switch collections, you must provide the desired collection's "
+                "name, its number in the list above, or a shareable link to it."
+                "Example:\n```\n/db use 3\n```"
             )
 
-        # Get the name of the collection to switch to
-        try:
-            idx = coll_names_as_shown.index(value)
-            coll_name_to_show = value
-            coll_name_full = coll_names_full[idx]
-        except ValueError:
+        # Check if it's a shareable link
+        coll_name_full, access_code = parse_shareable_link(value)
+        ic(coll_name_full, access_code)
+
+        if coll_name_full:
+            # Handle '/db use <shareable link>'
+            access_role = get_access_role(chat_state, coll_name_full, access_code)
+            ic(access_role)
+            if access_role.value < AccessRole.VIEWER.value:
+                return format_nonstreaming_answer(
+                    get_db_not_found_str(coll_name_full, "viewer")
+                )
+            coll_name_to_show = coll_name_full
+        else:
+            # Not a link. Get the name of the collection to switch to
             try:
-                # See if the user provided an index directly instead of a name
-                idx = int(value) - 1
-                if idx < 0 or idx >= len(coll_names_as_shown):
-                    raise ValueError
-                coll_name_to_show = coll_names_as_shown[idx]
+                idx = coll_names_as_shown.index(value)
+                coll_name_to_show = value
                 coll_name_full = coll_names_full[idx]
             except ValueError:
-                # See if it's a non-native collection (shared with user)
-                if get_access_role(chat_state, value).value <= AccessRole.NONE.value:
-                    return format_nonstreaming_answer(get_db_not_found_str(value, ""))
-                coll_name_to_show = coll_name_full = value
+                try:
+                    # See if the user provided an index directly instead of a name
+                    idx = int(value) - 1
+                    if idx < 0 or idx >= len(coll_names_as_shown):
+                        raise ValueError
+                    coll_name_to_show = coll_names_as_shown[idx]
+                    coll_name_full = coll_names_full[idx]
+                except ValueError:
+                    # See if it's a non-native collection (shared with user)
+                    if (
+                        get_access_role(chat_state, value).value
+                        <= AccessRole.NONE.value
+                    ):
+                        return format_nonstreaming_answer(
+                            get_db_not_found_str(value, "")
+                        )
+                    coll_name_to_show = coll_name_full = value
 
         vectorstore = chat_state.get_new_vectorstore(
             coll_name_full, create_if_not_exists=False
@@ -356,9 +401,16 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 get_db_not_found_str(coll_name_to_show, "")
             )
 
-        return format_nonstreaming_answer(
+        res = format_nonstreaming_answer(
             f"Switched to collection: `{coll_name_to_show}`."
         ) | {"vectorstore": vectorstore}
+
+        if access_code:
+            res["instruction"] = (
+                f"{INSTRUCT_CACHE_ACCESS_CODE} {coll_name_full} {access_code}"
+            )
+
+        return res
 
     if command == DBCommand.RENAME:
         if not value:

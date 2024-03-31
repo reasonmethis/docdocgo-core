@@ -114,7 +114,7 @@ async def ingest(
     if total_size > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=413,
-            detail="The total size of the files exceeds the permitted limit.",
+            detail=f"The total size of the files exceeds the permitted limit of {MAX_UPLOAD_BYTES} bytes.",
         )
 
     # Apparently if Upload is clicked in the browser with no file selected,

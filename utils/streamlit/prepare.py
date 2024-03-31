@@ -19,7 +19,7 @@ def prepare_app():
     st.session_state.access_code = st.query_params.get("access_code")
     DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
     try:
-        remove_tornado_fix()  # used to be run on every rerun
+        remove_tornado_fix()
         vectorstore = do_intro_tasks(openai_api_key=DEFAULT_OPENAI_API_KEY)
     except Exception as e:
         st.error(
