@@ -13,16 +13,14 @@ from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
     ADDITIVE_COLLECTION_PREFIX,
     INGESTED_DOCS_INIT_PREFIX,
-    INSTRUCT_SHOW_UPLOADER,
     format_invalid_input_answer,
     format_nonstreaming_answer,
-    format_special_instruction_answer,
 )
 from utils.lang_utils import limit_tokens_in_text
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import SUMMARIZER_PROMPT
 from utils.query_parsing import IngestCommand
-from utils.type_utils import AccessRole, ChatMode
+from utils.type_utils import INSTRUCT_SHOW_UPLOADER, AccessRole, ChatMode, Instruction
 from utils.web import LinkData, get_batch_url_fetcher
 
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
@@ -40,9 +38,10 @@ def get_ingester_summarizer_response(chat_state: ChatState):
 
     # If there's no message and no docs, just return request for files
     if not (docs := chat_state.uploaded_docs) and not message:
-        return format_special_instruction_answer(
-            "Please select your documents to upload and ingest.", INSTRUCT_SHOW_UPLOADER
-        )
+        return {
+            "answer": "Please select your documents to upload and ingest.",
+            "instruction": Instruction(type=INSTRUCT_SHOW_UPLOADER),
+        }
 
     # Determine if we need to use the same collection or create a new one
     coll_name_as_shown = get_user_facing_collection_name(

@@ -26,6 +26,7 @@ from utils.prepare import DEFAULT_COLLECTION_NAME, MAX_UPLOAD_BYTES
 from utils.query_parsing import parse_query
 from utils.type_utils import (
     AccessRole,
+    Instruction,
     JSONish,
     OperationMode,
     PairwiseChatHistory,
@@ -78,7 +79,7 @@ class ChatResponseData(BaseModel):
     sources: list[str] | None = None
     collection_name: str | None = None
     user_facing_collection_name: str | None = None
-    instruction: str | None = None
+    instruction: Instruction | None = None
 
 
 DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")

@@ -5,7 +5,6 @@ from icecream import ic
 from utils.chat_state import ChatState
 from utils.helpers import (
     DB_COMMAND_HELP_TEMPLATE,
-    INSTRUCT_CACHE_ACCESS_CODE,
     PRIVATE_COLLECTION_FULL_PREFIX_LENGTH,
     PRIVATE_COLLECTION_PREFIX,
     PRIVATE_COLLECTION_PREFIX_LENGTH,
@@ -16,8 +15,10 @@ from utils.input import get_choice_from_dict_menu, get_menu_choice
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import DBCommand
 from utils.type_utils import (
+    INSTRUCT_CACHE_ACCESS_CODE,
     AccessRole,
     CollectionUserSettings,
+    Instruction,
     OperationMode,
     Props,
 )
@@ -406,8 +407,10 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         ) | {"vectorstore": vectorstore}
 
         if access_code:
-            res["instruction"] = (
-                f"{INSTRUCT_CACHE_ACCESS_CODE} {coll_name_full} {access_code}"
+            res["instruction"] = Instruction(
+                instruction_type=INSTRUCT_CACHE_ACCESS_CODE,
+                user_id=chat_state.user_id,
+                access_code=access_code,
             )
 
         return res

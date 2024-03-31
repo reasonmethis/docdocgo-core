@@ -291,11 +291,3 @@ def format_invalid_input_answer(answer, status_body):
         "status.header": "Invalid input",
         "status.body": status_body,
     }
-
-INSTRUCT_SHOW_UPLOADER = "INSTRUCT_SHOW_UPLOADER"
-INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
-def format_special_instruction_answer(answer: str, instruction: str):
-    return {
-        "answer": answer,
-        "instruction": instruction,
-    }

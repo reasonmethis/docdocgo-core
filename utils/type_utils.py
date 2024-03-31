@@ -56,14 +56,11 @@ AccessCodeType = Enum("AccessCodeType", "NEED_ALWAYS NEED_ONCE NO_ACCESS")
 
 class CollectionUserSettings(BaseModel):
     access_role: AccessRole = AccessRole.NONE
-    # sharer_role: SharerRole = SharerRole.NONE
 
 
 class AccessCodeSettings(BaseModel):
     code_type: AccessCodeType = AccessCodeType.NO_ACCESS
     access_role: AccessRole = AccessRole.NONE
-    # sharer_role: SharerRole = SharerRole.NONE
-
 
 COLLECTION_USERS_METADATA_KEY = "collection_users"
 
@@ -89,3 +86,11 @@ class CollectionPermissions(BaseModel):
         self, access_code: str, settings: AccessCodeSettings
     ) -> None:
         self.access_code_to_settings[access_code] = settings
+
+INSTRUCT_SHOW_UPLOADER = "INSTRUCT_SHOW_UPLOADER"
+INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
+
+class Instruction(BaseModel):
+    type: str
+    user_id: str | None = None
+    access_code: str | None = None
