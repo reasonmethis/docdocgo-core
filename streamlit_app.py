@@ -25,6 +25,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
+    INITIAL_TEST_QUERY_STREAMLIT,
     TEMPERATURE,
 )
 from utils.query_parsing import parse_query
@@ -292,9 +293,9 @@ if files:
             tmp = format_ingest_failure(failed_files, unsupported_ext_files)
             if unsupported_ext_files:
                 tmp += (
-                "\n\nIf your files with unsupported extensions can be treated as "
-                "text files, check the `Allow all extensions` box and try again."
-            )
+                    "\n\nIf your files with unsupported extensions can be treated as "
+                    "text files, check the `Allow all extensions` box and try again."
+                )
             st.markdown(fix_markdown(tmp))
 
     # Ingest the docs into the vectorstore, if any
@@ -307,10 +308,8 @@ coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_na
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_and_command_history and os.getenv(
-        "INITIAL_TEST_QUERY_STREAMLIT"
-    ):
-        full_query = os.getenv("INITIAL_TEST_QUERY_STREAMLIT")
+    if not chat_state.chat_and_command_history and INITIAL_TEST_QUERY_STREAMLIT:
+        full_query = INITIAL_TEST_QUERY_STREAMLIT
 
 # Parse the query or get the next scheduled query, if any
 if full_query:
@@ -393,10 +392,10 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         # Add the response to the chat history if needed
         if not response.get("skip_chat_history"):
             chat_state.chat_history.append((full_query, answer))
-            # TODO: check if this is better than parsed_query.messag, if so, change
-            # things in other modes. Also, handle parsed_query.message being None
+            # TODO: check if this is better than parsed_query.message, if so, change
+            # things in other modes.
 
-        # If the response, contains instructions to auto-run a query, record it
+        # If the response contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_top(new_parsed_query)
     except Exception as e:
@@ -474,6 +473,6 @@ if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
     st.session_state.llm_api_key_ok_status = True
     st.rerun()
 
-# If the user has switched to a different db, rerun to display the new db name
+# If user switched to a different collection, rerun to display new collection name
 if coll_name_full != chat_state.vectorstore.name:
     st.rerun()
