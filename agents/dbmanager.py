@@ -408,7 +408,7 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         if access_code:
             res["instruction"] = Instruction(
-                instruction_type=INSTRUCT_CACHE_ACCESS_CODE,
+                type=INSTRUCT_CACHE_ACCESS_CODE,
                 user_id=chat_state.user_id,
                 access_code=access_code,
             )
