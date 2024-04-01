@@ -4,6 +4,7 @@ The FastAPI server that enables API access to DocDocGo.
 
 import json
 import os
+import traceback
 from typing import Annotated
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
@@ -193,7 +194,7 @@ async def ingest(
             )
 
         access_code_by_coll_by_user_id = (
-            {user_id: access_codes_cache} if access_codes_cache else None,
+            {user_id: access_codes_cache} if access_codes_cache else None
         )
 
         chat_state = ChatState(
@@ -219,7 +220,7 @@ async def ingest(
         # Get the bot's response
         result = get_bot_response(chat_state)
     except Exception as e:
-        print(e)
+        ic(traceback.format_exc())
         return ChatResponseData(
             content="Apologies, I encountered an error while trying to "
             f"compose a response to you. The error reads:\n\n{e}"
@@ -298,7 +299,7 @@ async def chat(data: ChatRequestData = Body(...)):
             )
 
         access_code_by_coll_by_user_id = (
-            {user_id: access_codes_cache} if access_codes_cache else None,
+            {user_id: access_codes_cache} if access_codes_cache else None
         )
 
         chat_state = ChatState(
@@ -312,6 +313,7 @@ async def chat(data: ChatRequestData = Body(...)):
             parsed_query=parsed_query,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
         )
+        ic(chat_state._access_code_by_coll_by_user_id)
 
         # Validate (and cache, for this request) the user's access level
         # NOTE: don't actually always need this (e.g. for /db use)
@@ -330,7 +332,7 @@ async def chat(data: ChatRequestData = Body(...)):
         # Get the bot's response
         result = get_bot_response(chat_state)
     except Exception as e:
-        print(e)
+        ic(traceback.format_exc())
         return ChatResponseData(
             content="Apologies, I encountered an error while trying to "
             f"compose a response to you. The error reads:\n\n{e}"

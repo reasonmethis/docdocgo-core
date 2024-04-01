@@ -265,6 +265,9 @@ class ChatState:
         """
         Get the cached access code for the current or provided collection.
         """
+        # ic(self.user_id, coll_name, self._access_code_by_coll_by_user_id)
+        # ic(tmp:=self._access_code_by_coll_by_user_id.get(self.user_id, {}))
+        # ic(tmp.get(coll_name or self.collection_name))
         return self._access_code_by_coll_by_user_id.get(
             self.user_id, {}
         ).get(coll_name or self.collection_name)
@@ -276,7 +279,7 @@ class ChatState:
         self._access_code_by_coll_by_user_id.setdefault(self.user_id, {})[
             coll_name or self.collection_name
         ] = access_code
-        
+
     def get_new_vectorstore(
         self, collection_name: str, create_if_not_exists: bool = True
     ) -> ChromaDDG | None:

@@ -125,8 +125,10 @@ def get_access_role(
     cached_access_role = chat_state.get_cached_access_role(coll_name_full)
 
     # If access code is cached, use it if no new access code is provided
+    print("ac", access_code)
     if access_code is None:
         access_code = chat_state.get_cached_access_code(coll_name_full)
+        print(access_code, chat_state.user_id, chat_state._access_code_by_coll_by_user_id)
 
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
