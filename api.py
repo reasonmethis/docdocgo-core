@@ -71,7 +71,7 @@ class ChatRequestData(BaseModel):
     openai_api_key: str | None = None
     chat_history: list[JSONish] = []
     collection_name: str | None = None
-    access_code: str | None = None
+    access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
 
 
 class ChatResponseData(BaseModel):
@@ -97,7 +97,7 @@ async def ingest(
     openai_api_key: Annotated[str | None, Form()] = None,
     chat_history: Annotated[str | None, Form()] = None,  # JSON string
     collection_name: Annotated[str | None, Form()] = None,
-    access_code: Annotated[str | None, Form()] = None,
+    access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
 ):
     """
     Handle a chat message from the user, which may include files, and return a
@@ -134,7 +134,7 @@ async def ingest(
             openai_api_key=decode_param(openai_api_key),
             chat_history=decode_param(chat_history),
             collection_name=decode_param(collection_name),
-            access_code=decode_param(access_code),
+            access_codes_cache=decode_param(access_codes_cache),
         )
         ic(data)
 
@@ -144,13 +144,14 @@ async def ingest(
 
         api_key: str = data.api_key  # DocDocGo API key
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
-        user_id = get_short_user_id(openai_api_key)
+        user_id: str | None = get_short_user_id(openai_api_key)
+        is_community_key = bool(data.openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data.chat_history)
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
-        access_code = data.access_code
+        access_codes_cache: dict[str, str] | None = data.access_codes_cache
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -163,7 +164,6 @@ async def ingest(
         )
 
         # Print and validate the user's message and successful upload
-        print(f"GOT MESSAGE FROM {user_id}:\n{message}")
         if files:
             print(f"GOT {len(files)} FILES, {len(docs)} DOCUMENTS")
         if failed_files or unsupported_ext_files:
@@ -191,19 +191,26 @@ async def ingest(
                 "could be due to a misconfiguration of the environment variables "
                 f"or missing files. The error reads: \n\n{e}"
             )
+
+        access_code_by_coll_by_user_id = (
+            {user_id: access_codes_cache} if access_codes_cache else None,
+        )
+
         chat_state = ChatState(
             operation_mode=OperationMode.FASTAPI,
             vectorstore=vectorstore,
+            is_community_key=is_community_key,
             chat_history=chat_history,
             chat_and_command_history=chat_history,  # no difference in this context
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
+            access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
             uploaded_docs=docs,
         )
 
         # Validate (and cache, for this request) the user's access level
-        access_role = get_access_role(chat_state, None, access_code)
+        access_role = get_access_role(chat_state)
         if access_role.value <= AccessRole.NONE.value:
             return ChatResponseData(
                 content="Apologies, you do not have access to the collection."
@@ -242,6 +249,7 @@ async def ingest(
     if rsp.sources:
         print("Sources:" + "\n".join(rsp.sources) + "\n" + DELIMITER)
 
+    ic(rsp)
     return rsp
 
 
@@ -252,6 +260,7 @@ async def ingest(
 async def chat(data: ChatRequestData = Body(...)):
     """Handle a chat message from the user and return a response from the bot"""
     try:
+        ic("Endpoint /chat/ called with data:")
         ic(data)
 
         # Get the user's message and other info from the request
@@ -260,12 +269,13 @@ async def chat(data: ChatRequestData = Body(...)):
         api_key: str = data.api_key  # DocDocGo API key
         user_id: str | None = get_short_user_id(data.openai_api_key)
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
+        is_community_key = bool(data.openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data.chat_history)
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
-        access_code = data.access_code
+        access_codes_cache = data.access_codes_cache
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -286,25 +296,32 @@ async def chat(data: ChatRequestData = Body(...)):
                 "could be due to a misconfiguration of the environment variables "
                 f"or missing files. The error reads: \n\n{e}"
             )
+
+        access_code_by_coll_by_user_id = (
+            {user_id: access_codes_cache} if access_codes_cache else None,
+        )
+
         chat_state = ChatState(
             operation_mode=OperationMode.FASTAPI,
             vectorstore=vectorstore,
+            is_community_key=is_community_key,
             chat_history=chat_history,
             chat_and_command_history=chat_history,  # no difference in this context
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
+            access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
         )
 
         # Validate (and cache, for this request) the user's access level
-        access_role = get_access_role(chat_state, None, access_code)
+        # NOTE: don't actually always need this (e.g. for /db use)
+        access_role = get_access_role(chat_state)
         if access_role.value <= AccessRole.NONE.value:
             return ChatResponseData(
-                content="Apologies, you do not have access to the collection."
+                content=f"Apologies, you do not have access to collection `{vectorstore.name}`."
             )
 
-        # Print and validate the user's message
-        print(f"GOT MESSAGE FROM {user_id}:\n{message}")
+        # Validate the user's message
         if not message:  # LLM doesn't like empty strings
             return ChatResponseData(
                 content="Apologies, I received an empty message from you."
@@ -312,10 +329,6 @@ async def chat(data: ChatRequestData = Body(...)):
 
         # Get the bot's response
         result = get_bot_response(chat_state)
-
-        # Get the reply and sources from the bot's response
-        reply = result["answer"]
-        sources = get_source_links(result)
     except Exception as e:
         print(e)
         return ChatResponseData(
@@ -326,23 +339,27 @@ async def chat(data: ChatRequestData = Body(...)):
     # print("AI:", reply) - no need, we are streaming to stdout now
     print(DELIMITER)
 
-    # Prepare the response
-    rsp = ChatResponseData(content=reply)
-    if sources:
-        rsp.sources = sources
-        print("Sources:" + "\n".join(sources) + "\n" + DELIMITER)
-
     # Determine the current collection name
     try:
         collection_name = result["vectorstore"].name
     except KeyError:
         pass
-    rsp.collection_name = collection_name
-    rsp.user_facing_collection_name = get_user_facing_collection_name(
-        chat_state.user_id, collection_name
+
+    # Prepare the response
+    rsp = ChatResponseData(
+        content=result["answer"],
+        sources=get_source_links(result) or None,
+        instruction=result.get("instruction"),
+        collection_name=collection_name,
+        user_facing_collection_name=get_user_facing_collection_name(
+            chat_state.user_id, collection_name
+        ),
     )
 
     # Return the response
+    if rsp.sources:
+        print("Sources:" + "\n".join(rsp.sources) + "\n" + DELIMITER)
+    ic(rsp)
     return rsp
 
 

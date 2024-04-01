@@ -1,5 +1,6 @@
-from langchain.schema import Document
 from chromadb import Collection
+from icecream import ic
+from langchain.schema import Document
 from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData
@@ -64,6 +65,7 @@ class ChatState:
         openai_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
+        access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
         uploaded_docs: list[Document] | None = None,
     ) -> None:
         self.operation_mode = operation_mode
@@ -79,6 +81,7 @@ class ChatState:
         self.openai_api_key = openai_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
+        self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
 
     @property
@@ -138,34 +141,6 @@ class ChatState:
                 or c.name in cached_accessible_coll_names
             ]
 
-    def get_user_collections_old(self) -> list[Collection]:
-        """
-        Get the collections for the current user.
-        """
-        collections = self.db_client.list_collections()
-
-        if not self.user_id:
-            # Return only public collections
-            return [
-                c
-                for c in collections
-                if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
-            ]
-
-        # User's collections are prefixed with:
-        prefix = (
-            PRIVATE_COLLECTION_PREFIX
-            + self.user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:]
-        )
-        # NOTE: I made it so that shortening user_id is redundant, but just in case
-
-        # Return the user's collections and the default collection
-        return [
-            c
-            for c in collections
-            if c.name.startswith(prefix) or c.name == DEFAULT_COLLECTION_NAME
-        ]
-
     def fetch_collection_metadata(self, coll_name: str | None = None) -> Props | None:
         """
         Fetch metadata for the currently selected collection, or for the given
@@ -209,7 +184,7 @@ class ChatState:
             collection_permissions_json = self.fetch_collection_metadata(coll_name)[
                 COLLECTION_USERS_METADATA_KEY
             ]
-            print("\ncollection_permissions_json:\n", collection_permissions_json)
+            ic(collection_permissions_json)
         except (TypeError, KeyError):
             return CollectionPermissions()
         return CollectionPermissions.model_validate_json(collection_permissions_json)
@@ -286,6 +261,22 @@ class ChatState:
             coll_name or self.collection_name, {}
         )[self.user_id or ""] = access_role
 
+    def get_cached_access_code(self, coll_name: str | None = None) -> str | None:
+        """
+        Get the cached access code for the current or provided collection.
+        """
+        return self._access_code_by_coll_by_user_id.get(
+            self.user_id, {}
+        ).get(coll_name or self.collection_name)
+    
+    def set_cached_access_code(self, access_code: str, coll_name: str | None = None):
+        """
+        Cache the access code for the current or provided collection.
+        """
+        self._access_code_by_coll_by_user_id.setdefault(self.user_id, {})[
+            coll_name or self.collection_name
+        ] = access_code
+        
     def get_new_vectorstore(
         self, collection_name: str, create_if_not_exists: bool = True
     ) -> ChromaDDG | None:

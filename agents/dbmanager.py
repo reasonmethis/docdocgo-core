@@ -124,6 +124,10 @@ def get_access_role(
     # If access code was used previously, retrieve access role from chat_state
     cached_access_role = chat_state.get_cached_access_role(coll_name_full)
 
+    # If access code is cached, use it if no new access code is provided
+    if access_code is None:
+        access_code = chat_state.get_cached_access_code(coll_name_full)
+
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
     # session, but it's not worth the extra request to the server to check, since the
@@ -133,8 +137,8 @@ def get_access_role(
 
     # If can't be authorized with the simple checks above, check the collection's metadata
     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
-    print(f"\ncollection_permissions: {collection_permissions}")
-    print(f"cached_access_role: {cached_access_role}")
+    ic(collection_permissions)
+    ic(cached_access_role)
 
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)
@@ -152,6 +156,7 @@ def get_access_role(
     if role.value > cached_access_role.value:
         chat_state.set_cached_access_role(role, coll_name_full)
 
+    ic(role)
     return role
 
 
@@ -341,7 +346,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         return format_nonstreaming_answer(
             f"{get_available_dbs_str()}\n\n"
-            "**Tip:** To switch to collection number N, type `/db use N`."
+            "**Tip:** To switch to collection number N, type `/db use N`. To switch to a "
+            "different collection you have access to, "
+            "type `/db use <collection name or shareable link>`."
         )
 
     if command == DBCommand.USE:
@@ -355,8 +362,6 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
 
         # Check if it's a shareable link
         coll_name_full, access_code = parse_shareable_link(value)
-        ic(coll_name_full, access_code)
-
         if coll_name_full:
             # Handle '/db use <shareable link>'
             access_role = get_access_role(chat_state, coll_name_full, access_code)
