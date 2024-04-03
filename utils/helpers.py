@@ -154,7 +154,7 @@ what you need. Just type `/help` followed by your question.\
 """
 
 DB_COMMAND_HELP_TEMPLATE = """\
-Your current document collection's full name: `{{current_db}}`
+Your current document collection's full name: `{current_db}`
 
 You can use the following commands to manage your collections:
 
