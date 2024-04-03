@@ -146,7 +146,7 @@ async def ingest(
 
         # Process the request data for constructing the chat state
         # NOTE: can maybe do this in the model itself
-        message: str = data.message.strip() # orig vars overwritten on purpose
+        message: str = data.message.strip()  # orig vars overwritten on purpose
 
         api_key: str = data.api_key  # DocDocGo API key
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
@@ -158,9 +158,13 @@ async def ingest(
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
         access_codes_cache: dict[str, str] | None = data.access_codes_cache
-        scheduled_queries = ScheduledQueries.model_validate_json(
-            data.scheduled_queries_str
-        ) # encoded as just a string in order not to bother with typing in the frontend
+        if data.scheduled_queries_str is None:
+            scheduled_queries = ScheduledQueries()
+        else:
+            # Decode from JSON string (encoded to have a simpler type in the frontend)
+            scheduled_queries = ScheduledQueries.model_validate_json(
+                data.scheduled_queries_str
+            )
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -180,14 +184,16 @@ async def ingest(
                 content=format_ingest_failure(failed_files, unsupported_ext_files)
             )
 
-        if not message and not docs:  # LLM doesn't like empty strings
-            return ChatResponseData(
-                content="Apologies, I received an empty message from you."
-            )
-
-        # Parse the query
-        # Special case: if docs uploaded with empty message, interpret as "/upload"
-        parsed_query = parse_query(message or "/upload")
+        # Parse the query (or get the next scheduled query if message/docs are empty)
+        if message or docs:
+            # If docs uploaded with empty message, interpret as "/upload"
+            parsed_query = parse_query(message or "/upload")
+        else:
+            parsed_query = scheduled_queries.pop()
+            if not parsed_query:
+                return ChatResponseData(
+                    content="Apologies, I received an empty message from you."
+                )
 
         # Initialize vectorstore and chat state
         try:
@@ -246,7 +252,7 @@ async def ingest(
 
     # If the result contains instructions to auto-run a query, record it
     if new_parsed_query := result.get("new_parsed_query"):
-        chat_state.scheduled_queries.add_top(new_parsed_query)
+        chat_state.scheduled_queries.add_to_front(new_parsed_query)
 
     # Prepare the response
     rsp = ChatResponseData(
@@ -257,7 +263,9 @@ async def ingest(
             chat_state.user_id, collection_name
         ),
         instructions=result.get("instructions"),
-        scheduled_queries=chat_state.scheduled_queries.model_dump_json(),
+        scheduled_queries_str=chat_state.scheduled_queries.model_dump_json()
+        if chat_state.scheduled_queries
+        else None,
     )
 
     # Return the response
@@ -291,14 +299,29 @@ async def chat(data: ChatRequestData = Body(...)):
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
         access_codes_cache = data.access_codes_cache
+        if data.scheduled_queries_str is None:
+            scheduled_queries = ScheduledQueries()
+        else:
+            # Decode from JSON string (encoded to have a simpler type in the frontend)
+            scheduled_queries = ScheduledQueries.model_validate_json(
+                data.scheduled_queries_str
+            )
+        ic(scheduled_queries, data.scheduled_queries_str)
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
             print(f"Invalid API key: {api_key}")
             return ChatResponseData(content="Invalid API key.")
 
-        # Parse the query
-        parsed_query = parse_query(message)
+        # Parse the query (or get the next scheduled query if message is empty)
+        if message:
+            parsed_query = parse_query(message)
+        else:
+            parsed_query = scheduled_queries.pop()
+            if not parsed_query:
+                return ChatResponseData(
+                    content="Apologies, I received an empty message from you."
+                )
 
         # Initialize vectorstore and chat state
         try:
@@ -325,6 +348,7 @@ async def chat(data: ChatRequestData = Body(...)):
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
+            scheduled_queries=scheduled_queries,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
         )
         ic(chat_state._access_code_by_coll_by_user_id)
@@ -335,12 +359,6 @@ async def chat(data: ChatRequestData = Body(...)):
         if access_role.value <= AccessRole.NONE.value:
             return ChatResponseData(
                 content=f"Apologies, you do not have access to collection `{vectorstore.name}`."
-            )
-
-        # Validate the user's message
-        if not message:  # LLM doesn't like empty strings
-            return ChatResponseData(
-                content="Apologies, I received an empty message from you."
             )
 
         # Get the bot's response
@@ -361,6 +379,10 @@ async def chat(data: ChatRequestData = Body(...)):
     except KeyError:
         pass
 
+    # If response has instructions to auto-run a query, add to front of queue
+    if new_parsed_query := result.get("new_parsed_query"):
+        chat_state.scheduled_queries.add_to_front(new_parsed_query)
+
     # Prepare the response
     rsp = ChatResponseData(
         content=result["answer"],
@@ -370,7 +392,9 @@ async def chat(data: ChatRequestData = Body(...)):
             chat_state.user_id, collection_name
         ),
         instructions=result.get("instructions"),
-        scheduled_queries=chat_state.scheduled_queries.model_dump_json(),
+        scheduled_queries_str=chat_state.scheduled_queries.model_dump_json()
+        if chat_state.scheduled_queries
+        else None,
     )
 
     # Return the response

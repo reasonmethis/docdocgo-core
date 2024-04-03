@@ -484,7 +484,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = None  # NOTE: need this?
+    new_parsed_query.message = "" # NOTE: need this?
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -1260,7 +1260,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
             task_type = research_params.task_type = ResearchCommand.CLEAR
             new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
             new_parsed_query.research_params.task_type = ResearchCommand.MORE
-            chat_state.scheduled_queries.add_top(new_parsed_query)
+            chat_state.scheduled_queries.add_to_front(new_parsed_query)
         else:
             task_type = research_params.task_type = ResearchCommand.MORE
 

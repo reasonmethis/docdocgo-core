@@ -394,7 +394,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         # If the response contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):
-            chat_state.scheduled_queries.add_top(new_parsed_query)
+            chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
         # Display the "error" status
         if status:
