@@ -40,7 +40,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
     if not (docs := chat_state.uploaded_docs) and not message:
         return {
             "answer": "Please select your documents to upload and ingest.",
-            "instruction": Instruction(type=INSTRUCT_SHOW_UPLOADER),
+            "instructions": [Instruction(type=INSTRUCT_SHOW_UPLOADER)],
         }
 
     # Determine if we need to use the same collection or create a new one

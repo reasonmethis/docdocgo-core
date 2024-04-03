@@ -24,7 +24,7 @@ from utils.type_utils import (
 
 
 class ScheduledQueries(BaseModel):
-    queue_: list[ParsedQuery] = Field(default_factory=list)
+    queue_: list[ParsedQuery] = Field(default_factory=list, alias="queue")
 
     def add_top(self, query: ParsedQuery) -> None:
         """Add a query to the top of the queue. This query will be executed next."""
@@ -268,10 +268,10 @@ class ChatState:
         # ic(self.user_id, coll_name, self._access_code_by_coll_by_user_id)
         # ic(tmp:=self._access_code_by_coll_by_user_id.get(self.user_id, {}))
         # ic(tmp.get(coll_name or self.collection_name))
-        return self._access_code_by_coll_by_user_id.get(
-            self.user_id, {}
-        ).get(coll_name or self.collection_name)
-    
+        return self._access_code_by_coll_by_user_id.get(self.user_id, {}).get(
+            coll_name or self.collection_name
+        )
+
     def set_cached_access_code(self, access_code: str, coll_name: str | None = None):
         """
         Cache the access code for the current or provided collection.

@@ -128,7 +128,9 @@ def get_access_role(
     print("ac", access_code)
     if access_code is None:
         access_code = chat_state.get_cached_access_code(coll_name_full)
-        print(access_code, chat_state.user_id, chat_state._access_code_by_coll_by_user_id)
+        print(
+            access_code, chat_state.user_id, chat_state._access_code_by_coll_by_user_id
+        )
 
     # If no access code is being used, trust the stored access role to avoid fetching
     # metadata. It's possible that a higher role was assigned to the user during this
@@ -414,11 +416,13 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         ) | {"vectorstore": vectorstore}
 
         if access_code:
-            res["instruction"] = Instruction(
-                type=INSTRUCT_CACHE_ACCESS_CODE,
-                user_id=chat_state.user_id,
-                access_code=access_code,
-            )
+            res["instructions"] = [
+                Instruction(
+                    type=INSTRUCT_CACHE_ACCESS_CODE,
+                    user_id=chat_state.user_id,
+                    access_code=access_code,
+                )
+            ]
 
         return res
 

@@ -89,8 +89,10 @@ class CollectionPermissions(BaseModel):
 
 INSTRUCT_SHOW_UPLOADER = "INSTRUCT_SHOW_UPLOADER"
 INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
+INSTRUCTION_SKIP_CHAT_HISTORY = "INSTRUCTION_SKIP_CHAT_HISTORY"
+
 
 class Instruction(BaseModel):
     type: str
     user_id: str | None = None
-    access_code: str | None = None
+    access_code: str | None = None    

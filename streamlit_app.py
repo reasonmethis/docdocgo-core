@@ -389,11 +389,8 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             )
             status.write(response.get("status.body", default_status["complete.body"]))
 
-        # Add the response to the chat history if needed
-        if not response.get("skip_chat_history"):
-            chat_state.chat_history.append((full_query, answer))
-            # TODO: check if this is better than parsed_query.message, if so, change
-            # things in other modes.
+        # Add the response to the chat history
+        chat_state.chat_history.append((full_query, answer))
 
         # If the response contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):

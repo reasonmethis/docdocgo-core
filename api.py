@@ -20,7 +20,7 @@ from agents.dbmanager import (
 )
 from components.chroma_ddg import load_vectorstore
 from docdocgo import get_bot_response, get_source_links
-from utils.chat_state import ChatState
+from utils.chat_state import ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
 from utils.ingest import extract_text, format_ingest_failure
 from utils.prepare import DEFAULT_COLLECTION_NAME, MAX_UPLOAD_BYTES
@@ -73,6 +73,7 @@ class ChatRequestData(BaseModel):
     chat_history: list[JSONish] = []
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
+    scheduled_queries_str: str | None = None  # JSON string of ScheduledQueries
 
 
 class ChatResponseData(BaseModel):
@@ -80,7 +81,8 @@ class ChatResponseData(BaseModel):
     sources: list[str] | None = None
     collection_name: str | None = None
     user_facing_collection_name: str | None = None
-    instruction: Instruction | None = None
+    instructions: list[Instruction] | None = None
+    scheduled_queries_str: str | None = None  # JSON string of ScheduledQueries
 
 
 DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
@@ -99,6 +101,7 @@ async def ingest(
     chat_history: Annotated[str | None, Form()] = None,  # JSON string
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
+    scheduled_queries_str: Annotated[str | None, Form()] = None,
 ):
     """
     Handle a chat message from the user, which may include files, and return a
@@ -129,6 +132,7 @@ async def ingest(
     # One reason for this is that passing an empty string in a form field causes a 422 error.
     # The problem is solved if we encode all strings - then an empty string becomes '""'.
     try:
+        # Decode and validate request data
         data = ChatRequestData(
             message=decode_param(message),
             api_key=decode_param(api_key),
@@ -136,12 +140,13 @@ async def ingest(
             chat_history=decode_param(chat_history),
             collection_name=decode_param(collection_name),
             access_codes_cache=decode_param(access_codes_cache),
+            scheduled_queries_str=decode_param(scheduled_queries_str),
         )
         ic(data)
 
-        # Get the user's message and other info from the request
-        # NOTE: can do this in the model itself
-        message: str = data.message.strip()
+        # Process the request data for constructing the chat state
+        # NOTE: can maybe do this in the model itself
+        message: str = data.message.strip() # orig vars overwritten on purpose
 
         api_key: str = data.api_key  # DocDocGo API key
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
@@ -153,6 +158,9 @@ async def ingest(
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
         access_codes_cache: dict[str, str] | None = data.access_codes_cache
+        scheduled_queries = ScheduledQueries.model_validate_json(
+            data.scheduled_queries_str
+        ) # encoded as just a string in order not to bother with typing in the frontend
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -206,6 +214,7 @@ async def ingest(
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
+            scheduled_queries=scheduled_queries,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
             uploaded_docs=docs,
         )
@@ -235,15 +244,20 @@ async def ingest(
     except KeyError:
         pass
 
+    # If the result contains instructions to auto-run a query, record it
+    if new_parsed_query := result.get("new_parsed_query"):
+        chat_state.scheduled_queries.add_top(new_parsed_query)
+
     # Prepare the response
     rsp = ChatResponseData(
         content=result["answer"],
         sources=get_source_links(result) or None,
-        instruction=result.get("instruction"),
         collection_name=collection_name,
         user_facing_collection_name=get_user_facing_collection_name(
             chat_state.user_id, collection_name
         ),
+        instructions=result.get("instructions"),
+        scheduled_queries=chat_state.scheduled_queries.model_dump_json(),
     )
 
     # Return the response
@@ -351,11 +365,12 @@ async def chat(data: ChatRequestData = Body(...)):
     rsp = ChatResponseData(
         content=result["answer"],
         sources=get_source_links(result) or None,
-        instruction=result.get("instruction"),
         collection_name=collection_name,
         user_facing_collection_name=get_user_facing_collection_name(
             chat_state.user_id, collection_name
         ),
+        instructions=result.get("instructions"),
+        scheduled_queries=chat_state.scheduled_queries.model_dump_json(),
     )
 
     # Return the response
