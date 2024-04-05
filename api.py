@@ -27,6 +27,7 @@ from utils.prepare import DEFAULT_COLLECTION_NAME, MAX_UPLOAD_BYTES
 from utils.query_parsing import parse_query
 from utils.type_utils import (
     AccessRole,
+    ChatMode,
     Instruction,
     JSONish,
     OperationMode,
@@ -194,6 +195,14 @@ async def ingest(
                 return ChatResponseData(
                     content="Apologies, I received an empty message from you."
                 )
+
+        # If there are files but command is not ingest or summarize, postpone it till after ingestion
+        if docs and parsed_query.chat_mode not in (
+            ChatMode.INGEST_COMMAND_ID,
+            ChatMode.SUMMARIZE_COMMAND_ID,
+        ):
+            scheduled_queries.add_to_front(parsed_query)
+            parsed_query = parse_query("/upload")
 
         # Initialize vectorstore and chat state
         try:
