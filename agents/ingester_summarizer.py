@@ -1,5 +1,6 @@
 import uuid
 
+from icecream import ic
 from langchain.schema import Document
 
 from agents.dbmanager import (
@@ -16,7 +17,7 @@ from utils.helpers import (
     format_invalid_input_answer,
     format_nonstreaming_answer,
 )
-from utils.lang_utils import limit_tokens_in_text
+from utils.lang_utils import limit_tokens_in_text, limit_tokens_in_texts
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import SUMMARIZER_PROMPT
 from utils.query_parsing import IngestCommand
@@ -29,6 +30,48 @@ NO_EDITOR_ACCESS_STATUS = "No editor access to collection"  # a bit of duplicati
 NO_MULTIPLE_INGESTION_SOURCES_STATUS = (
     "Cannot ingest uploaded files and an external resource at the same time"
 )
+DOC_SEPARATOR = "\n" + "-" * 40 + "\n\n"
+
+
+def summarize(docs: list[Document], chat_state: ChatState) -> str:
+    if (num_docs := len(docs)) == 0:
+        return ""
+
+    summarizer_chain = get_prompt_llm_chain(
+        SUMMARIZER_PROMPT,
+        llm_settings=chat_state.bot_settings,
+        api_key=chat_state.openai_api_key,
+        callbacks=chat_state.callbacks,
+    )
+
+    if num_docs == 1:
+        shortened_text, num_tokens = limit_tokens_in_text(
+            docs[0].page_content, DEFAULT_MAX_TOKENS_FINAL_CONTEXT
+        )  # TODO: ability to summarize longer content
+        shortened_texts = [shortened_text]
+    else:
+        # Multiple documents
+        shortened_texts, nums_of_tokens = limit_tokens_in_texts(
+            [doc.page_content for doc in docs], DEFAULT_MAX_TOKENS_FINAL_CONTEXT
+        )
+
+    # Construct the final context
+    final_texts = []
+    for i, (doc, shortened_text) in enumerate(zip(docs, shortened_texts)):
+        if doc.page_content != shortened_text:
+            suffix = "\n\nNOTE: The above content was truncated to fit the maximum token limit."
+        else:
+            suffix = ""
+
+        final_texts.append(
+            f"SOURCE: {doc.metadata.get('source', 'Unknown')}"
+            f"\n\n{shortened_text}{suffix}"
+        )
+
+    final_context = DOC_SEPARATOR.join(final_texts)
+    ic(final_context)
+
+    return summarizer_chain.invoke({"content": final_context})
 
 
 def get_ingester_summarizer_response(chat_state: ChatState):
@@ -75,6 +118,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             chat_state.user_id, coll_name_as_shown
         )
 
+    # If there are uploaded docs, ingest or summarize them
     if docs:
         if message:
             return format_invalid_input_answer(
@@ -82,18 +126,16 @@ def get_ingester_summarizer_response(chat_state: ChatState):
                 f"an external resource ({message}).",
                 NO_MULTIPLE_INGESTION_SOURCES_STATUS,
             )
-        if chat_state.chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:
-            return format_nonstreaming_answer(
-                "Apologies, the /summarize command has not been implemented yet for uploaded "
-                "files, only for external URLs. Please use the /ingest command instead."
+        if chat_state.chat_mode == ChatMode.INGEST_COMMAND_ID:
+            res = format_nonstreaming_answer(
+                f"The files you uploaded have been ingested into the collection "
+                f"`{coll_name_as_shown}`. If you don't need to ingest "
+                "more content into it, rename it with `/db rename my-cool-collection-name`."
             )
-        res = format_nonstreaming_answer(
-            f"The files you uploaded have been ingested into the collection "
-            f"`{coll_name_as_shown}`. If you don't need to ingest "
-            "more content into it, rename it with `/db rename my-cool-collection-name`."
-        )
+        else:
+            res = {"answer": summarize(docs, chat_state)}
     else:
-        # Fetch the content
+        # If no uploaded docs, ingest or summarize the external resource
         fetch_func = get_batch_url_fetcher()  # don't really need the batch aspect here
         html = fetch_func([message])[0]
         link_data = LinkData.from_raw_content(html)
@@ -103,32 +145,18 @@ def get_ingester_summarizer_response(chat_state: ChatState):
                 f"Apologies, I could not retrieve the resource `{message}`."
             )
 
+        docs = [Document(page_content=link_data.text, metadata={"source": message})]
+
         if chat_state.chat_mode == ChatMode.INGEST_COMMAND_ID:
             # "/ingest https://some.url.com" command - just ingest, don't summarize
             res = format_nonstreaming_answer(
                 f"The resource `{message}` has been ingested into the collection "
-                f"`{coll_name_as_shown}`. If you don't need to ingest "
-                "more content into it, rename it with `/db rename my-cool-collection-name`."
+                f"`{coll_name_as_shown}`. Feel free to ask questions about the collection's "
+                "content. If you don't need to ingest "
+                "more resources into it, rename it with `/db rename my-cool-collection-name`."
             )
         else:
-            # "/summarize https://some.url.com" command
-            summarizer_chain = get_prompt_llm_chain(
-                SUMMARIZER_PROMPT,
-                llm_settings=chat_state.bot_settings,
-                api_key=chat_state.openai_api_key,
-                callbacks=chat_state.callbacks,
-            )
-
-            text, num_tokens = limit_tokens_in_text(
-                link_data.text, DEFAULT_MAX_TOKENS_FINAL_CONTEXT
-            )  # TODO: ability to summarize longer content
-
-            if text != link_data.text:
-                text += "\n\nNOTE: The above content was truncated to fit the maximum token limit."
-
-            res = {"answer": summarizer_chain.invoke({"content": text})}
-
-        docs = [Document(page_content=link_data.text, metadata={"source": message})]
+            res = {"answer": summarize(docs, chat_state)}
 
     # Ingest into Chroma
     ingest_docs_into_chroma(
