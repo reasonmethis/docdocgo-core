@@ -149,8 +149,8 @@ async def ingest(
         message: str = data.message.strip()  # orig vars overwritten on purpose
 
         api_key: str = data.api_key  # DocDocGo API key
+        user_id: str | None = get_short_user_id(data.openai_api_key)
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
-        user_id: str | None = get_short_user_id(openai_api_key)
         is_community_key = bool(data.openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
