@@ -90,6 +90,12 @@ if "chat_state" not in st.session_state:
 
 chat_state: ChatState = st.session_state.chat_state
 
+# Update the query params if scheduled on previous run
+if st.session_state.update_query_params is not None:
+    st.query_params.clear()  # NOTE: should be a way to set them in one go
+    st.query_params.update(st.session_state.update_query_params)
+    st.session_state.update_query_params = None
+
 ####### Sidebar #######
 with st.sidebar:
     st.header("DocDocGo")
@@ -472,4 +478,5 @@ if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
 
 # If user switched to a different collection, rerun to display new collection name
 if coll_name_full != chat_state.vectorstore.name:
+    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
     st.rerun()

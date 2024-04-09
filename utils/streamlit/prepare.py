@@ -15,6 +15,7 @@ def prepare_app():
     st.session_state.llm_api_key_ok_status = False
 
     print("query params:", st.query_params)
+    st.session_state.update_query_params = None
     st.session_state.init_collection_name = st.query_params.get("collection")
     st.session_state.access_code = st.query_params.get("access_code")
     DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
