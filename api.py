@@ -23,7 +23,11 @@ from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
 from utils.ingest import extract_text, format_ingest_failure
-from utils.prepare import BYPASS_SETTINGS_RESTRICTIONS, DEFAULT_COLLECTION_NAME, MAX_UPLOAD_BYTES
+from utils.prepare import (
+    BYPASS_SETTINGS_RESTRICTIONS,
+    DEFAULT_COLLECTION_NAME,
+    MAX_UPLOAD_BYTES,
+)
 from utils.query_parsing import parse_query
 from utils.type_utils import (
     AccessRole,
@@ -153,7 +157,10 @@ async def ingest(
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
 
         # If BYPASS_SETTINGS_RESTRICTIONS is set, no key = use default key in *private* mode
-        if not (is_community_key := bool(data.openai_api_key)) and BYPASS_SETTINGS_RESTRICTIONS:
+        if (
+            not (is_community_key := bool(data.openai_api_key))
+            and BYPASS_SETTINGS_RESTRICTIONS
+        ):
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
             is_community_key = False
 
@@ -304,9 +311,17 @@ async def chat(data: ChatRequestData = Body(...)):
         message: str = data.message.strip()
 
         api_key: str = data.api_key  # DocDocGo API key
-        user_id: str | None = get_short_user_id(data.openai_api_key)
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
-        is_community_key = bool(data.openai_api_key)
+
+        # If BYPASS_SETTINGS_RESTRICTIONS is set, no key = use default key in *private* mode
+        if (
+            not (is_community_key := bool(data.openai_api_key)) # no key sent
+            and BYPASS_SETTINGS_RESTRICTIONS
+        ):
+            data.openai_api_key = DEFAULT_OPENAI_API_KEY # pretend it was sent
+            is_community_key = False
+
+        user_id: str | None = get_short_user_id(data.openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data.chat_history)
