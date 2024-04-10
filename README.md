@@ -156,6 +156,7 @@ The default behavior (if `new`/`add` is not specified) is to (a) normally ingest
 
 Example queries:
 
+- `/help What in the world is infinite research?`
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)

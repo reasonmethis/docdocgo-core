@@ -137,8 +137,9 @@ Ingesting into the current vs a new collection:
 
 The default behavior (if `new`/`add` is not specified) is to (a) normally ingest into a new collection, which is given a special name (`ingested-content-...`); (b) if the current collection has this kind of name, add to it. That way, you can use `/ingest` several times in a row and all the documents will be added to the same collection.
 
-Example queries:
+Example queries (you can try them out in sequence):
 
+- `/help What in the world is infinite research?`
 - `/research What are this month's most important AI news?`
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)
