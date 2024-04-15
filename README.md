@@ -117,13 +117,15 @@ If you prefer to chat with the bot in the console, you can instead run:
 python docdocgo.py
 ```
 
-Finally, DocDocGo also comes with a FastAPI server, which can be run with (for local development):
+DocDocGo also comes with a FastAPI server, which can be run with:
 
 ```bash
 uvicorn api:app --reload
 ```
 
-The details of using the API are described in the [Appendix](#using-the-fastapi-server). The server (or rather its Flask predecessor) was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+or by running `api.py` directly.
+
+The details of using the API are described in the [Appendix](#using-the-fastapi-server). The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
@@ -497,7 +499,7 @@ docker build -t docdocgo:latest .
 Run the Docker container and expose port 8000:
 
 ```bash
-docker run --name docdocgo -p 8000:8000 -d -i -t docdocgo:latest /bin/bash
+docker run --name docdocgo -p 8000:80 docdocgo:latest
 ```
 
 ### License
