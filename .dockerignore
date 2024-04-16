@@ -11,3 +11,4 @@ dist/
 .my-chroma*
 docs-private/
 DOCS-APPENDIX.md
+docdocgo*.pem
