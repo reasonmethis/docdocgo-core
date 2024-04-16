@@ -1,5 +1,6 @@
 .tmp*
 credentials/
+chroma-cloud-backup/
 .chroma_env
 my-chroma*
 .chroma_env

@@ -256,6 +256,9 @@ with st.sidebar:
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 ####### Main page #######
+if tmp:=os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
+    st.warning(tmp)
+
 if chat_state.collection_name == DEFAULT_COLLECTION_NAME:
     st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_PREFIX_DEFAULT)
 else:
