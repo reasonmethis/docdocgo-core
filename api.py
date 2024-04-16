@@ -248,6 +248,15 @@ async def handle_chat_or_ingest_request(
     ic(rsp)
     return rsp
 
+@app.get("/")
+async def root():
+    ic("/ endpoint hit: Hello from DocDocGo API!")
+    return {"message": "Hello from DocDocGo API!"}
+
+@app.get("/health/")
+async def health():
+    ic("/health/ endpoint hit: Hello from DocDocGo API!")
+    return {"message": "Hello from DocDocGo API!"}
 
 @app.post("/ingest/", response_model=ChatResponseData)
 async def ingest(
@@ -264,6 +273,7 @@ async def ingest(
     Handle a chat message from the user, which may include files, and return a
     response from the bot.
     """
+    ic("Ingest endpoint hit")
     # Validate the total size of the files
     total_size = 0
 
@@ -309,6 +319,7 @@ async def ingest(
 @app.post("/chat/", response_model=ChatResponseData)
 async def chat(data: ChatRequestData = Body(...)):
     """Handle a chat message from the user and return a response from the bot"""
+    ic("Chat endpoint hit")
     return await handle_chat_or_ingest_request(data)
 
 
