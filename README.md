@@ -491,7 +491,7 @@ DocDocGo is also containerized with Docker. The following steps can be used to r
 #### 1. Build the Docker image
 
 ```bash
-docker build -t docdocgo:latest .
+docker build -t docdocgo-fastapi .
 ```
 
 #### 2. Run the Docker container
@@ -499,7 +499,7 @@ docker build -t docdocgo:latest .
 Run the Docker container and expose port 8000:
 
 ```bash
-docker run --name docdocgo -p 8000:80 docdocgo:latest
+docker run --name docdocgo -p 8000:80 docdocgo-fastapi:latest
 ```
 
 ### License
