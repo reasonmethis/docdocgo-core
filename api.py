@@ -104,7 +104,6 @@ async def handle_chat_or_ingest_request(
 ):
     try:
         # Process the request data for constructing the chat state
-        # NOTE: can maybe do this in the model itself
         message: str = data.message.strip()  # orig vars overwritten on purpose
 
         api_key: str = data.api_key  # DocDocGo API key
@@ -137,6 +136,13 @@ async def handle_chat_or_ingest_request(
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
             print(f"Invalid API key: {api_key}")
             return ChatResponseData(content="Invalid API key.")
+
+        # Validate the provided bot settings
+        if data.bot_settings and is_community_key:
+            return ChatResponseData(
+                content="Apologies, you can customize your model settings (e.g. model name, "
+                "temperature) only when using your own OpenAI API key."
+            )
 
         # Extract text from the files and convert to list of Document
         docs, failed_files, unsupported_ext_files = extract_text(
@@ -251,15 +257,18 @@ async def handle_chat_or_ingest_request(
     ic(rsp)
     return rsp
 
+
 @app.get("/")
 async def root():
     ic("/ endpoint hit: Hello from DocDocGo API!")
     return {"message": "Hello from DocDocGo API!"}
 
+
 @app.get("/health/")
 async def health():
     ic("/health/ endpoint hit: Hello from DocDocGo API!")
     return {"message": "Hello from DocDocGo API!"}
+
 
 @app.post("/ingest/", response_model=ChatResponseData)
 async def ingest(
