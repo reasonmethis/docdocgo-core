@@ -223,9 +223,9 @@ with st.sidebar:
 
     # Settings
     with st.expander("Settings", expanded=False):
-        model_options = ["gpt-3.5-turbo-0125", "gpt-4-0125-preview"]
+        model_options = ["gpt-3.5-turbo-0125", "gpt-4-turbo-2024-04-09"]
         if is_community_key:
-            model_options = model_options[:1]
+            model_options = model_options[:1] # only show 3.5 if community key
             index = 0
         else:
             if chat_state.bot_settings.llm_model_name not in model_options:
