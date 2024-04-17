@@ -31,6 +31,7 @@ from utils.prepare import (
 from utils.query_parsing import parse_query
 from utils.type_utils import (
     AccessRole,
+    BotSettings,
     ChatMode,
     Instruction,
     JSONish,
@@ -61,6 +62,7 @@ class ChatRequestData(BaseModel):
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
     scheduled_queries_str: str | None = None  # JSON string of ScheduledQueries
+    bot_settings: BotSettings | None = None
 
 
 class ChatResponseData(BaseModel):
@@ -196,6 +198,7 @@ async def handle_chat_or_ingest_request(
             scheduled_queries=scheduled_queries,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
             uploaded_docs=docs,
+            bot_settings=data.bot_settings,
         )
 
         # Validate (and cache, for this request) the user's access level
@@ -268,6 +271,7 @@ async def ingest(
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
     scheduled_queries_str: Annotated[str | None, Form()] = None,
+    bot_settings: Annotated[BotSettings | None, Form()] = None,
 ):
     """
     Handle a chat message from the user, which may include files, and return a
