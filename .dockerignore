@@ -12,3 +12,4 @@ dist/
 docs-private/
 DOCS-APPENDIX.md
 docdocgo*.pem
+.env.*
