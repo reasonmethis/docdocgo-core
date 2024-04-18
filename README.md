@@ -63,7 +63,7 @@ cd docdocgo-core
 
 ### 2. Create and activate a virtual environment
 
-First, make sure you are using Python 3.11 or higher. If you prefer using the exact version that the code was developed with, please use Python 3.11.6. Then, create a virtual environment and activate it.
+First, make sure you are using Python 3.11 or higher. Then, create a virtual environment and activate it.
 
 On Windows:
 
@@ -94,10 +94,6 @@ Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Bui
 If this happens you will need to install the Microsoft C++ Build Tools. You can get them [here](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Then try installing the requirements again.
 
 ### 4. Copy the `.env.example` file to `.env` and fill in the values
-
-```bash
-cp .env.example .env
-```
 
 At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are. Please see `.env.example` for additional details.
 

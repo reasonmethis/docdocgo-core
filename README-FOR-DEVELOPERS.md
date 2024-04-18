@@ -194,3 +194,13 @@ As an alternative way to handle the issue of the default collection, you can cre
 A: Normally, when this variable is not defined (or is an empty string), the app will start in a "community key" mode, where you can only see and create public collections and there are restriction on allowed settings (e.g. you can't change the model in the UI). The key used as the community key is controlled by the `DEFAULT_OPENAI_API_KEY` environment variable. You can remove these restrictions and switch to using that same key as a private key by entering the admin password (the value of the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable) in rhe OpenAI API key field.
 
 However, when the `BYPASS_SETTINGS_RESTRICTIONS` variable is set to a non-empty string, the app will start in the "private key" mode right away, without you having to enter the admin password. This is useful if you use the app in a private setting and don't want to have to enter the admin password every time you start the app.
+
+### Q: I want to add a new command to the bot. How do I do that?
+
+A: Here is a high-level overview of the steps you need to take. The links to the code are GitHub permalinks - they always point to the intended part of the codebase but may not show the most recent version of the code.
+
+There are several moving pieces to make a new command. The first stage is parsing a command, which is done [here](https://github.com/reasonmethis/docdocgo-core/blob/4d85a01413f69d7f9198b785075ca1c0835749f0/utils/query_parsing.py#L355). To get your command to be parsed you would need to add a [`ChatMode` Enum](https://github.com/reasonmethis/docdocgo-core/blob/4d85a01413f69d7f9198b785075ca1c0835749f0/utils/type_utils.py#L17) value for it and what [slash command(s)](https://github.com/reasonmethis/docdocgo-core/blob/4d85a01413f69d7f9198b785075ca1c0835749f0/utils/helpers.py#L31) correspond to it.
+
+Then you would need to write logic for how the string following "/your-command" should be parsed and converted into a `ParsedQuery` object. You would add it [here](https://github.com/reasonmethis/docdocgo-core/blob/4d85a01413f69d7f9198b785075ca1c0835749f0/utils/query_parsing.py#L386). You may also want to update the `ParsedQuery` class to be able to hold information about your command (such as the subcommand(s), any provided settings extracted by your parsing logic, basically any data you want to store there to fully represent the command).
+
+Finally, you would add the logic to handle your parsed command by adding another "elif" [here](https://github.com/reasonmethis/docdocgo-core/blob/4d85a01413f69d7f9198b785075ca1c0835749f0/docdocgo.py#L42).
