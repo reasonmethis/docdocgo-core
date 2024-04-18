@@ -111,9 +111,8 @@ async def handle_chat_or_ingest_request(
 
         # If BYPASS_SETTINGS_RESTRICTIONS is set, no key = use default key in *private* mode
         if (
-            not (is_community_key := bool(data.openai_api_key))
-            and BYPASS_SETTINGS_RESTRICTIONS
-        ):
+            is_community_key := not data.openai_api_key
+        ) and BYPASS_SETTINGS_RESTRICTIONS:
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
             is_community_key = False
 
@@ -138,11 +137,14 @@ async def handle_chat_or_ingest_request(
             return ChatResponseData(content="Invalid API key.")
 
         # Validate the provided bot settings
+
         if data.bot_settings and is_community_key:
-            return ChatResponseData(
-                content="Apologies, you can customize your model settings (e.g. model name, "
-                "temperature) only when using your own OpenAI API key."
-            )
+            # Enforce default settings for community key
+            if data.bot_settings != BotSettings():
+                return ChatResponseData(
+                    content="Apologies, you can customize your model settings (e.g. model name, "
+                    "temperature) only when using your own OpenAI API key."
+                )
 
         # Extract text from the files and convert to list of Document
         docs, failed_files, unsupported_ext_files = extract_text(

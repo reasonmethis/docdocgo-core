@@ -36,6 +36,11 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
+ALLOWED_MODELS = os.getenv("ALLOWED_MODELS", MODEL_NAME).split(",")
+ALLOWED_MODELS = [model.strip() for model in ALLOWED_MODELS]
+if MODEL_NAME not in ALLOWED_MODELS:
+    raise ValueError("The default model must be in the list of allowed models.")
+
 EMBEDDINGS_MODEL_NAME = os.getenv("EMBEDDINGS_MODEL_NAME", "text-embedding-3-large")
 EMBEDDINGS_DIMENSIONS = int(os.getenv("EMBEDDINGS_DIMENSIONS", 3072))
 

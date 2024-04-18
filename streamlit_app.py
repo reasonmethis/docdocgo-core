@@ -22,10 +22,12 @@ from utils.helpers import (
 from utils.ingest import extract_text, format_ingest_failure
 from utils.output import format_exception
 from utils.prepare import (
+    ALLOWED_MODELS,
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
     INITIAL_TEST_QUERY_STREAMLIT,
+    MODEL_NAME,
     TEMPERATURE,
 )
 from utils.query_parsing import parse_query
@@ -223,13 +225,11 @@ with st.sidebar:
 
     # Settings
     with st.expander("Settings", expanded=False):
-        model_options = ["gpt-3.5-turbo-0125", "gpt-4-turbo-2024-04-09"]
         if is_community_key:
-            model_options = model_options[:1] # only show 3.5 if community key
+            model_options = [MODEL_NAME] # only show 3.5 if community key
             index = 0
         else:
-            if chat_state.bot_settings.llm_model_name not in model_options:
-                model_options.append(chat_state.bot_settings.llm_model_name)
+            model_options = ALLOWED_MODELS # guaranteed to include MODEL_NAME
             index = model_options.index(chat_state.bot_settings.llm_model_name)
         # TODO: adjust context length (for now assume 16k)
         chat_state.bot_settings.llm_model_name = st.selectbox(
