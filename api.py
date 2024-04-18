@@ -25,6 +25,7 @@ from utils.helpers import DELIMITER
 from utils.ingest import extract_text, format_ingest_failure
 from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
+    BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
     MAX_UPLOAD_BYTES,
 )
@@ -105,8 +106,15 @@ async def handle_chat_or_ingest_request(
     try:
         # Process the request data for constructing the chat state
         message: str = data.message.strip()  # orig vars overwritten on purpose
-
         api_key: str = data.api_key  # DocDocGo API key
+
+        # If admin pwd is sent, use default key
+        if (
+            BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
+            and data.openai_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
+        ):
+            data.openai_api_key = DEFAULT_OPENAI_API_KEY
+
         openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
 
         # If BYPASS_SETTINGS_RESTRICTIONS is set, no key = use default key in *private* mode
