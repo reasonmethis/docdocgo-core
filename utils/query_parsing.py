@@ -56,7 +56,7 @@ ShareRevokeSubCommand = Enum(
     "ShareRevokeSubCommand", "CODE USER ALL_CODES ALL_USERS NONE"
 )
 share_command_to_enum = {
-    # "public": ShareCommand.PUBLIC, # TODO
+    # "public": ShareCommand.PUBLIC, # not implemented yet
     "editor": ShareCommand.EDITOR,
     "viewer": ShareCommand.VIEWER,
     "owner": ShareCommand.OWNER,
@@ -126,7 +126,7 @@ def get_command(
     text: str, commands: dict[str, Any] | Container[str], default_command=None
 ) -> tuple[Any, str]:
     """
-    Extract a command from the given text and finds its corresponding value in a dictionary,
+    Extract a command from the given text and find its corresponding value in a dictionary,
     if provided, returning the value and the remaining text. If instead of a dictionary, a list,
     set, or other container of command strings is provided, return the command string and the
     remaining text.
@@ -160,7 +160,7 @@ def get_command(
 
 def get_value(text: str, transform: Callable) -> tuple[Any, str]:
     """
-    Extracts the first word from the given text and applies the specified transformation
+    Extract the first word from the given text and apply the specified transformation
     function to it, returning the transformed value and the remaining text.
 
     If transforming fails or the text is empty, the function returns (None, text). If there's no
@@ -191,7 +191,7 @@ def get_int(text: str) -> tuple[int | None, str]:
 def extract_chat_mode(
     query: str, default: ChatMode = DEFAULT_CHAT_MODE
 ) -> tuple[ChatMode, str]:
-    """Extract the command ID from the query, if any"""
+    """Extract the chat mode from the query and return it along with the remaining text."""
     query = query.strip()
     if query == "help":
         query = "/help"

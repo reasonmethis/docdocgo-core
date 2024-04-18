@@ -26,7 +26,7 @@ class ChatMode(Enum):
     DB_COMMAND_ID = 7
     HELP_COMMAND_ID = 8
     INGEST_COMMAND_ID = 9
-    BROWSE_COMMAND_ID = 10
+    SEEK_COMMAND_ID = 10
     SUMMARIZE_COMMAND_ID = 11
     SHARE_COMMAND_ID = 12
 
@@ -49,7 +49,6 @@ class BotSettings(BaseModel):
 
 
 AccessRole = Enum("AccessRole", {"NONE": 0, "VIEWER": 1, "EDITOR": 2, "OWNER": 3})
-# SharerRole = Enum("SharerRole", "EDITOR VIEWER NONE")
 
 AccessCodeType = Enum("AccessCodeType", "NEED_ALWAYS NEED_ONCE NO_ACCESS")
 

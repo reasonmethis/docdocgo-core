@@ -43,6 +43,7 @@ command_ids = {
     "/re": ChatMode.RESEARCH_COMMAND_ID,
     "/db": ChatMode.DB_COMMAND_ID,
     "/help": ChatMode.HELP_COMMAND_ID,
+    "/he": ChatMode.HELP_COMMAND_ID,
     "/ingest": ChatMode.INGEST_COMMAND_ID,
     "/in": ChatMode.INGEST_COMMAND_ID,
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
@@ -51,7 +52,8 @@ command_ids = {
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     "/share": ChatMode.SHARE_COMMAND_ID,
     "/sh": ChatMode.SHARE_COMMAND_ID,
-    # "/browse": ChatMode.BROWSE_COMMAND_ID,
+    "/seek": ChatMode.SEEK_COMMAND_ID,
+    "/se": ChatMode.SEEK_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
