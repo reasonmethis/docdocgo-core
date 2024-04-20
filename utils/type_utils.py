@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Any
 
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.runnables import RunnableSerializable
 from pydantic import BaseModel, Field
 
 from utils.prepare import MODEL_NAME, TEMPERATURE
@@ -10,6 +11,7 @@ JSONish = dict[str, Any] | list
 Props = dict[str, Any]
 PairwiseChatHistory = list[tuple[str, str]]
 CallbacksOrNone = list[BaseCallbackHandler] | None
+ChainType = RunnableSerializable[dict, str]  # double check this
 
 OperationMode = Enum("OperationMode", "CONSOLE STREAMLIT FASTAPI")
 
@@ -26,7 +28,7 @@ class ChatMode(Enum):
     DB_COMMAND_ID = 7
     HELP_COMMAND_ID = 8
     INGEST_COMMAND_ID = 9
-    SEEK_COMMAND_ID = 10
+
     SUMMARIZE_COMMAND_ID = 11
     SHARE_COMMAND_ID = 12
 
@@ -41,6 +43,39 @@ chat_modes_needing_llm = {
     ChatMode.SUMMARIZE_COMMAND_ID,
     ChatMode.HELP_COMMAND_ID,
 }
+
+
+class DDGError(Exception):
+    default_user_facing_message = (
+        "Apologies, I ran into some trouble when preparing a response to you."
+    )
+    default_http_status_code = 500
+
+    def __init__(
+        self,
+        message: str,
+        user_facing_message: str | None = None,
+        http_status_code: int | None = None,
+    ):
+        super().__init__(message)  # could include user_facing_message
+        
+        if user_facing_message is not None:
+            self.user_facing_message = user_facing_message
+        else:
+            self.user_facing_message = self.default_user_facing_message
+
+        if http_status_code is not None:
+            self.http_status_code = http_status_code
+        else:
+            self.http_status_code = self.default_http_status_code
+
+    @property
+    def user_facing_message_full(self):
+        if self.__cause__ is None:
+            return self.user_facing_message
+        return (
+            f"{self.user_facing_message} The error reads:\n```\n{self.__cause__}\n```"
+        )
 
 
 class BotSettings(BaseModel):
@@ -60,6 +95,7 @@ class CollectionUserSettings(BaseModel):
 class AccessCodeSettings(BaseModel):
     code_type: AccessCodeType = AccessCodeType.NO_ACCESS
     access_role: AccessRole = AccessRole.NONE
+
 
 COLLECTION_USERS_METADATA_KEY = "collection_users"
 
@@ -86,6 +122,7 @@ class CollectionPermissions(BaseModel):
     ) -> None:
         self.access_code_to_settings[access_code] = settings
 
+
 INSTRUCT_SHOW_UPLOADER = "INSTRUCT_SHOW_UPLOADER"
 INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
 # INSTRUCTION_SKIP_CHAT_HISTORY = "INSTRUCTION_SKIP_CHAT_HISTORY"
@@ -94,4 +131,4 @@ INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
 class Instruction(BaseModel):
     type: str
     user_id: str | None = None
-    access_code: str | None = None    
+    access_code: str | None = None

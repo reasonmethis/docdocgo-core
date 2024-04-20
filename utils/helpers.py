@@ -52,8 +52,6 @@ command_ids = {
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     "/share": ChatMode.SHARE_COMMAND_ID,
     "/sh": ChatMode.SHARE_COMMAND_ID,
-    "/seek": ChatMode.SEEK_COMMAND_ID,
-    "/se": ChatMode.SEEK_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]

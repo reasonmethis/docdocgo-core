@@ -21,7 +21,7 @@ db_command_to_enum = {
 ResearchCommand = Enum(
     "ResearchCommand",
     "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_SEARCH_QUERIES "
-    "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES NONE",
+    "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES HEATSEEK NONE",
 )
 research_command_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -41,6 +41,8 @@ research_command_to_enum = {
     "startover": ResearchCommand.STARTOVER,
     "auto-update-search-queries": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
     "ausq": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
+    "heatseek": ResearchCommand.HEATSEEK,
+    "hs": ResearchCommand.HEATSEEK,  # "hs" is a shorthand for "heatseek
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
@@ -302,6 +304,9 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         if query:  # view task doesn't take any additional query after sub_task
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type, sub_task=sub_task), ""
+    
+    if task_type == ResearchCommand.HEATSEEK:
+        return ResearchParams(task_type=task_type), query
 
     # Task types not needing a query or a number of iterations
     if task_type in {

@@ -8,18 +8,18 @@ from typing import Callable
 from chromadb import ClientAPI
 from icecream import ic
 from langchain.schema import Document
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
+from agentblocks.websearch import WEB_SEARCH_API_ISSUE_MSG, get_links_from_queries
 from agents.dbmanager import (
     construct_full_collection_name,
     get_access_role,
     get_user_facing_collection_name,
 )
+from agents.research_heatseek import get_research_heatseek_response
 from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
-from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_docs_into_chroma
 from utils.helpers import (
@@ -42,7 +42,6 @@ from utils.prompts import (
     SEARCH_QUERIES_UPDATER_PROMPT,
 )
 from utils.query_parsing import ParsedQuery, ResearchCommand
-from utils.researcher_utils import get_links
 from utils.strings import extract_json
 from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
 from utils.web import (
@@ -57,9 +56,6 @@ NO_EDITOR_ACCESS_MSG = (
 )
 NO_EDITOR_ACCESS_STATUS = "No editor access to collection"
 
-WEB_SEARCH_API_ISSUE_MSG = (
-    "Apologies, it seems I'm having an issue with the API I use to search the web."
-)
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 
 
@@ -177,21 +173,6 @@ def parse_research_report(answer: str) -> tuple[str, str | None]:
     if report.endswith("---"):
         report = report.rstrip("-").rstrip()
     return report, evaluation
-
-
-def get_links_from_queries(
-    queries: list[str], num_search_results: int = 10
-) -> list[str]:
-    """
-    Get links from a list of queries by doing a Google search for each query.
-    """
-    # Do a Google search for each query
-    search = GoogleSerperAPIWrapper(k=num_search_results)
-    search_tasks = [search.aresults(query) for query in queries]
-    search_results = gather_tasks_sync(search_tasks)  # TODO serper has batching
-
-    # Get links from search results
-    return get_links(search_results)
 
 
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
@@ -484,7 +465,7 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = "" # NOTE: need this?
+    new_parsed_query.message = ""  # NOTE: need this?
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -1025,10 +1006,12 @@ def update_search_queries_and_links(
     links = [link for link in links if link not in processed_links_set]
 
     # Replace old unprocessed links with new ones
+    # NOTE: should double check that we don't have unaccounted for obtained links
     rr_data.unprocessed_links = links
     rr_data.num_obtained_unprocessed_links = 0
     rr_data.num_obtained_unprocessed_ok_links = 0
-    rr_data.num_links_from_latest_queries = len(links)
+    rr_data.num_links_from_latest_queries = len(links) # currently not used, but could be 
+    # useful if we want to keep some old unprocessed links
 
 
 def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
@@ -1181,6 +1164,7 @@ task_handlers = {
     ResearchCommand.SET_SEARCH_QUERIES: get_research_set_search_queries_response,
     ResearchCommand.CLEAR: get_research_clear_response,
     ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES: get_research_auto_update_search_queries_response,
+    ResearchCommand.HEATSEEK: get_research_heatseek_response,
 }
 
 
@@ -1215,7 +1199,11 @@ def get_researcher_response(chat_state: ChatState) -> Props:
 
     # Screen commands that require pre-existing research
     # TODO: probably should screen editor access here too
-    if not rr_data and task_type not in {ResearchCommand.NEW, ResearchCommand.NONE}:
+    if not rr_data and task_type not in {
+        ResearchCommand.NEW,
+        ResearchCommand.HEATSEEK,
+        ResearchCommand.NONE,
+    }:
         return format_invalid_input_answer(
             "Apologies, this command is only valid when there is pre-existing research "
             "associated with the collection. "
