@@ -48,7 +48,7 @@ class ScheduledQueries(BaseModel):
     def __bool__(self) -> bool:
         return bool(self.queue_)
 
-
+AgentDataDict = dict[str, JSONishDict]
 class ChatState:
     def __init__(
         self,
@@ -67,7 +67,7 @@ class ChatState:
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
         uploaded_docs: list[Document] | None = None,
-        agent_data: JSONishDict | None = None,
+        agent_data: AgentDataDict | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key

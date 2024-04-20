@@ -304,9 +304,6 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
         if query:  # view task doesn't take any additional query after sub_task
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type, sub_task=sub_task), ""
-    
-    if task_type == ResearchCommand.HEATSEEK:
-        return ResearchParams(task_type=task_type), query
 
     # Task types not needing a query or a number of iterations
     if task_type in {
@@ -318,16 +315,20 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
 
-    # We have a task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
+    # We have a task type that supports multiple iterations:
+    # MORE, COMBINE, AUTO, ITERATE, DEEPER, HEATSEEK
     num_iterations, query_after_get_int = get_int(query)
 
-    if not query_after_get_int:
-        if num_iterations is None:  # e.g. /research more
-            return ResearchParams(task_type=task_type), ""
-        if num_iterations > 0:  # e.g. /research combine 10
-            return ResearchParams(
-                task_type=task_type, num_iterations_left=num_iterations
-            ), ""
+    if num_iterations is None:
+        num_iterations = 1
+
+    # Most of these task types require the remaining query to be empty
+    if num_iterations > 0 and (
+        not query_after_get_int or task_type == ResearchCommand.HEATSEEK
+    ):
+        return ResearchParams(
+            task_type=task_type, num_iterations_left=num_iterations
+        ), query_after_get_int
 
     # We have e.g. "/research auto somequery", treat "auto" as part of the query
     # OR no valid number of iterations specified, treat e.g. -10 as part of actual query
