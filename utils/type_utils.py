@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 
 from utils.prepare import MODEL_NAME, TEMPERATURE
 
-JSONish = dict[str, Any] | list
+JSONish = str | int | float | dict[str, "JSONish"] | list["JSONish"]
 Props = dict[str, Any]
+JSONishDict = dict[str, JSONish]
+
 PairwiseChatHistory = list[tuple[str, str]]
 CallbacksOrNone = list[BaseCallbackHandler] | None
 ChainType = RunnableSerializable[dict, str]  # double check this

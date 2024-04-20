@@ -17,6 +17,7 @@ from utils.type_utils import (
     ChatMode,
     CollectionPermissions,
     CollectionUserSettings,
+    JSONishDict,
     OperationMode,
     PairwiseChatHistory,
     Props,
@@ -58,7 +59,6 @@ class ChatState:
         parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
-        chat_and_command_history: PairwiseChatHistory | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,  # NOTE: should switch to "" instead of None
@@ -67,13 +67,13 @@ class ChatState:
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
         uploaded_docs: list[Document] | None = None,
+        agent_data: JSONishDict | None = None,
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
         self.parsed_query = parsed_query or ParsedQuery()
         self.chat_history = chat_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now
-        self.chat_and_command_history = chat_and_command_history or []
         self.vectorstore = vectorstore
         self.callbacks = callbacks
         self.bot_settings = bot_settings or BotSettings()
@@ -83,6 +83,7 @@ class ChatState:
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
+        self.agent_data = agent_data or {}
 
     @property
     def collection_name(self) -> str:

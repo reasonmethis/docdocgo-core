@@ -207,7 +207,6 @@ async def handle_chat_or_ingest_request(
             vectorstore=vectorstore,
             is_community_key=is_community_key,
             chat_history=chat_history,
-            chat_and_command_history=chat_history,  # no difference in this context
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,

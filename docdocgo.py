@@ -284,7 +284,6 @@ if __name__ == "__main__":
                     operation_mode=OperationMode.CONSOLE,
                     parsed_query=parsed_query,
                     chat_history=chat_history,
-                    chat_and_command_history=chat_history,  # not used in console mode
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
                     openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
                 )
