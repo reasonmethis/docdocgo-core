@@ -5,7 +5,7 @@ The FastAPI server that enables API access to DocDocGo.
 import json
 import os
 import traceback
-from typing import Annotated
+from typing import Optional, Annotated
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,8 +101,9 @@ def decode_param(param: str | None) -> str | dict | list | None:
 
 
 async def handle_chat_or_ingest_request(
-    data: ChatRequestData, files: list[UploadFile] = []
+    data: ChatRequestData, files: Optional[list[UploadFile]] = None
 ):
+    files = [] if files is None else files
     try:
         # Process the request data for constructing the chat state
         message: str = data.message.strip()  # orig vars overwritten on purpose
