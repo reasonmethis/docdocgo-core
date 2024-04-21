@@ -38,7 +38,6 @@ from utils.type_utils import (
     DDGError,
     Instruction,
     JSONish,
-    JSONishDict,
     OperationMode,
     PairwiseChatHistory,
 )
@@ -55,6 +54,7 @@ app.add_middleware(
 )
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
+
 
 # Define Pydantic models for request and response
 class ChatRequestData(BaseModel):

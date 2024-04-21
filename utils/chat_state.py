@@ -48,7 +48,10 @@ class ScheduledQueries(BaseModel):
     def __bool__(self) -> bool:
         return bool(self.queue_)
 
-AgentDataDict = dict[str, JSONishDict]
+
+AgentDataDict = dict[str, JSONishDict]  # e.g. {"hs_data": {"links": [...], "blah": 3}}
+
+
 class ChatState:
     def __init__(
         self,

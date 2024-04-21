@@ -55,7 +55,7 @@ class DDGError(Exception):
 
     def __init__(
         self,
-        message: str,
+        message: str | None = None,
         user_facing_message: str | None = None,
         http_status_code: int | None = None,
     ):

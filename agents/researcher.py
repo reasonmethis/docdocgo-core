@@ -3,12 +3,12 @@ import os
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Callable
 
 from chromadb import ClientAPI
 from icecream import ic
 from langchain.schema import Document
 
+from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import WEB_SEARCH_API_ISSUE_MSG, get_links_from_queries
 from agents.dbmanager import (
     construct_full_collection_name,
@@ -44,10 +44,6 @@ from utils.prompts import (
 from utils.query_parsing import ParsedQuery, ResearchCommand
 from utils.strings import extract_json
 from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
-from utils.web import (
-    LinkData,
-    get_batch_url_fetcher,
-)
 
 NO_EDITOR_ACCESS_MSG = (
     "Apologies, you don't have editor access to this collection. "
@@ -62,61 +58,6 @@ NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
 def get_timestamp():
     return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-
-
-def get_content_from_urls_with_top_up(
-    urls: list[str],
-    batch_fetcher: Callable[[list[str]], list[str]],
-    min_ok_urls: int,
-    init_batch_size: int | None = None,  # auto-determined if None
-) -> dict[str, LinkData]:
-    """
-    Fetch content from a list of urls using a batch fetcher. If at least
-    min_ok_urls urls are fetched successfully, return the fetched content.
-    Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
-    urls are fetched successfully.
-    """
-    init_batch_size = min(10, round(min_ok_urls * 1.2))  # NOTE: could optimize
-
-    print(
-        f"Fetching content from {len(urls)} urls:\n"
-        f" - {min_ok_urls} successfully obtained URLs needed\n"
-        f" - {init_batch_size} is the initial batch size\n"
-    )
-
-    link_data_dict = {}
-    num_urls = len(urls)
-    num_processed_urls = 0
-    num_ok_urls = 0
-
-    # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra
-    num_extras = max(2, init_batch_size - min_ok_urls)
-
-    while num_processed_urls < num_urls and num_ok_urls < min_ok_urls:
-        batch_size = min(
-            init_batch_size,
-            num_urls - num_processed_urls,
-            min_ok_urls - num_ok_urls + num_extras,
-        )
-        print(f"Fetching {batch_size} urls:")
-        batch_urls = urls[num_processed_urls : num_processed_urls + batch_size]
-        print("- " + "\n- ".join(batch_urls))
-
-        # Fetch content from urls in batch
-        batch_htmls = batch_fetcher(batch_urls)
-
-        # Process fetched content
-        for url, html in zip(batch_urls, batch_htmls):
-            link_data = LinkData.from_raw_content(html)
-            if not link_data.error:
-                num_ok_urls += 1
-            link_data_dict[url] = link_data
-        num_processed_urls += batch_size
-
-        print(f"Total URLs processed: {num_processed_urls} ({num_urls} total)")
-        print(f"Total successful URLs: {num_ok_urls} ({min_ok_urls} needed)\n")
-
-    return link_data_dict
 
 
 REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
@@ -246,18 +187,9 @@ def get_web_research_response_no_ingestion(
         raise ValueError(f"Failed to get links: {e}")
     t_get_links_end = datetime.now()
 
-    try:
-        print("Fetching content from links and extracting main content...")
-
-        # Get content from links
-        link_data_dict = get_content_from_urls_with_top_up(
-            all_links,
-            batch_fetcher=get_batch_url_fetcher(),
-            min_ok_urls=num_ok_links,
-        )
-        print()
-    except Exception as e:
-        raise ValueError(f"Failed to fetch content from URLs: {e}")
+    # Get content from links
+    url_processing_data = get_content_from_urls(all_links, num_ok_links)
+    link_data_dict = url_processing_data.link_data_dict
 
     # Determine which links to include in the context (num_ok_links good links)
     links_to_process = []
@@ -274,7 +206,7 @@ def get_web_research_response_no_ingestion(
         return format_nonstreaming_answer(NO_FETCHED_CONTENT_MSG)
 
     # Initialize data object
-    num_obtained_ok_links = sum(1 for data in link_data_dict.values() if not data.error)
+    num_obtained_ok_links = url_processing_data.num_ok_urls
     rr_data = ResearchReportData(
         query=query,
         search_queries=queries,
@@ -543,20 +475,17 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         0, num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
     )
     if num_ok_new_links_to_fetch:
-        link_data_dict = get_content_from_urls_with_top_up(
+        url_processing_data = get_content_from_urls(
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
-            batch_fetcher=get_batch_url_fetcher(),
-            min_ok_urls=num_ok_new_links_to_fetch,
-            # init_batch_size=INIT_BATCH_SIZE_FOR_ITERATE,
+            num_ok_new_links_to_fetch,
         )
+        link_data_dict = url_processing_data.link_data_dict
 
         # Update rr_data
         rr_data.link_data_dict.update(link_data_dict)
         rr_data.num_obtained_unprocessed_links += len(link_data_dict)
+        rr_data.num_obtained_unprocessed_ok_links += url_processing_data.num_ok_urls
 
-        tmp = sum(1 for data in link_data_dict.values() if not data.error)
-        rr_data.num_obtained_unprocessed_ok_links += tmp
-        print()
     t_fetch_end = datetime.now()
 
     # Prepare links to include in the context (only good links)
@@ -1010,7 +939,9 @@ def update_search_queries_and_links(
     rr_data.unprocessed_links = links
     rr_data.num_obtained_unprocessed_links = 0
     rr_data.num_obtained_unprocessed_ok_links = 0
-    rr_data.num_links_from_latest_queries = len(links) # currently not used, but could be 
+    rr_data.num_links_from_latest_queries = len(
+        links
+    )  # currently not used, but could be
     # useful if we want to keep some old unprocessed links
 
 
