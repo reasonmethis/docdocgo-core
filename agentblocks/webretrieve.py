@@ -7,12 +7,10 @@ from utils.web import LinkData, get_batch_url_fetcher
 
 
 class URLRetrievalData(BaseModel):
+    urls: list[str]
     link_data_dict: dict[str, LinkData] = Field(default_factory=dict)
     num_ok_urls: int = 0
-
-    @property
-    def num_tried_urls(self):
-        return len(self.link_data_dict)
+    idx_first_not_tried: int = 0 # different from len(link_data_dict) if urls repeat
 
 
 def get_content_from_urls(
@@ -26,6 +24,8 @@ def get_content_from_urls(
     min_ok_urls urls are fetched successfully, return the fetched content.
     Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
     urls are fetched successfully.
+
+    If there are duplicate URLs
 
     Args:
     - urls: list of urls to fetch content from
@@ -46,19 +46,31 @@ def get_content_from_urls(
             f" - {init_batch_size} is the initial batch size\n"
         )
 
-        res = URLRetrievalData()
+        res = URLRetrievalData(urls=urls)
         num_urls = len(urls)
+        url_set = set() # to keep track of unique urls
 
         # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra
         num_extras = max(2, init_batch_size - min_ok_urls)
 
-        while res.num_tried_urls < num_urls and res.num_ok_urls < min_ok_urls:
+        while res.num_ok_urls < min_ok_urls:
             batch_size = min(
                 init_batch_size,
                 min_ok_urls - res.num_ok_urls + num_extras,
             )
-            batch_urls = urls[res.num_tried_urls : res.num_tried_urls + batch_size]
-            batch_size = len(batch_urls)
+            batch_urls = []
+            for url in urls[res.idx_first_not_tried:]:
+                if len(batch_urls) == batch_size:
+                    break
+                if url in url_set: 
+                    continue
+                batch_urls.append(url)
+                url_set.add(url)
+                res.idx_first_not_tried += 1
+
+            if (batch_size := len(batch_urls)) == 0:
+                break # no more urls to fetch
+
             print(f"Fetching {batch_size} urls:")
             print("- " + "\n- ".join(batch_urls))
 
@@ -72,7 +84,7 @@ def get_content_from_urls(
                 if not link_data.error:
                     res.num_ok_urls += 1
 
-            print(f"Total URLs processed: {res.num_tried_urls} ({num_urls} total)")
+            print(f"Total URLs processed: {res.idx_first_not_tried} ({num_urls} total)")
             print(f"Total successful URLs: {res.num_ok_urls} ({min_ok_urls} needed)\n")
 
         return res
