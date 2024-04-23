@@ -1,6 +1,5 @@
 from bisect import bisect_right
 
-from langchain_openai import ChatOpenAI
 from langchain.schema.language_model import BaseLanguageModel
 from langchain.schema.messages import (
     AIMessage,
@@ -9,14 +8,28 @@ from langchain.schema.messages import (
     get_buffer_string,
 )
 from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI
 
 from utils.algo import insert_interval
 from utils.async_utils import execute_func_map_in_threads
 from utils.output import ConditionalLogger
-from utils.rag import text_splitter
+from utils.rag import rag_text_splitter
 from utils.type_utils import PairwiseChatHistory
 
 default_llm_for_token_counting = ChatOpenAI(api_key="DUMMY")  # "DUMMY" to avoid error
+
+## https://gptforwork.com/guides/openai-gpt3-tokens
+# English: 1 word ≈ 1.3 tokens
+# French: 1 word ≈ 2 tokens
+# German: 1 word ≈ 2.1 tokens
+# Spanish: 1 word ≈ 2.1 tokens
+# Chinese: 1 word ≈ 2.5 tokens
+# Russian: 1 word ≈ 3.3 tokens
+# Vietnamese: 1 word ≈ 3.3 tokens
+# Arabic: 1 word ≈ 4 tokens
+# Hindi: 1 word ≈ 6.4 tokens
+
+ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN = 4  # English: 1 word ≈ 1.3 tokens
 
 
 def get_token_ids(text: str, llm_for_token_counting: BaseLanguageModel | None = None):
@@ -43,6 +56,7 @@ def get_num_tokens_in_texts(
     def _get_num_tokens(text):
         return get_num_tokens(text, llm_for_token_counting)
 
+    # TODO: experiment - since this is CPU-bound, may not benefit from threads
     token_counts = execute_func_map_in_threads(_get_num_tokens, texts)
     return token_counts
 
@@ -385,7 +399,7 @@ def expand_chunks(
     document.
     """
 
-    clg = ConditionalLogger(verbose=False) # NOTE: can use an environment variable
+    clg = ConditionalLogger(verbose=False)  # NOTE: can use an environment variable
 
     num_base_chunks = len(base_chunks)
     if num_base_chunks == 0:
@@ -393,7 +407,8 @@ def expand_chunks(
 
     # Split each parent document into chunks
     parent_chunks_by_id: dict[str, list[Document]] = {
-        id_: text_splitter.split_documents([doc]) for id_, doc in parents_by_id.items()
+        id_: rag_text_splitter.split_documents([doc])
+        for id_, doc in parents_by_id.items()
     }
 
     # Determine the location of each chunk in its parent document chunks
@@ -469,8 +484,12 @@ def expand_chunks(
             elif end_chunk_idx == num_parent_chunks:
                 add_above = True
             else:
-                score_if_add_above = added_above + 1 - added_below * ratio_add_above_vs_below
-                score_if_add_below = added_above - (added_below + 1) * ratio_add_above_vs_below
+                score_if_add_above = (
+                    added_above + 1 - added_below * ratio_add_above_vs_below
+                )
+                score_if_add_below = (
+                    added_above - (added_below + 1) * ratio_add_above_vs_below
+                )
                 add_above = abs(score_if_add_above) <= abs(score_if_add_below) + 1e-6
 
             # Get the chunk to add and update number of tokens in the expanded chunk

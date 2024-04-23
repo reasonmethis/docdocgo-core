@@ -16,10 +16,12 @@ WEB_SEARCH_API_ISSUE_MSG = (
 
 domain_blacklist = ["youtube.com"]
 
+
 class WebSearchAPIError(DDGError):
     # NOTE: Can be raised e.g. like this: raise WebSearchAPIError() from e
     # In that case, the original exception will be stored in self.__cause__
     default_user_facing_message = WEB_SEARCH_API_ISSUE_MSG
+
 
 def _extract_domain(url: str):
     try:
@@ -55,7 +57,9 @@ def get_links_from_queries(
         # Do a Google search for each query
         search = GoogleSerperAPIWrapper(k=num_search_results)
         search_tasks = [search.aresults(query) for query in queries]
-        search_results = gather_tasks_sync(search_tasks)  # NOTE can use serper's batching
+        search_results = gather_tasks_sync(
+            search_tasks
+        )  # NOTE can use serper's batching
 
         # Get links from search results
         return _get_links(search_results)
@@ -67,7 +71,7 @@ class Queries(BaseModel):
     queries: list[str]
 
 
-def get_web_search_result_links_from_prompt(
+def get_web_search_result_urls_from_prompt(
     prompt, inputs: Props, num_links, chat_state: ChatState
 ) -> list[str]:
     # Get queries to search for

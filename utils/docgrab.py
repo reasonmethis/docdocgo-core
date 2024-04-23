@@ -11,7 +11,7 @@ from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.output import ConditionalLogger
 from utils.prepare import EMBEDDINGS_DIMENSIONS
-from utils.rag import text_splitter
+from utils.rag import rag_text_splitter
 
 load_dotenv(override=True)
 
@@ -61,12 +61,12 @@ def prepare_chunks(
     clg = ConditionalLogger(verbose)
     clg.log(f"Splitting {len(texts)} documents into chunks...")
 
-    # Add parent ids to metadata
+    # Add parent ids to metadata (will delete, but only after it they propagate to snippets)
     for metadata, id in zip(metadatas, ids):
         metadata["parent_id"] = id
 
     # Split into snippets
-    snippets = text_splitter.create_documents(texts, metadatas)
+    snippets = rag_text_splitter.create_documents(texts, metadatas)
     clg.log(f"Obtained {len(snippets)} chunks.")
 
     # Restore original metadata

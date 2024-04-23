@@ -1,7 +1,8 @@
 from langchain.prompts import PromptTemplate
 
+from agentblocks.webprocess import URLConveyerBelt
 from agentblocks.webretrieve import get_content_from_urls
-from agentblocks.websearch import get_web_search_result_links_from_prompt
+from agentblocks.websearch import get_web_search_result_urls_from_prompt
 from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer
 from utils.type_utils import JSONishDict, Props
@@ -111,7 +112,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
     num_iterations = chat_state.parsed_query.research_params.num_iterations_left
 
     # Get links from prompt
-    links = get_web_search_result_links_from_prompt(
+    urls = get_web_search_result_urls_from_prompt(
         hs_query_generator_prompt,
         inputs={"message": message},
         num_links=100,
@@ -119,7 +120,10 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
     )
 
     # Get content from links
-    url_processing_data = get_content_from_urls(links, min_ok_urls=5)
+    url_retrieval_data = get_content_from_urls(urls, min_ok_urls=5)
+
+    # Initialize URL processing data
+    url_conveyer = URLConveyerBelt.from_retrieval_data(url_retrieval_data, urls=urls)
 
 
 def get_heatseek_in_progress_response(

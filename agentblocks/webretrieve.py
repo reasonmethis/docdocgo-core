@@ -6,8 +6,7 @@ from utils.type_utils import DDGError
 from utils.web import LinkData, get_batch_url_fetcher
 
 
-class URLProcessingData(BaseModel):
-    urls: list[str]
+class URLRetrievalData(BaseModel):
     link_data_dict: dict[str, LinkData] = Field(default_factory=dict)
     num_ok_urls: int = 0
 
@@ -21,7 +20,7 @@ def get_content_from_urls(
     min_ok_urls: int,
     init_batch_size: int | None = None,  # auto-determined if None
     batch_fetcher: Callable[[list[str]], list[str]] | None = None,
-) -> URLProcessingData:
+) -> URLRetrievalData:
     """
     Fetch content from a list of urls using a batch fetcher. If at least
     min_ok_urls urls are fetched successfully, return the fetched content.
@@ -35,7 +34,7 @@ def get_content_from_urls(
     - batch_fetcher: function to fetch content from a batch of urls
 
     Returns:
-    - URLProcessingData object containing the fetched content and other data
+    - URLRetrievalData: object containing the fetched content
     """
     try:
         batch_fetcher = batch_fetcher or get_batch_url_fetcher()
@@ -47,7 +46,7 @@ def get_content_from_urls(
             f" - {init_batch_size} is the initial batch size\n"
         )
 
-        res = URLProcessingData(urls=urls)
+        res = URLRetrievalData()
         num_urls = len(urls)
 
         # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra

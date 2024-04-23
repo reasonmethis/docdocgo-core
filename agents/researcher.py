@@ -188,8 +188,8 @@ def get_web_research_response_no_ingestion(
     t_get_links_end = datetime.now()
 
     # Get content from links
-    url_processing_data = get_content_from_urls(all_links, num_ok_links)
-    link_data_dict = url_processing_data.link_data_dict
+    url_retrieval_data = get_content_from_urls(all_links, num_ok_links)
+    link_data_dict = url_retrieval_data.link_data_dict
 
     # Determine which links to include in the context (num_ok_links good links)
     links_to_process = []
@@ -206,7 +206,7 @@ def get_web_research_response_no_ingestion(
         return format_nonstreaming_answer(NO_FETCHED_CONTENT_MSG)
 
     # Initialize data object
-    num_obtained_ok_links = url_processing_data.num_ok_urls
+    num_obtained_ok_links = url_retrieval_data.num_ok_urls
     rr_data = ResearchReportData(
         query=query,
         search_queries=queries,
@@ -475,16 +475,16 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         0, num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
     )
     if num_ok_new_links_to_fetch:
-        url_processing_data = get_content_from_urls(
+        url_retrieval_data = get_content_from_urls(
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
             num_ok_new_links_to_fetch,
         )
-        link_data_dict = url_processing_data.link_data_dict
+        link_data_dict = url_retrieval_data.link_data_dict
 
         # Update rr_data
         rr_data.link_data_dict.update(link_data_dict)
         rr_data.num_obtained_unprocessed_links += len(link_data_dict)
-        rr_data.num_obtained_unprocessed_ok_links += url_processing_data.num_ok_urls
+        rr_data.num_obtained_unprocessed_ok_links += url_retrieval_data.num_ok_urls
 
     t_fetch_end = datetime.now()
 

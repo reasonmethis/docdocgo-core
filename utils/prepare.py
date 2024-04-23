@@ -33,7 +33,8 @@ CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")
-CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))
+CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000)) # it's actually more like max 
+# size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
 ALLOWED_MODELS = os.getenv("ALLOWED_MODELS", MODEL_NAME).split(",")
