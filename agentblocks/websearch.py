@@ -4,7 +4,6 @@ from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from pydantic import BaseModel
 
 from agentblocks.core import enforce_json_format
-from components.llm import get_prompt_llm_chain
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
@@ -75,11 +74,7 @@ def get_web_search_result_urls_from_prompt(
     prompt, inputs: Props, num_links, chat_state: ChatState
 ) -> list[str]:
     # Get queries to search for
-    query_generator_chain = get_prompt_llm_chain(
-        prompt,
-        llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
-    )
+    query_generator_chain = chat_state.get_prompt_llm_chain(prompt, to_user=False)
 
     queries: list[str] = enforce_json_format(
         query_generator_chain,

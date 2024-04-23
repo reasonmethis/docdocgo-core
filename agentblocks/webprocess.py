@@ -5,7 +5,7 @@ from agentblocks.webretrieve import URLRetrievalData
 from utils.web import LinkData
 
 
-class URLConveyerBelt(BaseModel):
+class URLConveyer(BaseModel):
     urls: list[str]
     link_data_dict: dict[str, LinkData] = Field(default_factory=dict)
     # num_ok_urls: int = 0
@@ -14,7 +14,7 @@ class URLConveyerBelt(BaseModel):
 
     @staticmethod
     def from_retrieval_data(url_retrieval_data: URLRetrievalData):
-        return URLConveyerBelt(
+        return URLConveyer(
             urls=url_retrieval_data.urls,
             link_data_dict=url_retrieval_data.link_data_dict,
             idx_first_not_tried=url_retrieval_data.idx_first_not_tried,

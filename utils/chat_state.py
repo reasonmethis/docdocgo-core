@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData
 from components.chroma_ddg import ChromaDDG, load_vectorstore
+from components.llm import get_prompt_llm_chain
 from utils.helpers import PRIVATE_COLLECTION_PREFIX, PRIVATE_COLLECTION_USER_ID_LENGTH
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import ParsedQuery
@@ -298,3 +299,15 @@ class ChatState:
             client=self.vectorstore.client,
             create_if_not_exists=create_if_not_exists,
         )
+
+    def get_prompt_llm_chain(self, prompt, *, to_user: bool):
+        return get_prompt_llm_chain(
+            prompt,
+            llm_settings=self.bot_settings,
+            api_key=self.openai_api_key,
+            stream=to_user,
+            callbacks=self.callbacks if to_user else None,
+        )
+
+    def get_llm_reply(self, prompt, inputs, *, to_user: bool):
+        return self.get_prompt_llm_chain(prompt, to_user=to_user).invoke(inputs)

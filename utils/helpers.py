@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
@@ -278,7 +278,7 @@ def clamp(value, min_value, max_value):
 
 def utc_timestamp_int() -> int:
     """Returns the current UTC timestamp as an integer (seconds since epoch)"""
-    return int(datetime.utcnow().timestamp())
+    return int(datetime.now(UTC).timestamp())
 
 
 def format_nonstreaming_answer(answer):

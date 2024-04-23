@@ -317,7 +317,7 @@ coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_na
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_and_command_history and INITIAL_TEST_QUERY_STREAMLIT:
+    if not chat_state.chat_history and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
 
 # Parse the query or get the next scheduled query, if any

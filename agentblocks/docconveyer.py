@@ -1,6 +1,8 @@
 import uuid
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from pydantic import BaseModel
 
 from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
 
@@ -12,7 +14,10 @@ from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_toke
 # error: str | None = None
 # is_ingested: bool = False
 
-def _split_doc_based_on_tokens(doc: Document, max_tokens: int, target_num_chars: int) -> list[Document]:
+
+def _split_doc_based_on_tokens(
+    doc: Document, max_tokens: float, target_num_chars: int
+) -> list[Document]:
     """
     Helper function for the main function below that definitely splits the provided document.
     """
@@ -37,11 +42,7 @@ def _split_doc_based_on_tokens(doc: Document, max_tokens: int, target_num_chars:
 
         # If actual num tokens is X times the target, reduce target_num_chars by ~X
         new_target_num_chars = min(
-            int(
-                target_num_chars
-                * max_tokens
-                / maybe_new_doc.metadata["num_tokens"]
-            ),
+            int(target_num_chars * max_tokens / maybe_new_doc.metadata["num_tokens"]),
             target_num_chars // 2,
         )
 
@@ -58,7 +59,7 @@ def _split_doc_based_on_tokens(doc: Document, max_tokens: int, target_num_chars:
     return new_docs
 
 
-def split_doc_based_on_tokens(doc: Document, max_tokens: int) -> list[Document]:
+def split_doc_based_on_tokens(doc: Document, max_tokens: float) -> list[Document]:
     """
     Split a document into parts based on the number of tokens in each part. Specifically,
     if the number of tokens in a part (or the original doc) is within max_tokens, then the part is
@@ -69,7 +70,7 @@ def split_doc_based_on_tokens(doc: Document, max_tokens: int) -> list[Document]:
     """
     # If the doc is too large then don't count tokens, just split it.
     num_chars = len(doc.page_content)
-    if num_chars / ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN > max_tokens :
+    if num_chars / ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN > max_tokens:
         # Doc almost certainly has more tokens than max_tokens
         target_num_chars = int(max_tokens * ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN / 2)
     else:
@@ -83,13 +84,13 @@ def split_doc_based_on_tokens(doc: Document, max_tokens: int) -> list[Document]:
     return _split_doc_based_on_tokens(doc, max_tokens, target_num_chars)
 
 
-def split_big_docs(
+def break_up_big_docs(
     docs: list[Document],
-    max_tokens: int, # = int(CONTEXT_LENGTH * 0.25),
+    max_tokens: float,  # = int(CONTEXT_LENGTH * 0.25),
 ) -> list[Document]:
     """
     Split each big document into parts, leaving the small ones as they are. Big vs small is
-    determined by the number of tokens in the document.
+    determined by how the number of tokens in the document compares to the max_tokens parameter.
     """
     new_docs = []
     for doc in docs:
@@ -98,16 +99,21 @@ def split_big_docs(
             # Create an id representing the original doc
             full_doc_ref = uuid.uuid4().hex[:8]
             for i, doc_part in enumerate(doc_parts):
-                doc_part.metadata["part_id"] = f"{full_doc_ref}-{i}"
-        
+                doc_part.metadata["full_doc_ref"] = full_doc_ref
+                doc_part.metadata["part_id"] = str(i)
+
         new_docs.extend(doc_parts)
     return new_docs
 
 
-def limit_num_docs_by_tokens(docs: list[Document], max_tokens: int):
+def limit_num_docs_by_tokens(
+    docs: list[Document], max_tokens: float
+) -> tuple[int, int]:
     """
-    Limit the number of documents in a list based on the total number of tokens in the 
-    documents. The function returns the number of documents that can be included in the
+    Limit the number of documents in a list based on the total number of tokens in the
+    documents.
+
+    Return the number of documents that can be included in the
     list without exceeding the maximum number of tokens, and the total number of tokens
     in the included documents.
 
@@ -123,3 +129,41 @@ def limit_num_docs_by_tokens(docs: list[Document], max_tokens: int):
         tot_tokens += num_tokens
 
     return len(docs), tot_tokens
+
+
+class DocConveyer(BaseModel):
+    docs: list[Document]
+    idx_first_not_done: int = 0  # done = "pushed out" by get_next_docs
+
+    def get_next_docs(
+        self,
+        max_tokens: float,
+        max_docs: int | None = None,
+        max_full_docs: int | None = None,
+    ) -> list[Document]:
+        num_docs, _ = limit_num_docs_by_tokens(
+            self.docs[self.idx_first_not_done :], max_tokens
+        )
+        if max_docs is not None:
+            num_docs = min(num_docs, max_docs)
+        
+        if max_full_docs is not None:
+            num_full_docs = 0
+            old_full_doc_ref = None
+            new_num_docs = 0
+            for doc in self.docs[self.idx_first_not_done : self.idx_first_not_done + num_docs]:
+                if num_full_docs >= max_full_docs:
+                    break
+                new_num_docs += 1
+                new_full_doc_ref = doc.metadata.get("full_doc_ref")
+                if new_full_doc_ref is None or new_full_doc_ref != old_full_doc_ref:
+                    num_full_docs += 1
+                    old_full_doc_ref = new_full_doc_ref
+            num_docs = new_num_docs
+            
+        self.idx_first_not_done += num_docs
+        return self.docs[self.idx_first_not_done - num_docs : self.idx_first_not_done]
+
+    def clear_done_docs(self):
+        self.docs = self.docs[self.idx_first_not_done :]
+        self.idx_first_not_done = 0

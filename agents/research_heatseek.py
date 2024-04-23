@@ -1,10 +1,13 @@
 from langchain.prompts import PromptTemplate
+from pydantic import BaseModel
 
-from agentblocks.webprocess import URLConveyerBelt
+from agentblocks.docconveyer import DocConveyer, break_up_big_docs
+from agentblocks.webprocess import URLConveyer
 from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import get_web_search_result_urls_from_prompt
 from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer
+from utils.prepare import CONTEXT_LENGTH
 from utils.type_utils import JSONishDict, Props
 
 query_generator_template = """# MISSION
@@ -106,24 +109,74 @@ Now, please use the information in the "# Input" section to construct your actua
 """
 hs_query_updater_prompt = PromptTemplate.from_template(search_queries_updater_template)
 
+hs_answer_generator_template = """\
+{context}
+
+END OF PROVIDED CONTENT
+
+TASK: Determine if the above provided content contains a full, accurate, unbiased, and up-to-date answer to user's query:
+
+{query}
+
+END OF QUERY
+If the provided content contains information sufficient to construct a full, accurate, unbiased, and up-to-date answer to user's query, then your task is to answer the query. If the provided content is insufficient, then simply reply with one word: "CONTENT_INSUFFICIENT".
+"""
+hs_answer_generator_prompt = PromptTemplate.from_template(hs_answer_generator_template)
+
+class HeatseekData(BaseModel):
+    query: str
+    num_iterations_left: int
+    url_conveyer: URLConveyer
+    doc_conveyer: DocConveyer
+    is_done: bool
+    answer: str
 
 def get_new_heatseek_response(chat_state: ChatState) -> Props:
-    message = chat_state.message
+    query = chat_state.message
     num_iterations = chat_state.parsed_query.research_params.num_iterations_left
 
     # Get links from prompt
     urls = get_web_search_result_urls_from_prompt(
         hs_query_generator_prompt,
-        inputs={"message": message},
+        inputs={"query": query},
         num_links=100,
         chat_state=chat_state,
     )
 
-    # Get content from links
+    # Get content from links and initialize URLConveyer
     url_retrieval_data = get_content_from_urls(urls, min_ok_urls=5)
+    url_conveyer = URLConveyer.from_retrieval_data(url_retrieval_data)
 
-    # Initialize URL processing data
-    url_conveyer = URLConveyerBelt.from_retrieval_data(url_retrieval_data, urls=urls)
+    # Convert retrieval data to docs and break up docs that are too big
+    docs = url_conveyer.get_next_docs()
+    docs = break_up_big_docs(docs, max_tokens=CONTEXT_LENGTH * 0.25)
+
+    # Put docs in DocConveyer and get the first batch of docs (in heatseek,
+    # we only get one full doc at a time, but if it's big, it can come in parts)
+    doc_conveyer = DocConveyer(docs)
+    docs = doc_conveyer.get_next_docs(max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1)
+
+    # Construct the context and get response from LLM
+    context = f"SOURCE: {docs[0].metadata['source']}\n\n{''.join(doc.page_content for doc in docs)}"
+    inputs = {"query": query, "context": context}
+    reply = chat_state.get_llm_reply(hs_answer_generator_prompt, inputs, to_user=True)
+
+    # Parse response and construct agent data
+    is_done = "CONTENT_INSUFFICIENT" not in reply
+    answer = reply if is_done else ""
+    hs_data = HeatseekData(
+        query=query,
+        num_iterations_left=num_iterations - 1,
+        url_conveyer=url_conveyer,
+        doc_conveyer=doc_conveyer,
+        is_done=is_done,
+        answer=answer,
+    )
+
+    #...
+    
+    # Return response
+    return {"answer": answer}
 
 
 def get_heatseek_in_progress_response(
