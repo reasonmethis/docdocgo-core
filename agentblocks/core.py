@@ -44,7 +44,7 @@ MAX_ENFORCE_FORMAT_ATTEMPTS = 4
 def enforce_json_format(
     chain: ChainType,
     inputs: dict,
-    validator_transformer: Callable,  # e.g. pydantic model's validator
+    validator_transformer: Callable,  # e.g. pydantic model's validator - model_validate() (!)
     max_attempts: int = MAX_ENFORCE_FORMAT_ATTEMPTS,
 ):
     return enforce_format(

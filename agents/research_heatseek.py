@@ -1,12 +1,12 @@
 from langchain.prompts import PromptTemplate
 from pydantic import BaseModel
 
-from agentblocks.docconveyer import DocConveyer, break_up_big_docs
+from agentblocks.docconveyer import Doc, DocConveyer, break_up_big_docs
 from agentblocks.webprocess import URLConveyer
 from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import get_web_search_result_urls_from_prompt
 from utils.chat_state import ChatState
-from utils.helpers import format_nonstreaming_answer
+from utils.helpers import format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH
 from utils.type_utils import JSONishDict, Props
 
@@ -123,6 +123,7 @@ If the provided content contains information sufficient to construct a full, acc
 """
 hs_answer_generator_prompt = PromptTemplate.from_template(hs_answer_generator_template)
 
+
 class HeatseekData(BaseModel):
     query: str
     num_iterations_left: int
@@ -131,14 +132,20 @@ class HeatseekData(BaseModel):
     is_done: bool
     answer: str
 
+    
 def get_new_heatseek_response(chat_state: ChatState) -> Props:
+    # from langchain_core.documents import Document
+    # d=Doc(page_content="hello",metadata={"source":"source"})
+    # print(DocConveyer(d=d))
+    # return format_nonstreaming_answer("hello")
+
     query = chat_state.message
     num_iterations = chat_state.parsed_query.research_params.num_iterations_left
 
     # Get links from prompt
     urls = get_web_search_result_urls_from_prompt(
         hs_query_generator_prompt,
-        inputs={"query": query},
+        inputs={"query": query, "timestamp": get_timestamp()},
         num_links=100,
         chat_state=chat_state,
     )
@@ -153,7 +160,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
 
     # Put docs in DocConveyer and get the first batch of docs (in heatseek,
     # we only get one full doc at a time, but if it's big, it can come in parts)
-    doc_conveyer = DocConveyer(docs)
+    doc_conveyer = DocConveyer(docs=docs)
     docs = doc_conveyer.get_next_docs(max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1)
 
     # Construct the context and get response from LLM
@@ -173,8 +180,8 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
         answer=answer,
     )
 
-    #...
-    
+    # ...
+
     # Return response
     return {"answer": answer}
 

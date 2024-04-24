@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any
 
+from langchain_core.documents.base import Document
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.runnables import RunnableSerializable
 from pydantic import BaseModel, Field
@@ -134,3 +135,17 @@ class Instruction(BaseModel):
     type: str
     user_id: str | None = None
     access_code: str | None = None
+
+
+class Doc(BaseModel):
+    """Pydantic-compatible version of Langchain's Document."""
+
+    page_content: str
+    metadata: dict[str, Any]
+
+    @staticmethod
+    def from_lc_doc(langchain_doc: Document) -> "Doc":
+        return Doc(page_content=langchain_doc.page_content, metadata=langchain_doc.metadata)
+    
+    def to_lc_doc(self) -> Document:
+        return Document(page_content=self.page_content, metadata=self.metadata)

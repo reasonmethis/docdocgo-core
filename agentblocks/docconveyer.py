@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 from pydantic import BaseModel
 
 from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
+from utils.type_utils import Doc
 
 # class DocData(BaseModel):
 #     text: str | None = None
@@ -14,9 +15,11 @@ from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_toke
 # error: str | None = None
 # is_ingested: bool = False
 
+from typing import TypeVar
+DocT = TypeVar("DocT", Document, Doc)
 
 def _split_doc_based_on_tokens(
-    doc: Document, max_tokens: float, target_num_chars: int
+    doc: Document | Doc, max_tokens: float, target_num_chars: int
 ) -> list[Document]:
     """
     Helper function for the main function below that definitely splits the provided document.
@@ -26,7 +29,9 @@ def _split_doc_based_on_tokens(
         chunk_overlap=0,
         add_start_index=True,  # metadata will include start_index of snippet in original doc
     )
-    candidate_new_docs = text_splitter.create_documents([doc])
+    candidate_new_docs = text_splitter.create_documents(
+        texts=[doc.page_content], metadatas=[doc.metadata]
+    )
     new_docs = []
 
     # Calculate the number of tokens in each part and split further if needed
@@ -59,7 +64,7 @@ def _split_doc_based_on_tokens(
     return new_docs
 
 
-def split_doc_based_on_tokens(doc: Document, max_tokens: float) -> list[Document]:
+def split_doc_based_on_tokens(doc: DocT, max_tokens: float) -> list[DocT]:
     """
     Split a document into parts based on the number of tokens in each part. Specifically,
     if the number of tokens in a part (or the original doc) is within max_tokens, then the part is
@@ -81,13 +86,17 @@ def split_doc_based_on_tokens(doc: Document, max_tokens: float) -> list[Document
         # Guess the target number of characters for the text splitter
         target_num_chars = int(num_chars / (num_tokens / max_tokens) / 2)
 
-    return _split_doc_based_on_tokens(doc, max_tokens, target_num_chars)
+    documents = _split_doc_based_on_tokens(doc, max_tokens, target_num_chars)
+    if isinstance(doc, Document):
+        return documents
+    else:
+        return [Doc.from_lc_doc(d) for d in documents]
 
 
 def break_up_big_docs(
-    docs: list[Document],
+    docs: list[DocT],
     max_tokens: float,  # = int(CONTEXT_LENGTH * 0.25),
-) -> list[Document]:
+) -> list[DocT]:
     """
     Split each big document into parts, leaving the small ones as they are. Big vs small is
     determined by how the number of tokens in the document compares to the max_tokens parameter.
@@ -107,7 +116,7 @@ def break_up_big_docs(
 
 
 def limit_num_docs_by_tokens(
-    docs: list[Document], max_tokens: float
+    docs: list[Document | Doc], max_tokens: float
 ) -> tuple[int, int]:
     """
     Limit the number of documents in a list based on the total number of tokens in the
@@ -132,7 +141,7 @@ def limit_num_docs_by_tokens(
 
 
 class DocConveyer(BaseModel):
-    docs: list[Document]
+    docs: list[Doc]
     idx_first_not_done: int = 0  # done = "pushed out" by get_next_docs
 
     def get_next_docs(
@@ -140,18 +149,20 @@ class DocConveyer(BaseModel):
         max_tokens: float,
         max_docs: int | None = None,
         max_full_docs: int | None = None,
-    ) -> list[Document]:
+    ) -> list[Doc]:
         num_docs, _ = limit_num_docs_by_tokens(
             self.docs[self.idx_first_not_done :], max_tokens
         )
         if max_docs is not None:
             num_docs = min(num_docs, max_docs)
-        
+
         if max_full_docs is not None:
             num_full_docs = 0
             old_full_doc_ref = None
             new_num_docs = 0
-            for doc in self.docs[self.idx_first_not_done : self.idx_first_not_done + num_docs]:
+            for doc in self.docs[
+                self.idx_first_not_done : self.idx_first_not_done + num_docs
+            ]:
                 if num_full_docs >= max_full_docs:
                     break
                 new_num_docs += 1
@@ -160,7 +171,7 @@ class DocConveyer(BaseModel):
                     num_full_docs += 1
                     old_full_doc_ref = new_full_doc_ref
             num_docs = new_num_docs
-            
+
         self.idx_first_not_done += num_docs
         return self.docs[self.idx_first_not_done - num_docs : self.idx_first_not_done]
 

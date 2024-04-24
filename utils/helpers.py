@@ -292,3 +292,7 @@ def format_invalid_input_answer(answer, status_body):
         "status.header": "Invalid input",
         "status.body": status_body,
     }
+
+def get_timestamp():
+    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
+    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),

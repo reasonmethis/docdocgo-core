@@ -26,6 +26,7 @@ from utils.helpers import (
     RESEARCH_COMMAND_HELP_MSG,
     format_invalid_input_answer,
     format_nonstreaming_answer,
+    get_timestamp,
     print_no_newline,
 )
 from utils.lang_utils import (
@@ -53,12 +54,6 @@ NO_EDITOR_ACCESS_MSG = (
 NO_EDITOR_ACCESS_STATUS = "No editor access to collection"
 
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
-
-
-def get_timestamp():
-    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
-    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-
 
 REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
 NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"

@@ -30,7 +30,7 @@ def _extract_domain(url: str):
         return ""
 
 
-def _get_links(search_results: list[dict[str, Any]]):
+def get_links_from_search_results(search_results: list[dict[str, Any]]):
     links_for_each_query = [
         [x["link"] for x in search_result.get("organic", []) if "link" in x]
         for search_result in search_results
@@ -61,7 +61,7 @@ def get_links_from_queries(
         )  # NOTE can use serper's batching
 
         # Get links from search results
-        return _get_links(search_results)
+        return get_links_from_search_results(search_results)
     except Exception as e:
         raise WebSearchAPIError() from e
 
@@ -79,7 +79,7 @@ def get_web_search_result_urls_from_prompt(
     queries: list[str] = enforce_json_format(
         query_generator_chain,
         inputs=inputs,
-        validator_transformer=Queries.model_validate_json,
+        validator_transformer=Queries.model_validate,
     ).queries
 
     # Perform web search, get links

@@ -62,6 +62,7 @@ class ChatState:
         is_community_key: bool = False,
         parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
+        chat_and_command_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
         callbacks: CallbacksOrNone = None,
         bot_settings: BotSettings | None = None,
@@ -77,6 +78,7 @@ class ChatState:
         self.is_community_key = is_community_key
         self.parsed_query = parsed_query or ParsedQuery()
         self.chat_history = chat_history or []
+        self.chat_history_all = chat_and_command_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now
         self.vectorstore = vectorstore
         self.callbacks = callbacks

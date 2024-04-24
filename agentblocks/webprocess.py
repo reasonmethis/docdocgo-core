@@ -2,6 +2,7 @@ from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
 from agentblocks.webretrieve import URLRetrievalData
+from utils.type_utils import Doc
 from utils.web import LinkData
 
 
@@ -31,13 +32,13 @@ class URLConveyer(BaseModel):
         self.link_data_dict.update(link_data_dict)
         self.idx_first_not_tried = new_idx_first_not_tried
 
-    def get_next_docs(self):
+    def get_next_docs(self) -> list[Doc]:
         docs = []
         for url in self.urls[self.idx_first_not_done : self.idx_first_not_tried]:
             link_data = self.link_data_dict[url]
             if link_data.error:
                 continue
-            doc = Document(page_content=link_data.text, metadata={"source": url})
+            doc = Doc(page_content=link_data.text, metadata={"source": url})
             if link_data.num_tokens is not None:
                 doc.metadata["num_tokens"] = link_data.num_tokens
             docs.append(doc)

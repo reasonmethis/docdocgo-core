@@ -173,7 +173,7 @@ with st.sidebar:
             # Different logic depending on whether collection is supplied in URL or not
             if st.session_state.init_collection_name:
                 if is_authorised:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             f"Welcome! You are now using the `{init_coll_name}` collection. "
@@ -182,7 +182,7 @@ with st.sidebar:
                         )
                     )
                 else:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Apologies, the current URL doesn't provide access to the "
@@ -197,7 +197,7 @@ with st.sidebar:
                 # If no collection is supplied in the URL, use current or default collection
                 should_add_msg_and_load_collection = True
                 if is_authorised:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Welcome! The user credentials have changed but you are still "
@@ -205,7 +205,7 @@ with st.sidebar:
                         )
                     )
                 else:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Welcome! The user credentials have changed, "
@@ -226,10 +226,10 @@ with st.sidebar:
     # Settings
     with st.expander("Settings", expanded=False):
         if is_community_key:
-            model_options = [MODEL_NAME] # only show 3.5 if community key
+            model_options = [MODEL_NAME]  # only show 3.5 if community key
             index = 0
         else:
-            model_options = ALLOWED_MODELS # guaranteed to include MODEL_NAME
+            model_options = ALLOWED_MODELS  # guaranteed to include MODEL_NAME
             index = model_options.index(chat_state.bot_settings.llm_model_name)
         # TODO: adjust context length (for now assume 16k)
         chat_state.bot_settings.llm_model_name = st.selectbox(
@@ -256,7 +256,7 @@ with st.sidebar:
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 ####### Main page #######
-if tmp:=os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
+if tmp := os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
     st.warning(tmp)
 
 if chat_state.collection_name == DEFAULT_COLLECTION_NAME:
@@ -276,7 +276,7 @@ with st.expander("Want to upload your own documents?"):
 
 # Show previous exchanges and sources
 for i, (msg_pair, sources) in enumerate(
-    zip(chat_state.chat_and_command_history, chat_state.sources_history)
+    zip(chat_state.chat_history_all, chat_state.sources_history)
 ):
     full_query, answer = msg_pair
     if full_query is not None:
@@ -317,7 +317,7 @@ coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_na
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_history and INITIAL_TEST_QUERY_STREAMLIT:
+    if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
 
 # Parse the query or get the next scheduled query, if any
@@ -457,12 +457,12 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         st.stop()
     finally:
         # Update the full chat history and sources history
-        chat_state.chat_and_command_history.append((full_query, answer))
+        chat_state.chat_history_all.append((full_query, answer))
         chat_state.sources_history.append(sources)
 
 # Display the file uploader if needed
 if is_ingest_via_file_uploader:
-    st.session_state.idx_file_upload = len(chat_state.chat_and_command_history) - 1
+    st.session_state.idx_file_upload = len(chat_state.chat_history_all) - 1
     files, allow_all_ext = show_uploader(is_new_widget=True)
 
 # Update vectorstore if needed
