@@ -78,6 +78,7 @@ share_revoke_subcommand_to_enum = {
     "all-pwds": ShareRevokeSubCommand.ALL_CODES,
     "all-users": ShareRevokeSubCommand.ALL_USERS,
 }
+HEATSEEKER_DEFAULT_NUM_ITERATIONS = 1
 
 
 class ResearchParams(BaseModel):
@@ -320,7 +321,11 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
     num_iterations, query_after_get_int = get_int(query)
 
     if num_iterations is None:
-        num_iterations = 1
+        num_iterations = (
+            HEATSEEKER_DEFAULT_NUM_ITERATIONS
+            if task_type == ResearchCommand.HEATSEEK
+            else 1
+        )
 
     # Most of these task types require the remaining query to be empty
     if num_iterations > 0 and (
