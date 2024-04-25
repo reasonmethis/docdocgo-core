@@ -1,3 +1,5 @@
+from typing import Callable
+
 from chromadb import Collection
 from icecream import ic
 from langchain.schema import Document
@@ -65,6 +67,7 @@ class ChatState:
         chat_and_command_history: PairwiseChatHistory | None = None,
         sources_history: list[list[str]] | None = None,
         callbacks: CallbacksOrNone = None,
+        add_to_output: Callable | None = None,
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,  # NOTE: should switch to "" instead of None
         openai_api_key: str | None = None,
@@ -82,6 +85,9 @@ class ChatState:
         self.sources_history = sources_history or []  # used only in Streamlit for now
         self.vectorstore = vectorstore
         self.callbacks = callbacks
+        self.add_to_output = add_to_output or (
+            lambda *args: print(args[0], end="", flush=True)
+        )
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
         self.openai_api_key = openai_api_key

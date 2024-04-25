@@ -362,13 +362,14 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     # Prepare container and callback handler for showing streaming response
     message_placeholder = st.empty()
 
-    callback_handler = CallbackHandlerDDGStreamlit(
+    cb = CallbackHandlerDDGStreamlit(
         message_placeholder,
         end_str=STAND_BY_FOR_INGESTION_MESSAGE
         if parsed_query.is_ingestion_needed()
         else "",
     )
-    chat_state.callbacks[1] = callback_handler
+    chat_state.callbacks[1] = cb
+    chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
         response = get_bot_response(chat_state)
         answer = response["answer"]
@@ -387,7 +388,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         # Display sources if present
         sources = get_source_links(response) or None  # Cheaper to store None than []
-        show_sources(sources, callback_handler)
+        show_sources(sources, cb)
 
         # Display the "complete" status - custom or default
         if status:
@@ -441,8 +442,8 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
                 "via the project's GitHub repository or through LinkedIn at "
                 "https://www.linkedin.com/in/dmitriyvasilyuk/."
             )
-        elif callback_handler.buffer:
-            answer = f"{callback_handler.buffer}\n\n{answer}"
+        elif cb.buffer:
+            answer = f"{cb.buffer}\n\n{answer}"
 
         # Assign sources
         sources = None

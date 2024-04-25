@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Iterable
 
 from utils.type_utils import JSONish
 
@@ -115,3 +116,12 @@ def extract_json(text: str) -> JSONish:
 
     return json.loads(text[first : last + 1])
 
+def has_which_substring(text: str, substrings: Iterable[str]) -> str | None:
+    """
+    Return the first substring in the list that is a substring of the text.
+    If no such substring is found, return None.
+    """
+    for substring in substrings:
+        if substring in text:
+            return substring
+    return None

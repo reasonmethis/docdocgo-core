@@ -8,6 +8,7 @@ from agentblocks.websearch import get_web_search_result_urls_from_prompt
 from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH
+from utils.strings import has_which_substring
 from utils.type_utils import JSONishDict, Props
 
 query_generator_template = """# MISSION
@@ -140,7 +141,7 @@ The cheetah is the fastest land animal, capable of reaching speeds up to 75 mph 
 </CONTENT>
 <QUERY>What is the top speed of a cheetah?</QUERY>
 
-Output: According to [this source](https://www.nationalgeographic.com/animals), the top speed of a cheetah is 75 mph.
+Output: [The National Geographic](https://www.nationalgeographic.com/animals) states that the top speed of a cheetah is 75 mph. Cheetahs can reach this speed in short bursts covering distances up to 500 meters.
 
 Examples 4:
 <CONTENT>SOURCE: https://www.history.com/topics/ancient-rome/colosseum
@@ -149,7 +150,7 @@ The Colosseum, also known as the Flavian Amphitheatre, is an oval amphitheatre i
 </CONTENT>
 <QUERY>What materials were used to build the Colosseum?</QUERY>
 
-Output: According to [this source](https://www.history.com/topics/ancient-rome/colosseum), the Colosseum was built using travertine limestone, tuff (volcanic rock), and brick-faced concrete.
+Output: As explained in [this article](https://www.history.com/topics/ancient-rome/colosseum), the Colosseum was built using travertine limestone, tuff (volcanic rock), and brick-faced concrete.
 
 Actual prompt:
 <CONTENT>{context}</CONTENT>
@@ -211,6 +212,23 @@ Actual prompt:
 Output: """
 answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template)
 
+## SAMPLE QUERIES
+# find example code showing how to update Ract state in shadcn ui Slider component
+# find a quote by obama about jill biden
+
+evaluation_code_to_grade = {
+    "EXCELLENT": "A",
+    "GOOD": "B",
+    "MEDIUM": "C",
+    "BAD": "D",
+    None: "?",
+}
+
+
+def shorten_url(url: str) -> str:
+    return url.split("://")[-1].split("/")[0]
+
+
 class HeatseekData(BaseModel):
     query: str
     num_iterations_left: int
@@ -246,6 +264,8 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
     doc_conveyer = DocConveyer(docs=docs)
 
     full_reply = ""
+    new_checked_block = True
+    is_done = False
     for _ in range(MAX_SUB_ITERATIONS_IN_ONE_GO):
         # Get a batch of docs (in heatseek,
         # we only get one full doc at a time, but if it's big, it can come in parts)
@@ -255,8 +275,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
 
         # If no more docs, break
         if not docs:
-            if full_reply == "":
-                full_reply = "NO_CONTENT_FOUND"
+            full_reply = full_reply or "NO_CONTENT_FOUND"
             break
 
         # Construct the context and get response from LLM
@@ -264,26 +283,41 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
         inputs = {"query": query, "context": context}
         reply = chat_state.get_llm_reply(
-            hs_answer_generator_prompt, inputs, to_user=True
+            hs_answer_generator_prompt, inputs, to_user=False
         )
-
-        # Update full reply and other data
-        full_reply += reply
 
         # Parse response
-        if not (is_done := ("CONTENT_INSUFFICIENT" not in reply)):
-            continue
-        
-        # Get response from evaluator
-        inputs = {"query": query, "answer": reply}
-        evaluator_reply = chat_state.get_llm_reply(
-            answer_evaluator_prompt, inputs, to_user=True
-        )
-        
-        # Parse evaluator response and decide whether to continue
-        if "EXCELLENT" in evaluator_reply or "GOOD" in evaluator_reply:
-            break
+        if "CONTENT_INSUFFICIENT" not in reply:
+            # If LLM wrote a reply, add it to the full reply
+            piece = ("\n\n" + reply) if full_reply else reply
+            full_reply += piece
+            chat_state.add_to_output(piece)
 
+            # Get response from evaluator
+            inputs = {"query": query, "answer": reply}
+            evaluator_reply = chat_state.get_llm_reply(
+                answer_evaluator_prompt, inputs, to_user=False
+            )
+
+            # Parse evaluator response and decide whether to continue
+            evaluation = has_which_substring(
+                evaluator_reply, ["EXCELLENT", "GOOD", "MEDIUM", "BAD"]
+            )
+            piece = f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
+            full_reply += piece
+            chat_state.add_to_output(piece)
+            if is_done:= (evaluation in ["EXCELLENT", "GOOD"]):
+                break
+        else:
+            # If content is insufficient, add to the "Checked: " block
+            if new_checked_block:
+                piece = "\n\nChecked: " if full_reply else "Checked: "
+                new_checked_block = False
+            else:
+                piece = ", "
+            piece += f"[{shorten_url(source)}]({source})"
+            full_reply += piece
+            chat_state.add_to_output(piece)
 
     hs_data = HeatseekData(
         query=query,
