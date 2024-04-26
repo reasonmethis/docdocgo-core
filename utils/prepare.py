@@ -3,6 +3,8 @@ import sys
 
 from dotenv import load_dotenv
 
+from utils.log import setup_logging
+
 load_dotenv(override=True)
 
 # Import chromadb while making it think sqlite3 has a new enough version.
@@ -15,6 +17,13 @@ __import__("chromadb")
 del sys.modules["sqlite3"]
 __import__("sqlite3")  # import here because chromadb was supposed to import it
 
+# Set up logging
+LOG_LEVEL = os.getenv("LOG_LEVEL")
+LOG_FORMAT = os.getenv("LOG_FORMAT")
+setup_logging(LOG_LEVEL, LOG_FORMAT)
+DEFAULT_LOGGER_NAME = os.getenv("DEFAULT_LOGGER_NAME", "ddg")
+
+# Set up the environment variables
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
@@ -33,7 +42,7 @@ CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")
-CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000)) # it's actually more like max 
+CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))  # it's actually more like max
 # size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
@@ -49,7 +58,9 @@ LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
 DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
 
-INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG = bool(os.getenv("INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG"))
+INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG = bool(
+    os.getenv("INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG")
+)
 
 BYPASS_SETTINGS_RESTRICTIONS = bool(os.getenv("BYPASS_SETTINGS_RESTRICTIONS"))
 BYPASS_SETTINGS_RESTRICTIONS_PASSWORD = os.getenv(

@@ -406,14 +406,14 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         if new_parsed_query := response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
+        # Add the error message to the likely incomplete response
+        err_msg = format_exception(e)
+        answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
+
         # Display the "error" status
         if status:
             status.update(label=status_config[chat_mode]["error.header"], state="error")
             status.write(status_config[chat_mode]["error.body"])
-
-        # Add the error message to the likely incomplete response
-        err_msg = format_exception(e)
-        answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
 
         err_type = (
             "OPENAI_API_AUTH"

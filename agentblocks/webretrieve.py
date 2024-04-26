@@ -1,16 +1,23 @@
+import logging
 from typing import Callable
 
 from pydantic import BaseModel, Field
 
+from utils.prepare import DEFAULT_LOGGER_NAME
 from utils.type_utils import DDGError
 from utils.web import LinkData, get_batch_url_fetcher
+
+logger = logging.getLogger(DEFAULT_LOGGER_NAME)
 
 
 class URLRetrievalData(BaseModel):
     urls: list[str]
     link_data_dict: dict[str, LinkData] = Field(default_factory=dict)
     num_ok_urls: int = 0
-    idx_first_not_tried: int = 0 # different from len(link_data_dict) if urls repeat
+    idx_first_not_tried: int = 0  # different from len(link_data_dict) if urls repeat
+
+
+MAX_INIT_BATCH_SIZE = 10
 
 
 def get_content_from_urls(
@@ -38,9 +45,11 @@ def get_content_from_urls(
     """
     try:
         batch_fetcher = batch_fetcher or get_batch_url_fetcher()
-        init_batch_size = min(10, round(min_ok_urls * 1.2))  # NOTE: could optimize
+        init_batch_size = init_batch_size or min(
+            MAX_INIT_BATCH_SIZE, round(min_ok_urls * 1.2)
+        )  # NOTE: could optimize
 
-        print(
+        logger.info(
             f"Fetching content from {len(urls)} urls:\n"
             f" - {min_ok_urls} successfully obtained URLs needed\n"
             f" - {init_batch_size} is the initial batch size\n"
@@ -48,7 +57,7 @@ def get_content_from_urls(
 
         res = URLRetrievalData(urls=urls)
         num_urls = len(urls)
-        url_set = set() # to keep track of unique urls
+        url_set = set()  # to keep track of unique urls
 
         # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra
         num_extras = max(2, init_batch_size - min_ok_urls)
@@ -59,20 +68,19 @@ def get_content_from_urls(
                 min_ok_urls - res.num_ok_urls + num_extras,
             )
             batch_urls = []
-            for url in urls[res.idx_first_not_tried:]:
+            for url in urls[res.idx_first_not_tried :]:
                 if len(batch_urls) == batch_size:
                     break
-                if url in url_set: 
+                if url in url_set:
                     continue
                 batch_urls.append(url)
                 url_set.add(url)
                 res.idx_first_not_tried += 1
 
             if (batch_size := len(batch_urls)) == 0:
-                break # no more urls to fetch
+                break  # no more urls to fetch
 
-            print(f"Fetching {batch_size} urls:")
-            print("- " + "\n- ".join(batch_urls))
+            logger.info(f"Fetching {batch_size} urls:\n- " + "\n- ".join(batch_urls))
 
             # Fetch content from urls in batch
             batch_htmls = batch_fetcher(batch_urls)
@@ -84,8 +92,10 @@ def get_content_from_urls(
                 if not link_data.error:
                     res.num_ok_urls += 1
 
-            print(f"Total URLs processed: {res.idx_first_not_tried} ({num_urls} total)")
-            print(f"Total successful URLs: {res.num_ok_urls} ({min_ok_urls} needed)\n")
+            logger.info(
+                f"Total URLs processed: {res.idx_first_not_tried} ({num_urls} total)\n"
+                f"Total successful URLs: {res.num_ok_urls} ({min_ok_urls} needed)\n"
+            )
 
         return res
     except Exception as e:
