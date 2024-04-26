@@ -548,9 +548,9 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 # NOTE: could prohibit collection names that are just numbers
                 if "-" in value:
                     # Admin can delete a range of collections by providing the password
-                    if not value.endswith(f" {admin_pwd}") or not admin_pwd:
+                    if not is_admin:
                         raise ValueError
-                    leftright = value[: -len(admin_pwd) - 1].split("-")
+                    leftright = value.split("-")
                     if len(leftright) != 2:
                         raise ValueError
                     min_idx, max_idx = int(leftright[0]) - 1, int(leftright[1]) - 1
