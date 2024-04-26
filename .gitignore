@@ -8,6 +8,7 @@ my-chroma*
 DOCS-APPENDIX.md
 docs-private
 launch.json
+logs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
