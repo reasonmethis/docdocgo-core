@@ -238,8 +238,9 @@ class HeatseekData(BaseModel):
     answer: str
 
 
-MIN_OK_URLS = 20
-MAX_SUB_ITERATIONS_IN_ONE_GO = 25
+MIN_OK_URLS = 5
+INIT_BATCH_SIZE = 8
+MAX_SUB_ITERATIONS_IN_ONE_GO = 12 # can only reach if some sites are big and get split
 
 
 def get_new_heatseek_response(chat_state: ChatState) -> Props:
@@ -255,7 +256,9 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
     )
 
     # Get content from links and initialize URLConveyer
-    url_retrieval_data = get_content_from_urls(urls, min_ok_urls=MIN_OK_URLS)
+    url_retrieval_data = get_content_from_urls(
+        urls, min_ok_urls=MIN_OK_URLS, init_batch_size=INIT_BATCH_SIZE
+    )
     url_conveyer = URLConveyer.from_retrieval_data(url_retrieval_data)
 
     # Convert retrieval data to docs and break up docs that are too big
@@ -306,7 +309,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
             piece = f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
             full_reply += piece
             chat_state.add_to_output(piece)
-            if is_done:= (evaluation in ["EXCELLENT", "GOOD"]):
+            if is_done := (evaluation in ["EXCELLENT", "GOOD"]):
                 break
         else:
             # If content is insufficient, add to the "Checked: " block
@@ -318,6 +321,11 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
             piece += f"[{shorten_url(source)}]({source})"
             full_reply += piece
             chat_state.add_to_output(piece)
+
+    if not is_done:
+        piece = "\n\nSo far, I have not found a source with a satisfactory answer."
+        full_reply += piece
+        chat_state.add_to_output(piece)
 
     hs_data = HeatseekData(
         query=query,
@@ -354,5 +362,6 @@ def get_research_heatseek_response(chat_state: ChatState) -> Props:
         return get_heatseek_in_progress_response(chat_state, hs_data)
 
     return format_nonstreaming_answer(
-        "To start a new heatseek, type `/re heatseek <your query>`."
+        "To start a new heatseek, type `/re heatseek <your query>`. I will then "
+        "keep searching the web and going through the results until I find a satisfactory answer."
     )
