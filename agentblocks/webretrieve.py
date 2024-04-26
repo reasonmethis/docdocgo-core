@@ -1,13 +1,12 @@
-import logging
 from typing import Callable
 
 from pydantic import BaseModel, Field
 
-from utils.prepare import DEFAULT_LOGGER_NAME
+from utils.prepare import get_logger
 from utils.type_utils import DDGError
 from utils.web import LinkData, get_batch_url_fetcher
 
-logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+logger = get_logger()
 
 
 class URLRetrievalData(BaseModel):

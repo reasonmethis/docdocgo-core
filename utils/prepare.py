@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 
@@ -22,6 +23,9 @@ LOG_LEVEL = os.getenv("LOG_LEVEL")
 LOG_FORMAT = os.getenv("LOG_FORMAT")
 setup_logging(LOG_LEVEL, LOG_FORMAT)
 DEFAULT_LOGGER_NAME = os.getenv("DEFAULT_LOGGER_NAME", "ddg")
+
+def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
+    return logging.getLogger(logger_name)
 
 # Set up the environment variables
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))

@@ -7,7 +7,10 @@ from agentblocks.core import enforce_json_format
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
+from utils.prepare import get_logger
 from utils.type_utils import DDGError, Props
+
+logger = get_logger()
 
 WEB_SEARCH_API_ISSUE_MSG = (
     "Apologies, it seems I'm having an issue with the API I use to search the web."
@@ -54,11 +57,10 @@ def get_links_from_queries(
     """
     try:
         # Do a Google search for each query
+        logger.info(f"Searching for {num_search_results} links for each query")
         search = GoogleSerperAPIWrapper(k=num_search_results)
         search_tasks = [search.aresults(query) for query in queries]
-        search_results = gather_tasks_sync(
-            search_tasks
-        )  # NOTE can use serper's batching
+        search_results = gather_tasks_sync(search_tasks)  # can use serper's batching
 
         # Get links from search results
         return get_links_from_search_results(search_results)
@@ -74,6 +76,7 @@ def get_web_search_result_urls_from_prompt(
     prompt, inputs: Props, num_links, chat_state: ChatState
 ) -> list[str]:
     # Get queries to search for
+    logger.info("Submitting prompt to get web search queries")
     query_generator_chain = chat_state.get_prompt_llm_chain(prompt, to_user=False)
 
     queries: list[str] = enforce_json_format(
