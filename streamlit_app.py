@@ -50,9 +50,9 @@ st.markdown(
     "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
 )
-st.markdown("Welcome to DocDocGo! 🦉")
-st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
-st.stop()
+# st.markdown("Welcome to DocDocGo! 🦉")
+# st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
+# st.stop()
 
 
 def show_uploader(is_new_widget=False, border=True):
