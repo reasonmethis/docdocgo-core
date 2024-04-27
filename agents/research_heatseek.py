@@ -1,15 +1,20 @@
 from langchain.prompts import PromptTemplate
 from pydantic import BaseModel
 
+from agentblocks.collectionhelper import (
+    get_collection_name_from_query,
+    start_new_collection,
+)
 from agentblocks.docconveyer import DocConveyer, break_up_big_docs
 from agentblocks.webprocess import URLConveyer
 from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import get_web_search_result_urls_from_prompt
 from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer, get_timestamp
-from utils.prepare import CONTEXT_LENGTH
+from utils.prepare import CONTEXT_LENGTH, ddglogger
+from utils.query_parsing import ParsedQuery
 from utils.strings import has_which_substring
-from utils.type_utils import JSONishDict, Props
+from utils.type_utils import JSONishDict
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
@@ -226,26 +231,27 @@ evaluation_code_to_grade = {
 
 
 def shorten_url(url: str) -> str:
-    return url.split("://")[-1].split("/")[0]
+    parts = url.split("://")[-1].split("/")
+    if len(parts) > 1:
+        return parts[0] + "/..."
+    return parts[0] if parts else url
 
 
 class HeatseekData(BaseModel):
     query: str
-    num_iterations_left: int
     url_conveyer: URLConveyer
     doc_conveyer: DocConveyer
-    is_done: bool
+    is_answer_found: bool
     answer: str
 
 
 MIN_OK_URLS = 5
 INIT_BATCH_SIZE = 8
-MAX_SUB_ITERATIONS_IN_ONE_GO = 12 # can only reach if some sites are big and get split
+MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and get split
 
 
-def get_new_heatseek_response(chat_state: ChatState) -> Props:
+def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
     query = chat_state.message
-    num_iterations_left = chat_state.parsed_query.research_params.num_iterations_left
 
     # Get links from prompt
     urls = get_web_search_result_urls_from_prompt(
@@ -268,12 +274,15 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
 
     full_reply = ""
     new_checked_block = True
-    is_done = False
+    is_answer_found = False
     for _ in range(MAX_SUB_ITERATIONS_IN_ONE_GO):
         # Get a batch of docs (in heatseek,
         # we only get one full doc at a time, but if it's big, it can come in parts)
         docs = doc_conveyer.get_next_docs(
             max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1
+        )
+        ddglogger.debug(
+            f"Values for part_id of docs: {[doc.metadata.get('part_id') for doc in docs]}"
         )
 
         # If no more docs, break
@@ -283,6 +292,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
 
         # Construct the context and get response from LLM
         source = docs[0].metadata["source"]
+        ddglogger.info(f"Getting response from LLM for user query from {source}")
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
         inputs = {"query": query, "context": context}
         reply = chat_state.get_llm_reply(
@@ -298,6 +308,7 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
 
             # Get response from evaluator
             inputs = {"query": query, "answer": reply}
+            ddglogger.info("Getting response from evaluator")
             evaluator_reply = chat_state.get_llm_reply(
                 answer_evaluator_prompt, inputs, to_user=False
             )
@@ -306,13 +317,16 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
             evaluation = has_which_substring(
                 evaluator_reply, ["EXCELLENT", "GOOD", "MEDIUM", "BAD"]
             )
+            ddglogger.info(f"Evaluation: {evaluation}")
             piece = f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
             full_reply += piece
             chat_state.add_to_output(piece)
-            if is_done := (evaluation in ["EXCELLENT", "GOOD"]):
+            if is_answer_found := (evaluation in ["EXCELLENT", "GOOD"]):
                 break
+            new_checked_block = True
         else:
             # If content is insufficient, add to the "Checked: " block
+            ddglogger.info("Content is insufficient")
             if new_checked_block:
                 piece = "\n\nChecked: " if full_reply else "Checked: "
                 new_checked_block = False
@@ -322,30 +336,36 @@ def get_new_heatseek_response(chat_state: ChatState) -> Props:
             full_reply += piece
             chat_state.add_to_output(piece)
 
-    if not is_done:
+    if not is_answer_found:
+        ddglogger.info("No satisfactory answer found")
         piece = "\n\nSo far, I have not found a source with a satisfactory answer."
         full_reply += piece
         chat_state.add_to_output(piece)
 
-    hs_data = HeatseekData(
+    # Construct data for future iterations
+    hs_data_json = HeatseekData(
         query=query,
-        num_iterations_left=num_iterations_left - 1,
         url_conveyer=url_conveyer,
         doc_conveyer=doc_conveyer,
-        is_done=is_done,
+        is_answer_found=is_answer_found,
         answer=full_reply,
+    ).model_dump_json()
+
+    # Save agent state into ChromaDB
+    vectorstore = start_new_collection(
+        likely_coll_name=get_collection_name_from_query(query, chat_state),
+        docs=[],
+        collection_metadata={"agent_data": {"hs": hs_data_json}},
+        chat_state=chat_state,
     )
 
-    # ...
-
     # Return response
-    return {"answer": full_reply}
+    return {"answer": full_reply, "vectorstore": vectorstore}
 
 
 def get_heatseek_in_progress_response(
     chat_state: ChatState, hs_data: JSONishDict
-) -> Props:
-    message = chat_state.message
+) -> JSONishDict:
     num_iterations = chat_state.parsed_query.research_params.num_iterations_left
     return format_nonstreaming_answer(
         f"NOT YET IMPLEMENTED: Your heatseek is in progress. {num_iterations} iterations left."
@@ -353,11 +373,11 @@ def get_heatseek_in_progress_response(
 
 
 # NOTE: should catch and handle exceptions in main handler
-def get_research_heatseek_response(chat_state: ChatState) -> Props:
+def get_research_heatseek_response(chat_state: ChatState) -> JSONishDict:
     if chat_state.message:
         return get_new_heatseek_response(chat_state)
 
-    hs_data = chat_state.agent_data.get("hs_data")
+    hs_data = chat_state.get_agent_data().get("hs_data")
     if hs_data:
         return get_heatseek_in_progress_response(chat_state, hs_data)
 

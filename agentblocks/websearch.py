@@ -57,7 +57,7 @@ def get_links_from_queries(
     """
     try:
         # Do a Google search for each query
-        logger.info(f"Searching for {num_search_results} links for each query")
+        logger.info(f"Performing web search for queries: {queries}")
         search = GoogleSerperAPIWrapper(k=num_search_results)
         search_tasks = [search.aresults(query) for query in queries]
         search_results = gather_tasks_sync(search_tasks)  # can use serper's batching

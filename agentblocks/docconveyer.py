@@ -1,12 +1,5 @@
 import uuid
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from pydantic import BaseModel
-
-from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
-from utils.type_utils import Doc
-
 # class DocData(BaseModel):
 #     text: str | None = None
 #     source: str | None = None
@@ -14,9 +7,18 @@ from utils.type_utils import Doc
 #     doc_uuid: str | None = None
 # error: str | None = None
 # is_ingested: bool = False
-
 from typing import TypeVar
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from pydantic import BaseModel
+
+from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
+from utils.prepare import ddglogger
+from utils.type_utils import Doc
+
 DocT = TypeVar("DocT", Document, Doc)
+
 
 def _split_doc_based_on_tokens(
     doc: Document | Doc, max_tokens: float, target_num_chars: int
@@ -101,10 +103,14 @@ def break_up_big_docs(
     Split each big document into parts, leaving the small ones as they are. Big vs small is
     determined by how the number of tokens in the document compares to the max_tokens parameter.
     """
+    ddglogger.info(f"Breaking up big docs into parts with max_tokens={max_tokens}")
     new_docs = []
     for doc in docs:
         doc_parts = split_doc_based_on_tokens(doc, max_tokens)
         if len(doc_parts) > 1:
+            ddglogger.info(
+                f"Splitting doc {doc.metadata.get('source')} into {len(doc_parts)} parts"
+            )
             # Create an id representing the original doc
             full_doc_ref = uuid.uuid4().hex[:8]
             for i, doc_part in enumerate(doc_parts):

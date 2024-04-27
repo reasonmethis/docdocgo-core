@@ -79,7 +79,7 @@ def prepare_chunks(
 FAKE_FULL_DOC_EMBEDDING = [1.0] * EMBEDDINGS_DIMENSIONS
 
 
-def ingest_docs_into_chroma(
+def load_into_chroma(
     docs: list[Document],
     *,
     collection_name: str,
@@ -90,7 +90,8 @@ def ingest_docs_into_chroma(
     verbose: bool = False,
 ) -> ChromaDDG:
     """
-    Ingest a list of documents and return a vectorstore.
+    Load documents and/or collection metadata into a Chroma collection, return a vectorstore
+    object. 
 
     If collection_metadata is passed and the collection exists, the metadata will be
     replaced with the passed metadata, according to the Chroma docs.
@@ -101,6 +102,16 @@ def ingest_docs_into_chroma(
     # incorporates the existing docs (I think it does, but I need to double check).
     clg = ConditionalLogger(verbose)
     assert bool(chroma_client) != bool(save_dir), "Invalid vector db destination"
+
+    # Handle special case of no docs - just create/update collection with given metadata
+    if not docs:
+        return ChromaDDG(
+            embedding=get_openai_embeddings(openai_api_key),
+            client=chroma_client,
+            persist_directory=save_dir,
+            collection_name=collection_name,
+            collection_metadata=collection_metadata,
+        )
 
     # Prepare full texts, metadatas and ids
     full_doc_ids = [str(uuid.uuid4()) for _ in range(len(docs))]

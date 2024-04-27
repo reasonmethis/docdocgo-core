@@ -1,3 +1,4 @@
+import json
 from typing import Callable
 
 from chromadb import Collection
@@ -167,6 +168,23 @@ class ChatState:
         ):
             return tmp_vectorstore.fetch_collection_metadata()
         return None
+
+    def get_agent_data(self) -> AgentDataDict :
+        """
+        Extract agent data from the currently selected collection's metadata
+        """
+        try:
+            return json.loads(self.fetch_collection_metadata()["agent_data"])
+        except (TypeError, KeyError):
+            return {}
+
+    def save_agent_data(self, agent_data: AgentDataDict) -> None:
+        """
+        Update the currently selected collection's metadata with the given agent data
+        """
+        coll_metadata = self.fetch_collection_metadata() or {}
+        coll_metadata["agent_data"] = json.dumps(agent_data)
+        self.vectorstore.save_collection_metadata(coll_metadata)
 
     def get_rr_data(self) -> ResearchReportData | None:
         """

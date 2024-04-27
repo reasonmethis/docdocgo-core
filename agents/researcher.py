@@ -1,27 +1,27 @@
 import json
 import os
-import uuid
 from datetime import datetime
 from enum import Enum
 
-from chromadb import ClientAPI
 from icecream import ic
 from langchain.schema import Document
 
+from agentblocks.collectionhelper import (
+    get_collection_name_from_query,
+    start_new_collection,
+)
 from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import WEB_SEARCH_API_ISSUE_MSG, get_links_from_queries
 from agents.dbmanager import (
-    construct_full_collection_name,
     get_access_role,
     get_user_facing_collection_name,
 )
 from agents.research_heatseek import get_research_heatseek_response
 from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
-from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma
+from utils.docgrab import load_into_chroma
 from utils.helpers import (
     RESEARCH_COMMAND_HELP_MSG,
     format_invalid_input_answer,
@@ -34,7 +34,7 @@ from utils.lang_utils import (
     get_num_tokens_in_texts,
     limit_tokens_in_texts,
 )
-from utils.prepare import CONTEXT_LENGTH
+from utils.prepare import CONTEXT_LENGTH, get_logger
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
@@ -45,6 +45,8 @@ from utils.prompts import (
 from utils.query_parsing import ParsedQuery, ResearchCommand
 from utils.strings import extract_json
 from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
+
+logger = get_logger()
 
 NO_EDITOR_ACCESS_MSG = (
     "Apologies, you don't have editor access to this collection. "
@@ -277,15 +279,6 @@ def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM)
     raise ValueError(f"Invalid mode: {mode}")
 
 
-SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
-SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
-SMALL_WORDS |= {"what", "which", "who", "whom", "whose", "where", "when", "how"}
-SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could"}
-SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
-SMALL_WORDS |= {"my", "your", "his", "her", "its", "our", "their", "mine", "yours"}
-SMALL_WORDS |= {"some", "any"}
-
-
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     """Process "new" command."""
     response = get_web_research_response_no_ingestion(chat_state)
@@ -312,43 +305,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         link for link, data in rr_data.link_data_dict.items() if not data.error
     ]
 
-    # Decide on the collection name consistent with ChromaDB's naming rules
-    query_words = [x.lower() for x in rr_data.query.split()]
-    words = []
-    words_excluding_small = []
-    for word in query_words:
-        word_just_alnum = "".join(x for x in word if x.isalnum())
-        if not word_just_alnum:
-            break
-        words.append(word_just_alnum)
-        if word not in SMALL_WORDS:
-            words_excluding_small.append(word_just_alnum)
-
-    words = words_excluding_small if len(words_excluding_small) > 2 else words
-
-    new_coll_name = "-".join(words[:3])[:35].rstrip("-")
-
-    # Screen for too short collection names or those that are convetible to a number
-    try:
-        if len(new_coll_name) < 3 or int(new_coll_name) is not None:
-            new_coll_name = f"collection-{new_coll_name}".rstrip("-")
-    except ValueError:
-        pass
-
-    # Construct full collection name (preliminary)
-    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
-
-    new_coll_name_final = new_coll_name
-
-    # Check if collection exists, if so, add a number to the end
-    chroma_client: ClientAPI = chat_state.vectorstore.client
-    for i in range(2, 1000000):
-        if not exists_collection(new_coll_name_final, chroma_client):
-            break
-        new_coll_name_final = f"{new_coll_name}-{i}"
-
     # Convert website content into documents for ingestion
-    print_no_newline("\nIngesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = rr_data.link_data_dict[link]
@@ -359,40 +316,24 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    for i in range(2):
-        try:
-            collection_metadata = {"rr_data": rr_data.model_dump_json()}
-            # NOTE: might want to remove collection_name from collection_metadata
-            # since the user can rename the collection without updating the metadata
-            response["vectorstore"] = ingest_docs_into_chroma(
-                docs,
-                collection_name=new_coll_name_final,
-                openai_api_key=chat_state.openai_api_key,
-                chroma_client=chroma_client,
-                collection_metadata=collection_metadata,
-            )
-            break  # success
-        except Exception as e:  # bad name error may not be ValueError in docker mode
-            if i or "Expected collection name" not in str(e):
-                raise e  # i == 1 means tried normal name and random name, give up
+    vectorstore = start_new_collection(
+        likely_coll_name=get_collection_name_from_query(rr_data.query, chat_state),
+        docs=docs,
+        collection_metadata={"rr_data": rr_data.model_dump_json()},
+        chat_state=chat_state,
+    )
 
-            # Create a random valid collection name and try again
-            new_coll_name_final = construct_full_collection_name(
-                chat_state.user_id, "collection-" + uuid.uuid4().hex[:8]
-            )
-
-    print("Done")
-    return response  # has answer, vectorstore
+    return response | {"vectorstore": vectorstore}
 
 
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
-    # TODO: just mutate chat_state
+    # NOTE: just mutate chat_state instead?
     research_params = chat_state.parsed_query.research_params
     if research_params.num_iterations_left < 2:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = ""  # NOTE: need this?
+    new_parsed_query.message = ""  # otherwise will be treated as a new query (at least in hs)
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -636,7 +577,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Ingest documents into ChromaDB
     if docs:
         print_no_newline("\nIngesting new documents into ChromaDB...")
-        ingest_docs_into_chroma(
+        load_into_chroma(
             docs,
             collection_name=chat_state.collection_name,
             chroma_client=chat_state.vectorstore.client,
