@@ -48,7 +48,7 @@ def get_bot_response(chat_state: ChatState):
         chat_chain = get_docs_chat_chain(chat_state)
     elif chat_mode_val == ChatMode.DETAILS_COMMAND_ID.value:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
-    elif chat_mode_val == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
+    elif chat_mode_val == ChatMode.QUOTES_COMMAND_ID.value:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif chat_mode_val == ChatMode.WEB_COMMAND_ID.value:  # /web command
         return get_websearcher_response(chat_state)
@@ -73,7 +73,7 @@ def get_bot_response(chat_state: ChatState):
             }
         )
         return {"answer": answer}
-    elif chat_mode_val == ChatMode.DB_COMMAND_ID:  # /db command
+    elif chat_mode_val == ChatMode.DB_COMMAND_ID.value:  # /db command
         return handle_db_command(chat_state)
     elif chat_mode_val == ChatMode.SHARE_COMMAND_ID.value:  # /share command
         return handle_share_command(chat_state)
