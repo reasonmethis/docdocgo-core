@@ -75,10 +75,10 @@ To showcase some of my talents, feel free to try the following queries in sequen
 - `/research legal arguments for and against disqualifying Trump from running`
 - `/research deeper` (to fetch more sites and make a new report based on 2x as many sources)
 - `Which legal scholars have argued for disqualification?`
-- `/db use 1` (to switch to the default collection, which contains DocDocGo's documentation)
-- `How can I do "infinite" research? Tell me in the style of prof. Dumbledore.`
+- `/help How can I do "infinite" research? Tell me like you are prof. Dumbledore`
 - `/db` (to manage your _collections_, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
+- `/research heatseek Find me a quote by Obama about Jill Biden`
 
 After performing the "deeper" command above, you will end up with a report that uses \
 information from 2x as many sources as the original report. If you wanted to quadruple \
@@ -110,11 +110,12 @@ what you want to do, and I'll guide you through it. For example:
 /help How can I have you do web research for me?
 ```
 
-Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional, if you just enter a message the default `/docs` prefix is used.
+Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional - if you just enter a message the default `/docs` prefix is used.
 
 Here's what each prefix does. Most important ones:
 
 - `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
+- `/research heatseek <your query>`: perform "heatseek" research - find websites that contain the answer
 - `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
@@ -127,7 +128,7 @@ Other prefixes:
 
 - `/details <your query>`: get details about the retrieved documents
 - `/quotes <your query>`: get quotes from the retrieved documents
-- `/web <your query>`: perform web searches and generate a report
+- `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
 
 Ingesting into the current vs a new collection:
@@ -144,8 +145,9 @@ Example queries (you can try them out in sequence):
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
-- `/docs Tell me just the ones related to OpenAI`
+- `/docs Which news you found relate to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
+- `/re heatseek 3 I need example code for how to update React state in shadcn Slider component`
 
 If you're in a reading mood, here's a [link to my full docs]\
 (https://github.com/reasonmethis/docdocgo-core/blob/main/README.md).
@@ -175,9 +177,16 @@ Remember, you can always ask me for help in using me - simply type `/help` follo
 """
 
 RESEARCH_COMMAND_HELP_MSG = """\
-Here are the most important commands you can use for Internet research:
+**1. "Heatseek" mode:** look for websites that contain the answer to your query (no KB created)
 
-- `/research <your query>`: start new Internet research, generate report, create KB from fetched sites
+- `/research heatseek 6 <your query>`: perform 6 rounds of "heatseek" research
+- `/re hs 5`: perform 5 more rounds (can use shorthands for commands)
+
+This is a new, more lightweight mode that is highly useful when you need to find that "gem" of a website that contains some specific information and Google is just giving you too much noise.
+
+**2. Regular mode:** use content from multiple websites to write a detailed answer, create a KB
+
+- `/research <your query>`: start new research, generate report, create KB from fetched sites
 - `/research deeper`: expand report and KB to cover 2x more sites as current report
 - `/research deeper 3`: perform the above 3 times (careful - time/number of steps increases exponentially)
 

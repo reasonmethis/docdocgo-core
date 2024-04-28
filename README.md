@@ -123,23 +123,25 @@ The details of using the API are described in the [Developer Guide](README-FOR-D
 
 ## Using DocDocGo
 
-The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional, if you just enter a message the `/docs` prefix is used.
+The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional - if you just enter a message the `/docs` prefix is used.
 
 Here's what each prefix does. Most important ones:
 
 - `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
+- `/research heatseek <your query>`: perform "heatseek" research - find websites that contain the answer
 - `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
 - `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
 - `/db`: manage your doc collections (select, rename, etc.)
+- `/share`: share your collection with others
 - `/help <your query>`: get help with using DocDocGo
 
 Other prefixes:
 
 - `/details <your query>`: get details about the retrieved documents
 - `/quotes <your query>`: get quotes from the retrieved documents
-- `/web <your query>`: perform web searches and generate a report
+- `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
 
 Ingesting into the current vs a new collection:
@@ -157,8 +159,9 @@ Example queries:
 - `/research` (to see research options, including the "infinite" research)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
-- `/docs Tell me just the ones related to OpenAI`
+- `/docs Which news you found relate to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
+- `/re heatseek 3 I need example code for how to update React state in shadcn Slider component`
 
 We'll delve into the most important commands in more detail in the sections below. Another way to get help is to simply ask DocDocGo itself. Simply type `/help` followed by your question. If the default `docdocgo-documentation` collection is selected you don't even need to use the `/help` prefix.
 
@@ -172,7 +175,16 @@ We'll first provide a "cheatsheet" of all of the research options, and then go o
 
 Here are the most important commands you can use for Internet research:
 
-- `/research <your query>`: start new Internet research, generate report, create KB from fetched sites
+**1. "Heatseek" mode:** look for websites that contain the answer to your query (no KB created)
+
+- `/research heatseek 6 <your query>`: perform 6 rounds of "heatseek" research
+- `/re hs 5`: perform 5 more rounds (can use shorthands for commands)
+
+This is a new, more lightweight mode that is highly useful when you need to find that "gem" of a website that contains some specific information and Google is just giving you too much noise.
+
+**2. Regular mode:** use content from multiple websites to write a detailed answer, create a KB
+
+- `/research <your query>`: start new research, generate report, create KB from fetched sites
 - `/research deeper`: expand report and KB to cover 2x more sites as current report
 - `/research deeper 3`: perform the above 3 times (careful - time/number of steps increases exponentially)
 
