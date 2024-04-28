@@ -8,7 +8,7 @@ from agents.dbmanager import (
     get_user_facing_collection_name,
 )
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma
+from utils.docgrab import load_into_chroma
 from utils.helpers import ADDITIVE_COLLECTION_PREFIX, INGESTED_DOCS_INIT_PREFIX
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import IngestCommand
@@ -42,7 +42,7 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
             chat_state.user_id, uploaded_docs_coll_name_as_shown
         )
     try:
-        ingest_docs_into_chroma(
+        load_into_chroma(
             docs,
             collection_name=uploaded_docs_coll_name_full,
             chroma_client=chat_state.vectorstore.client,

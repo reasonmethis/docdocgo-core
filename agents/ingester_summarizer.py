@@ -10,7 +10,7 @@ from agents.dbmanager import (
 )
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma
+from utils.docgrab import load_into_chroma
 from utils.helpers import (
     ADDITIVE_COLLECTION_PREFIX,
     INGESTED_DOCS_INIT_PREFIX,
@@ -159,7 +159,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             res = {"answer": summarize(docs, chat_state)}
 
     # Ingest into Chroma
-    ingest_docs_into_chroma(
+    load_into_chroma(
         docs,
         collection_name=coll_name_full,
         chroma_client=chat_state.vectorstore.client,

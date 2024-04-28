@@ -1,14 +1,14 @@
-import datetime
+from datetime import datetime
 
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
+from agentblocks.websearch import get_links_from_search_results
 from components.llm import get_prompt_llm_chain
 from utils.async_utils import gather_tasks_sync, make_sync
 from utils.chat_state import ChatState
 from utils.lang_utils import get_num_tokens, limit_tokens_in_texts
 from utils.prepare import CONTEXT_LENGTH
 from utils.prompts import RESEARCHER_PROMPT_SIMPLE
-from utils.researcher_utils import get_links
 from utils.web import (
     afetch_urls_in_parallel_playwright,
     get_text_from_html,
@@ -52,8 +52,8 @@ def get_websearcher_response_quick(
     search = GoogleSerperAPIWrapper()
     search_tasks = [search.aresults(query) for query in queries]
     search_results = gather_tasks_sync(search_tasks)
-    links = get_links(search_results)[:max_total_links]
-    print("links:", links)
+    links = get_links_from_search_results(search_results)[:max_total_links]
+    print("Links:", links)
 
     # Get content from links, measuring time taken
     t_start = datetime.now()

@@ -20,13 +20,14 @@ from agents.dbmanager import (
 )
 from components.chroma_ddg import load_vectorstore
 from docdocgo import get_bot_response, get_source_links
-from utils.chat_state import ChatState, ScheduledQueries
+from utils.chat_state import AgentDataDict, ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
 from utils.ingest import extract_text, format_ingest_failure
 from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
+    INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG,
     MAX_UPLOAD_BYTES,
 )
 from utils.query_parsing import parse_query
@@ -34,6 +35,7 @@ from utils.type_utils import (
     AccessRole,
     BotSettings,
     ChatMode,
+    DDGError,
     Instruction,
     JSONish,
     OperationMode,
@@ -62,8 +64,21 @@ class ChatRequestData(BaseModel):
     chat_history: list[JSONish] = []
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
-    scheduled_queries_str: str | None = None  # JSON string of ScheduledQueries
+    agentic_flow_state_str: str | None = None  # JSON string that frontend passes back
     bot_settings: BotSettings | None = None
+
+    def parse_agentic_state(self):
+        agentic_state: dict = json.loads(self.agentic_flow_state_str or "{}")
+
+        if tmp := agentic_state.get("scheduled_queries") is None:
+            scheduled_queries = ScheduledQueries()
+        else:
+            scheduled_queries = ScheduledQueries.model_validate(tmp)
+
+        agent_data: AgentDataDict = agentic_state.get("agent_data", {})
+        # TODO: validate agent_data
+
+        return scheduled_queries, agent_data
 
 
 class ChatResponseData(BaseModel):
@@ -72,7 +87,18 @@ class ChatResponseData(BaseModel):
     collection_name: str | None = None
     user_facing_collection_name: str | None = None
     instructions: list[Instruction] | None = None
-    scheduled_queries_str: str | None = None  # JSON string of ScheduledQueries
+    agentic_flow_state_str: str | None = None  # JSON string that frontend passes back
+
+    @staticmethod
+    def encode_agentic_state(
+        scheduled_queries: ScheduledQueries, agent_data: AgentDataDict
+    ):
+        return json.dumps(
+            {
+                "scheduled_queries": scheduled_queries.model_dump(),
+                "agent_data": agent_data,
+            }
+        )
 
 
 DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
@@ -105,8 +131,8 @@ async def handle_chat_or_ingest_request(
 ):
     try:
         # Process the request data for constructing the chat state
-        message: str = data.message.strip()  # orig vars overwritten on purpose
-        api_key: str = data.api_key  # DocDocGo API key
+        message = data.message.strip()
+        api_key = data.api_key  # DocDocGo API key
 
         # If admin pwd is sent, use default key
         if (
@@ -131,13 +157,8 @@ async def handle_chat_or_ingest_request(
         data.collection_name = data.collection_name or DEFAULT_COLLECTION_NAME
         collection_name = data.collection_name
         access_codes_cache: dict[str, str] | None = data.access_codes_cache
-        if data.scheduled_queries_str is None:
-            scheduled_queries = ScheduledQueries()
-        else:
-            # Decode from JSON string (encoded to have a simpler type in the frontend)
-            scheduled_queries = ScheduledQueries.model_validate_json(
-                data.scheduled_queries_str
-            )
+
+        scheduled_queries, agent_data = data.parse_agentic_state()
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -207,11 +228,11 @@ async def handle_chat_or_ingest_request(
             vectorstore=vectorstore,
             is_community_key=is_community_key,
             chat_history=chat_history,
-            chat_and_command_history=chat_history,  # no difference in this context
             openai_api_key=openai_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
             scheduled_queries=scheduled_queries,
+            agent_data=agent_data,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
             uploaded_docs=docs,
             bot_settings=data.bot_settings,
@@ -226,11 +247,21 @@ async def handle_chat_or_ingest_request(
 
         # Get the bot's response
         result = get_bot_response(chat_state)
-    except Exception as e:
-        ic(traceback.format_exc())
+    except DDGError as e:
+        print(traceback.format_exc())
+        user_msg = (
+            e.user_facing_message_full
+            if INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG
+            else e.user_facing_message
+        )
+        print("User message:", user_msg)
+        return ChatResponseData(content=user_msg)  # NOTE: think about http status codes
+    except Exception:
+        print(traceback.format_exc())
+
         return ChatResponseData(
             content="Apologies, I encountered an error while trying to "
-            f"compose a response to you. The error reads:\n\n{e}"
+            "compose a response to you."
         )
 
     # print("AI:", reply) - no need, we are streaming to stdout now
@@ -244,7 +275,7 @@ async def handle_chat_or_ingest_request(
 
     # If result has instructions to auto-run a query, add to front of queue
     if new_parsed_query := result.get("new_parsed_query"):
-        chat_state.scheduled_queries.add_to_front(new_parsed_query)
+        chat_state.scheduled_queries.add_to_front(new_parsed_query)  # should move this
 
     # Prepare the response
     rsp = ChatResponseData(
@@ -255,9 +286,9 @@ async def handle_chat_or_ingest_request(
             chat_state.user_id, collection_name
         ),
         instructions=result.get("instructions"),
-        scheduled_queries_str=chat_state.scheduled_queries.model_dump_json()
-        if chat_state.scheduled_queries
-        else None,
+        agentic_flow_state_str=ChatResponseData.encode_agentic_state(
+            chat_state.scheduled_queries, chat_state.agent_data
+        ),
     )
 
     # Return the response
@@ -290,6 +321,7 @@ async def ingest(
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
     scheduled_queries_str: Annotated[str | None, Form()] = None,
+    agent_data: Annotated[str | None, Form()] = None,  # JSON string
     bot_settings: Annotated[BotSettings | None, Form()] = None,
 ):
     """
@@ -330,7 +362,8 @@ async def ingest(
             chat_history=decode_param(chat_history),
             collection_name=decode_param(collection_name),
             access_codes_cache=decode_param(access_codes_cache),
-            scheduled_queries_str=decode_param(scheduled_queries_str),
+            agentic_flow_state_str=decode_param(scheduled_queries_str),
+            bot_settings=decode_param(bot_settings),
         )
         ic(data)
     except Exception as e:

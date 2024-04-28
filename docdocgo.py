@@ -25,7 +25,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME
+from utils.prepare import DEFAULT_COLLECTION_NAME, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -36,25 +36,27 @@ from utils.prompts import (
 from utils.query_parsing import parse_query
 from utils.type_utils import ChatMode, OperationMode
 
+logger = get_logger()
+
 default_vectorstore = None  # can move to chat_state
 
 
 def get_bot_response(chat_state: ChatState):
     global default_vectorstore
-    chat_mode = chat_state.chat_mode
-    if chat_mode == ChatMode.CHAT_WITH_DOCS_COMMAND_ID:  # /docs command
+    chat_mode_val = chat_state.chat_mode.value # use value due to Streamlit code reloading
+    if chat_mode_val == ChatMode.CHAT_WITH_DOCS_COMMAND_ID.value:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
-    elif chat_mode == ChatMode.DETAILS_COMMAND_ID:  # /details command
+    elif chat_mode_val == ChatMode.DETAILS_COMMAND_ID.value:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
-    elif chat_mode == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
+    elif chat_mode_val == ChatMode.QUOTES_COMMAND_ID:  # /quotes command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
-    elif chat_mode == ChatMode.WEB_COMMAND_ID:  # /web command
+    elif chat_mode_val == ChatMode.WEB_COMMAND_ID.value:  # /web command
         return get_websearcher_response(chat_state)
-    elif chat_mode == ChatMode.SUMMARIZE_COMMAND_ID:  # /summarize command
+    elif chat_mode_val == ChatMode.SUMMARIZE_COMMAND_ID.value:  # /summarize command
         return get_ingester_summarizer_response(chat_state)
-    elif chat_mode == ChatMode.RESEARCH_COMMAND_ID:  # /research command
+    elif chat_mode_val == ChatMode.RESEARCH_COMMAND_ID.value:  # /research command
         return get_researcher_response(chat_state)  # includes "vectorstore" if created
-    elif chat_mode == ChatMode.JUST_CHAT_COMMAND_ID:  # /chat command
+    elif chat_mode_val == ChatMode.JUST_CHAT_COMMAND_ID.value:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
             llm_settings=chat_state.bot_settings,
@@ -71,11 +73,11 @@ def get_bot_response(chat_state: ChatState):
             }
         )
         return {"answer": answer}
-    elif chat_mode == ChatMode.DB_COMMAND_ID:  # /db command
+    elif chat_mode_val == ChatMode.DB_COMMAND_ID:  # /db command
         return handle_db_command(chat_state)
-    elif chat_mode == ChatMode.SHARE_COMMAND_ID:  # /share command
+    elif chat_mode_val == ChatMode.SHARE_COMMAND_ID.value:  # /share command
         return handle_share_command(chat_state)
-    elif chat_mode == ChatMode.HELP_COMMAND_ID:  # /help command
+    elif chat_mode_val == ChatMode.HELP_COMMAND_ID.value:  # /help command
         if not chat_state.parsed_query.message:
             return {"answer": HELP_MESSAGE, "needs_print": True}
 
@@ -96,7 +98,7 @@ def get_bot_response(chat_state: ChatState):
         )
         chat_state.vectorstore = saved_vectorstore
         return res
-    elif chat_mode == ChatMode.INGEST_COMMAND_ID:  # /ingest command
+    elif chat_mode_val == ChatMode.INGEST_COMMAND_ID.value:  # /ingest command
         # If a URL is given, fetch and ingest it. Otherwise, upload local docs
         if (
             chat_state.operation_mode.value == OperationMode.CONSOLE.value
@@ -111,7 +113,7 @@ def get_bot_response(chat_state: ChatState):
         return get_ingester_summarizer_response(chat_state)
     else:
         # Should never happen
-        raise ValueError(f"Invalid chat mode: {chat_mode}")
+        raise ValueError(f"Invalid chat mode: {chat_state.chat_mode}")
 
     return chat_chain.invoke(
         {
@@ -284,7 +286,6 @@ if __name__ == "__main__":
                     operation_mode=OperationMode.CONSOLE,
                     parsed_query=parsed_query,
                     chat_history=chat_history,
-                    chat_and_command_history=chat_history,  # not used in console mode
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
                     openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
                 )

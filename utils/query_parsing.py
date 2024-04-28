@@ -7,7 +7,10 @@ from typing import Any, Callable, Container
 from pydantic import BaseModel
 
 from utils.helpers import DEFAULT_CHAT_MODE, command_ids
+from utils.prepare import get_logger
 from utils.type_utils import AccessCodeType, ChatMode, Props
+
+logger = get_logger()
 
 DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE STATUS EXIT NONE")
 db_command_to_enum = {
@@ -21,7 +24,7 @@ db_command_to_enum = {
 ResearchCommand = Enum(
     "ResearchCommand",
     "NEW MORE COMBINE AUTO DEEPER ITERATE VIEW SET_QUERY SET_SEARCH_QUERIES "
-    "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES NONE",
+    "SET_REPORT_TYPE CLEAR STARTOVER AUTO_UPDATE_SEARCH_QUERIES HEATSEEK NONE",
 )
 research_command_to_enum = {
     "iterate": ResearchCommand.ITERATE,
@@ -41,6 +44,8 @@ research_command_to_enum = {
     "startover": ResearchCommand.STARTOVER,
     "auto-update-search-queries": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
     "ausq": ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES,
+    "heatseek": ResearchCommand.HEATSEEK,
+    "hs": ResearchCommand.HEATSEEK,  # "hs" is a shorthand for "heatseek
 }
 research_view_subcommands = {"main", "base", "combined", "stats"}
 
@@ -76,6 +81,7 @@ share_revoke_subcommand_to_enum = {
     "all-pwds": ShareRevokeSubCommand.ALL_CODES,
     "all-users": ShareRevokeSubCommand.ALL_USERS,
 }
+HEATSEEKER_DEFAULT_NUM_ITERATIONS = 1
 
 
 class ResearchParams(BaseModel):
@@ -313,16 +319,24 @@ def parse_research_command(orig_query: str) -> tuple[ResearchParams, str]:
             return ResearchParams(task_type=ResearchCommand.NEW), orig_query
         return ResearchParams(task_type=task_type), ""
 
-    # We have a task type that supports multiple iterations: MORE, COMBINE, AUTO, ITERATE, DEEPER
+    # We have a task type that supports multiple iterations:
+    # MORE, COMBINE, AUTO, ITERATE, DEEPER, HEATSEEK
     num_iterations, query_after_get_int = get_int(query)
 
-    if not query_after_get_int:
-        if num_iterations is None:  # e.g. /research more
-            return ResearchParams(task_type=task_type), ""
-        if num_iterations > 0:  # e.g. /research combine 10
-            return ResearchParams(
-                task_type=task_type, num_iterations_left=num_iterations
-            ), ""
+    if num_iterations is None:
+        num_iterations = (
+            HEATSEEKER_DEFAULT_NUM_ITERATIONS
+            if task_type == ResearchCommand.HEATSEEK
+            else 1
+        )
+
+    # Most of these task types require the remaining query to be empty
+    if num_iterations > 0 and (
+        not query_after_get_int or task_type == ResearchCommand.HEATSEEK
+    ):
+        return ResearchParams(
+            task_type=task_type, num_iterations_left=num_iterations
+        ), query_after_get_int
 
     # We have e.g. "/research auto somequery", treat "auto" as part of the query
     # OR no valid number of iterations specified, treat e.g. -10 as part of actual query

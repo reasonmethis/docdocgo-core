@@ -1,31 +1,32 @@
 import json
 import os
-import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Callable
 
-from chromadb import ClientAPI
 from icecream import ic
 from langchain.schema import Document
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 
+from agentblocks.collectionhelper import (
+    get_collection_name_from_query,
+    start_new_collection,
+)
+from agentblocks.webretrieve import get_content_from_urls
+from agentblocks.websearch import WEB_SEARCH_API_ISSUE_MSG, get_links_from_queries
 from agents.dbmanager import (
-    construct_full_collection_name,
     get_access_role,
     get_user_facing_collection_name,
 )
+from agents.research_heatseek import get_research_heatseek_response
 from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
-from components.chroma_ddg import exists_collection
 from components.llm import get_prompt_llm_chain
-from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
-from utils.docgrab import ingest_docs_into_chroma
+from utils.docgrab import load_into_chroma
 from utils.helpers import (
     RESEARCH_COMMAND_HELP_MSG,
     format_invalid_input_answer,
     format_nonstreaming_answer,
+    get_timestamp,
     print_no_newline,
 )
 from utils.lang_utils import (
@@ -33,7 +34,7 @@ from utils.lang_utils import (
     get_num_tokens_in_texts,
     limit_tokens_in_texts,
 )
-from utils.prepare import CONTEXT_LENGTH
+from utils.prepare import CONTEXT_LENGTH, get_logger
 from utils.prompts import (
     ITERATIVE_REPORT_IMPROVER_PROMPT,
     QUERY_GENERATOR_PROMPT,
@@ -42,13 +43,10 @@ from utils.prompts import (
     SEARCH_QUERIES_UPDATER_PROMPT,
 )
 from utils.query_parsing import ParsedQuery, ResearchCommand
-from utils.researcher_utils import get_links
 from utils.strings import extract_json
 from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
-from utils.web import (
-    LinkData,
-    get_batch_url_fetcher,
-)
+
+logger = get_logger()
 
 NO_EDITOR_ACCESS_MSG = (
     "Apologies, you don't have editor access to this collection. "
@@ -57,71 +55,7 @@ NO_EDITOR_ACCESS_MSG = (
 )
 NO_EDITOR_ACCESS_STATUS = "No editor access to collection"
 
-WEB_SEARCH_API_ISSUE_MSG = (
-    "Apologies, it seems I'm having an issue with the API I use to search the web."
-)
 NO_FETCHED_CONTENT_MSG = "Apologies, I could not retrieve any useful content."
-
-
-def get_timestamp():
-    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
-    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-
-
-def get_content_from_urls_with_top_up(
-    urls: list[str],
-    batch_fetcher: Callable[[list[str]], list[str]],
-    min_ok_urls: int,
-    init_batch_size: int | None = None,  # auto-determined if None
-) -> dict[str, LinkData]:
-    """
-    Fetch content from a list of urls using a batch fetcher. If at least
-    min_ok_urls urls are fetched successfully, return the fetched content.
-    Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
-    urls are fetched successfully.
-    """
-    init_batch_size = min(10, round(min_ok_urls * 1.2))  # NOTE: could optimize
-
-    print(
-        f"Fetching content from {len(urls)} urls:\n"
-        f" - {min_ok_urls} successfully obtained URLs needed\n"
-        f" - {init_batch_size} is the initial batch size\n"
-    )
-
-    link_data_dict = {}
-    num_urls = len(urls)
-    num_processed_urls = 0
-    num_ok_urls = 0
-
-    # If, say, only 3 ok urls are still needed, we might want to try fetching 3 + extra
-    num_extras = max(2, init_batch_size - min_ok_urls)
-
-    while num_processed_urls < num_urls and num_ok_urls < min_ok_urls:
-        batch_size = min(
-            init_batch_size,
-            num_urls - num_processed_urls,
-            min_ok_urls - num_ok_urls + num_extras,
-        )
-        print(f"Fetching {batch_size} urls:")
-        batch_urls = urls[num_processed_urls : num_processed_urls + batch_size]
-        print("- " + "\n- ".join(batch_urls))
-
-        # Fetch content from urls in batch
-        batch_htmls = batch_fetcher(batch_urls)
-
-        # Process fetched content
-        for url, html in zip(batch_urls, batch_htmls):
-            link_data = LinkData.from_raw_content(html)
-            if not link_data.error:
-                num_ok_urls += 1
-            link_data_dict[url] = link_data
-        num_processed_urls += batch_size
-
-        print(f"Total URLs processed: {num_processed_urls} ({num_urls} total)")
-        print(f"Total successful URLs: {num_ok_urls} ({min_ok_urls} needed)\n")
-
-    return link_data_dict
-
 
 REPORT_ASSESSMENT_MSG = "REPORT ASSESSMENT:"
 NO_IMPROVEMENT_MSG = "NO IMPROVEMENT, PREVIOUS REPORT ASSESSMENT:"
@@ -177,21 +111,6 @@ def parse_research_report(answer: str) -> tuple[str, str | None]:
     if report.endswith("---"):
         report = report.rstrip("-").rstrip()
     return report, evaluation
-
-
-def get_links_from_queries(
-    queries: list[str], num_search_results: int = 10
-) -> list[str]:
-    """
-    Get links from a list of queries by doing a Google search for each query.
-    """
-    # Do a Google search for each query
-    search = GoogleSerperAPIWrapper(k=num_search_results)
-    search_tasks = [search.aresults(query) for query in queries]
-    search_results = gather_tasks_sync(search_tasks)  # TODO serper has batching
-
-    # Get links from search results
-    return get_links(search_results)
 
 
 MAX_QUERY_GENERATOR_ATTEMPTS = 5
@@ -265,18 +184,9 @@ def get_web_research_response_no_ingestion(
         raise ValueError(f"Failed to get links: {e}")
     t_get_links_end = datetime.now()
 
-    try:
-        print("Fetching content from links and extracting main content...")
-
-        # Get content from links
-        link_data_dict = get_content_from_urls_with_top_up(
-            all_links,
-            batch_fetcher=get_batch_url_fetcher(),
-            min_ok_urls=num_ok_links,
-        )
-        print()
-    except Exception as e:
-        raise ValueError(f"Failed to fetch content from URLs: {e}")
+    # Get content from links
+    url_retrieval_data = get_content_from_urls(all_links, num_ok_links)
+    link_data_dict = url_retrieval_data.link_data_dict
 
     # Determine which links to include in the context (num_ok_links good links)
     links_to_process = []
@@ -293,7 +203,7 @@ def get_web_research_response_no_ingestion(
         return format_nonstreaming_answer(NO_FETCHED_CONTENT_MSG)
 
     # Initialize data object
-    num_obtained_ok_links = sum(1 for data in link_data_dict.values() if not data.error)
+    num_obtained_ok_links = url_retrieval_data.num_ok_urls
     rr_data = ResearchReportData(
         query=query,
         search_queries=queries,
@@ -369,15 +279,6 @@ def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM)
     raise ValueError(f"Invalid mode: {mode}")
 
 
-SMALL_WORDS = {"a", "an", "the", "of", "in", "on", "at", "for", "to", "and", "or"}
-SMALL_WORDS |= {"is", "are", "was", "were", "be", "been", "being", "am", "what"}
-SMALL_WORDS |= {"what", "which", "who", "whom", "whose", "where", "when", "how"}
-SMALL_WORDS |= {"this", "that", "these", "those", "there", "here", "can", "could"}
-SMALL_WORDS |= {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her"}
-SMALL_WORDS |= {"my", "your", "his", "her", "its", "our", "their", "mine", "yours"}
-SMALL_WORDS |= {"some", "any"}
-
-
 def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
     """Process "new" command."""
     response = get_web_research_response_no_ingestion(chat_state)
@@ -404,43 +305,7 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         link for link, data in rr_data.link_data_dict.items() if not data.error
     ]
 
-    # Decide on the collection name consistent with ChromaDB's naming rules
-    query_words = [x.lower() for x in rr_data.query.split()]
-    words = []
-    words_excluding_small = []
-    for word in query_words:
-        word_just_alnum = "".join(x for x in word if x.isalnum())
-        if not word_just_alnum:
-            break
-        words.append(word_just_alnum)
-        if word not in SMALL_WORDS:
-            words_excluding_small.append(word_just_alnum)
-
-    words = words_excluding_small if len(words_excluding_small) > 2 else words
-
-    new_coll_name = "-".join(words[:3])[:35].rstrip("-")
-
-    # Screen for too short collection names or those that are convetible to a number
-    try:
-        if len(new_coll_name) < 3 or int(new_coll_name) is not None:
-            new_coll_name = f"collection-{new_coll_name}".rstrip("-")
-    except ValueError:
-        pass
-
-    # Construct full collection name (preliminary)
-    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
-
-    new_coll_name_final = new_coll_name
-
-    # Check if collection exists, if so, add a number to the end
-    chroma_client: ClientAPI = chat_state.vectorstore.client
-    for i in range(2, 1000000):
-        if not exists_collection(new_coll_name_final, chroma_client):
-            break
-        new_coll_name_final = f"{new_coll_name}-{i}"
-
     # Convert website content into documents for ingestion
-    print_no_newline("\nIngesting fetched content into ChromaDB...")
     docs: list[Document] = []
     for link in links_to_include:
         link_data = rr_data.link_data_dict[link]
@@ -451,40 +316,24 @@ def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    for i in range(2):
-        try:
-            collection_metadata = {"rr_data": rr_data.model_dump_json()}
-            # NOTE: might want to remove collection_name from collection_metadata
-            # since the user can rename the collection without updating the metadata
-            response["vectorstore"] = ingest_docs_into_chroma(
-                docs,
-                collection_name=new_coll_name_final,
-                openai_api_key=chat_state.openai_api_key,
-                chroma_client=chroma_client,
-                collection_metadata=collection_metadata,
-            )
-            break  # success
-        except Exception as e:  # bad name error may not be ValueError in docker mode
-            if i or "Expected collection name" not in str(e):
-                raise e  # i == 1 means tried normal name and random name, give up
+    vectorstore = start_new_collection(
+        likely_coll_name=get_collection_name_from_query(rr_data.query, chat_state),
+        docs=docs,
+        collection_metadata={"rr_data": rr_data.model_dump_json()},
+        chat_state=chat_state,
+    )
 
-            # Create a random valid collection name and try again
-            new_coll_name_final = construct_full_collection_name(
-                chat_state.user_id, "collection-" + uuid.uuid4().hex[:8]
-            )
-
-    print("Done")
-    return response  # has answer, vectorstore
+    return response | {"vectorstore": vectorstore}
 
 
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
-    # TODO: just mutate chat_state
+    # NOTE: just mutate chat_state instead?
     research_params = chat_state.parsed_query.research_params
     if research_params.num_iterations_left < 2:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = "" # NOTE: need this?
+    new_parsed_query.message = ""  # otherwise will be treated as a new query (at least in hs)
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -562,20 +411,17 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         0, num_new_ok_links_to_process - rr_data.num_obtained_unprocessed_ok_links
     )
     if num_ok_new_links_to_fetch:
-        link_data_dict = get_content_from_urls_with_top_up(
+        url_retrieval_data = get_content_from_urls(
             rr_data.unprocessed_links[rr_data.num_obtained_unprocessed_links :],
-            batch_fetcher=get_batch_url_fetcher(),
-            min_ok_urls=num_ok_new_links_to_fetch,
-            # init_batch_size=INIT_BATCH_SIZE_FOR_ITERATE,
+            num_ok_new_links_to_fetch,
         )
+        link_data_dict = url_retrieval_data.link_data_dict
 
         # Update rr_data
         rr_data.link_data_dict.update(link_data_dict)
         rr_data.num_obtained_unprocessed_links += len(link_data_dict)
+        rr_data.num_obtained_unprocessed_ok_links += url_retrieval_data.num_ok_urls
 
-        tmp = sum(1 for data in link_data_dict.values() if not data.error)
-        rr_data.num_obtained_unprocessed_ok_links += tmp
-        print()
     t_fetch_end = datetime.now()
 
     # Prepare links to include in the context (only good links)
@@ -731,7 +577,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Ingest documents into ChromaDB
     if docs:
         print_no_newline("\nIngesting new documents into ChromaDB...")
-        ingest_docs_into_chroma(
+        load_into_chroma(
             docs,
             collection_name=chat_state.collection_name,
             chroma_client=chat_state.vectorstore.client,
@@ -1025,10 +871,14 @@ def update_search_queries_and_links(
     links = [link for link in links if link not in processed_links_set]
 
     # Replace old unprocessed links with new ones
+    # NOTE: should double check that we don't have unaccounted for obtained links
     rr_data.unprocessed_links = links
     rr_data.num_obtained_unprocessed_links = 0
     rr_data.num_obtained_unprocessed_ok_links = 0
-    rr_data.num_links_from_latest_queries = len(links)
+    rr_data.num_links_from_latest_queries = len(
+        links
+    )  # currently not used, but could be
+    # useful if we want to keep some old unprocessed links
 
 
 def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
@@ -1181,12 +1031,12 @@ task_handlers = {
     ResearchCommand.SET_SEARCH_QUERIES: get_research_set_search_queries_response,
     ResearchCommand.CLEAR: get_research_clear_response,
     ResearchCommand.AUTO_UPDATE_SEARCH_QUERIES: get_research_auto_update_search_queries_response,
+    ResearchCommand.HEATSEEK: get_research_heatseek_response,
 }
 
 
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
-    ic(task_type)
 
     try:
         return task_handlers[task_type](chat_state)
@@ -1210,21 +1060,31 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
     num_iterations_left = research_params.num_iterations_left
-    task_type = research_params.task_type
+
+    # Due to Streamlit reloading quirks, we need to do this dance:
+    research_params.task_type = ResearchCommand(research_params.task_type.value)
+    task_type = research_params.task_type  
+    
     rr_data = chat_state.get_rr_data()
+    logger.info(f"get_researcher_response: {task_type=} {num_iterations_left=}")
 
     # Screen commands that require pre-existing research
     # TODO: probably should screen editor access here too
-    if not rr_data and task_type not in {ResearchCommand.NEW, ResearchCommand.NONE}:
+    if not rr_data and task_type not in {
+        ResearchCommand.NEW,
+        ResearchCommand.HEATSEEK,
+        ResearchCommand.NONE,
+    }:
         return format_invalid_input_answer(
             "Apologies, this command is only valid when there is pre-existing research "
             "associated with the collection. "
             "You can generate a new report using `/research new <query>`.",
             "You can generate a new report using `/research new <query>`.",
         )
+    
     if (
         task_type in {ResearchCommand.ITERATE, ResearchCommand.CLEAR}
-        and not rr_data.main_report  # COMBINE is screened upstream
+        and not rr_data.main_report  # COMBINE is screened downstream
     ):
         return format_invalid_input_answer(
             "Apologies, all research reports have been cleared from this collection. "
@@ -1257,12 +1117,12 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     elif task_type == ResearchCommand.STARTOVER:
         if rr_data.main_report:
             # Expand startover -> clear + more
-            task_type = research_params.task_type = ResearchCommand.CLEAR
+            research_params.task_type = ResearchCommand.CLEAR
             new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
             new_parsed_query.research_params.task_type = ResearchCommand.MORE
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
         else:
-            task_type = research_params.task_type = ResearchCommand.MORE
+            research_params.task_type = ResearchCommand.MORE
 
     # Validate number of iterations
     if chat_state.is_community_key:
@@ -1276,7 +1136,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     else:
         if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
             return format_invalid_input_answer(
-                f"Apologies, this command requires {num_iterations_left} research iterations, "
+                f"Apologies, this command specifies {num_iterations_left} research iterations, "
                 f"however, for your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} "
                 "iterations is allowed.",
                 "Please try a lower number of iterations.",

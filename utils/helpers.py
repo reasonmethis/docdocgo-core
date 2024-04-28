@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
@@ -52,8 +52,6 @@ command_ids = {
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     "/share": ChatMode.SHARE_COMMAND_ID,
     "/sh": ChatMode.SHARE_COMMAND_ID,
-    "/seek": ChatMode.SEEK_COMMAND_ID,
-    "/se": ChatMode.SEEK_COMMAND_ID,
 }
 
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
@@ -280,7 +278,7 @@ def clamp(value, min_value, max_value):
 
 def utc_timestamp_int() -> int:
     """Returns the current UTC timestamp as an integer (seconds since epoch)"""
-    return int(datetime.utcnow().timestamp())
+    return int(datetime.now(UTC).timestamp())
 
 
 def format_nonstreaming_answer(answer):
@@ -294,3 +292,7 @@ def format_invalid_input_answer(answer, status_body):
         "status.header": "Invalid input",
         "status.body": status_body,
     }
+
+def get_timestamp():
+    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
+    # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),

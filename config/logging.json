@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "simple": {
+      "format": "[%(levelname)s|%(name)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s",
+      "datefmt": "%Y-%m-%dT%H:%M:%S%z"
+    },
+    "json": {
+      "()": "utils.log.MyJSONFormatter",
+      "fmt_keys": {
+        "level": "levelname",
+        "message": "message",
+        "timestamp": "timestamp",
+        "logger": "name",
+        "module": "module",
+        "function": "funcName",
+        "line": "lineno",
+        "thread_name": "threadName"
+      }
+    }
+  },
+  "handlers": {
+    "h1_stderr": {
+      "class": "logging.StreamHandler",
+      "level": "DEBUG",
+      "formatter": "simple",
+      "stream": "ext://sys.stderr"
+    },
+    "h2_file_json": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/ddg-logs.jsonl",
+      "maxBytes": 1000000,
+      "backupCount": 2
+    },
+    "h3_queue": {
+      "()": "utils.log.QueueListenerHandler",
+      "handlers": ["cfg://handlers.h2_file_json", "cfg://handlers.h1_stderr"],
+      "respect_handler_level": true
+    }
+  },
+  "loggers": {
+    "trafilatura": {
+      "level": "ERROR",
+      "handlers": ["h3_queue"],
+      "propagate": false
+    },
+    "ddg": {
+      "level": "DEBUG",
+      "handlers": ["h3_queue"],
+      "propagate": false
+    }
+  },
+  "root": {
+    "level": "WARNING",
+    "handlers": ["h3_queue"]
+  }
+}

@@ -29,6 +29,7 @@ from utils.prepare import (
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
     TEMPERATURE,
+    get_logger,
 )
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
@@ -42,6 +43,8 @@ from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
+
+logger = get_logger()
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
@@ -176,7 +179,7 @@ with st.sidebar:
             # Different logic depending on whether collection is supplied in URL or not
             if st.session_state.init_collection_name:
                 if is_authorised:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             f"Welcome! You are now using the `{init_coll_name}` collection. "
@@ -185,7 +188,7 @@ with st.sidebar:
                         )
                     )
                 else:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Apologies, the current URL doesn't provide access to the "
@@ -200,7 +203,7 @@ with st.sidebar:
                 # If no collection is supplied in the URL, use current or default collection
                 should_add_msg_and_load_collection = True
                 if is_authorised:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Welcome! The user credentials have changed but you are still "
@@ -208,7 +211,7 @@ with st.sidebar:
                         )
                     )
                 else:
-                    chat_state.chat_and_command_history.append(
+                    chat_state.chat_history_all.append(
                         (
                             None,
                             "Welcome! The user credentials have changed, "
@@ -229,10 +232,10 @@ with st.sidebar:
     # Settings
     with st.expander("Settings", expanded=False):
         if is_community_key:
-            model_options = [MODEL_NAME] # only show 3.5 if community key
+            model_options = [MODEL_NAME]  # only show 3.5 if community key
             index = 0
         else:
-            model_options = ALLOWED_MODELS # guaranteed to include MODEL_NAME
+            model_options = ALLOWED_MODELS  # guaranteed to include MODEL_NAME
             index = model_options.index(chat_state.bot_settings.llm_model_name)
         # TODO: adjust context length (for now assume 16k)
         chat_state.bot_settings.llm_model_name = st.selectbox(
@@ -259,7 +262,7 @@ with st.sidebar:
         "[Full Docs](https://github.com/reasonmethis/docdocgo-core/blob/main/README.md)"
 
 ####### Main page #######
-if tmp:=os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
+if tmp := os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
     st.warning(tmp)
 
 if chat_state.collection_name == DEFAULT_COLLECTION_NAME:
@@ -279,7 +282,7 @@ with st.expander("Want to upload your own documents?"):
 
 # Show previous exchanges and sources
 for i, (msg_pair, sources) in enumerate(
-    zip(chat_state.chat_and_command_history, chat_state.sources_history)
+    zip(chat_state.chat_history_all, chat_state.sources_history)
 ):
     full_query, answer = msg_pair
     if full_query is not None:
@@ -320,7 +323,7 @@ coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_na
 full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
 if not full_query:
     # If no message from the user, check if we should run an initial test query
-    if not chat_state.chat_and_command_history and INITIAL_TEST_QUERY_STREAMLIT:
+    if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
 
 # Parse the query or get the next scheduled query, if any
@@ -365,15 +368,17 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     # Prepare container and callback handler for showing streaming response
     message_placeholder = st.empty()
 
-    callback_handler = CallbackHandlerDDGStreamlit(
+    cb = CallbackHandlerDDGStreamlit(
         message_placeholder,
         end_str=STAND_BY_FOR_INGESTION_MESSAGE
         if parsed_query.is_ingestion_needed()
         else "",
     )
-    chat_state.callbacks[1] = callback_handler
+    chat_state.callbacks[1] = cb
+    chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
         response = get_bot_response(chat_state)
+        logger.debug(str(list(response.keys())))
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
@@ -390,7 +395,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         # Display sources if present
         sources = get_source_links(response) or None  # Cheaper to store None than []
-        show_sources(sources, callback_handler)
+        show_sources(sources, cb)
 
         # Display the "complete" status - custom or default
         if status:
@@ -408,14 +413,14 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         if new_parsed_query := response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
+        # Add the error message to the likely incomplete response
+        err_msg = format_exception(e)
+        answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
+
         # Display the "error" status
         if status:
             status.update(label=status_config[chat_mode]["error.header"], state="error")
             status.write(status_config[chat_mode]["error.body"])
-
-        # Add the error message to the likely incomplete response
-        err_msg = format_exception(e)
-        answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
 
         err_type = (
             "OPENAI_API_AUTH"
@@ -444,8 +449,8 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
                 "via the project's GitHub repository or through LinkedIn at "
                 "https://www.linkedin.com/in/dmitriyvasilyuk/."
             )
-        elif callback_handler.buffer:
-            answer = f"{callback_handler.buffer}\n\n{answer}"
+        elif cb.buffer:
+            answer = f"{cb.buffer}\n\n{answer}"
 
         # Assign sources
         sources = None
@@ -460,12 +465,12 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         st.stop()
     finally:
         # Update the full chat history and sources history
-        chat_state.chat_and_command_history.append((full_query, answer))
+        chat_state.chat_history_all.append((full_query, answer))
         chat_state.sources_history.append(sources)
 
 # Display the file uploader if needed
 if is_ingest_via_file_uploader:
-    st.session_state.idx_file_upload = len(chat_state.chat_and_command_history) - 1
+    st.session_state.idx_file_upload = len(chat_state.chat_history_all) - 1
     files, allow_all_ext = show_uploader(is_new_widget=True)
 
 # Update vectorstore if needed

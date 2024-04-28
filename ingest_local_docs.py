@@ -7,7 +7,7 @@ from _prepare_env import is_env_loaded
 from components.chroma_ddg import initialize_client
 from utils.docgrab import (
     JSONLDocumentLoader,
-    ingest_docs_into_chroma,
+    load_into_chroma,
 )
 from utils.helpers import clear_directory, is_directory_empty, print_no_newline
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     print("Done!")
 
     # Ingest into chromadb (this will print messages regarding the status)
-    ingest_docs_into_chroma(
+    load_into_chroma(
         docs,
         collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
         chroma_client=chroma_client,
