@@ -9,6 +9,8 @@ from logging.config import ConvertingDict, ConvertingList, valid_ident
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 
+from utils.filesystem import ensure_path_exists
+
 # from typing import override
 
 LOG_RECORD_BUILTIN_ATTRS = {
@@ -145,6 +147,6 @@ def setup_logging(log_level: str | None, log_format: str | None):
         raise NotImplementedError(
             "Setting log level and log format is not yet implemented"
         )
-    logging.StreamHandler
+    ensure_path_exists("logs/ddg-logs.jsonl")
     with open(pathlib.Path("config/logging.json")) as f:
         logging.config.dictConfig(json.load(f))
