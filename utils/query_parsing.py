@@ -7,7 +7,10 @@ from typing import Any, Callable, Container
 from pydantic import BaseModel
 
 from utils.helpers import DEFAULT_CHAT_MODE, command_ids
+from utils.prepare import get_logger
 from utils.type_utils import AccessCodeType, ChatMode, Props
+
+logger = get_logger()
 
 DBCommand = Enum("DBCommand", "LIST USE RENAME DELETE STATUS EXIT NONE")
 db_command_to_enum = {

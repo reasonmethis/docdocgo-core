@@ -1037,7 +1037,6 @@ task_handlers = {
 
 def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
     task_type = chat_state.parsed_query.research_params.task_type
-    ic(task_type)
 
     try:
         return task_handlers[task_type](chat_state)
@@ -1061,8 +1060,13 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
     num_iterations_left = research_params.num_iterations_left
-    task_type = research_params.task_type
+
+    # Due to Streamlit reloading quirks, we need to do this dance:
+    research_params.task_type = ResearchCommand(research_params.task_type.value)
+    task_type = research_params.task_type  
+    
     rr_data = chat_state.get_rr_data()
+    logger.info(f"get_researcher_response: {task_type=} {num_iterations_left=}")
 
     # Screen commands that require pre-existing research
     # TODO: probably should screen editor access here too
@@ -1077,9 +1081,10 @@ def get_researcher_response(chat_state: ChatState) -> Props:
             "You can generate a new report using `/research new <query>`.",
             "You can generate a new report using `/research new <query>`.",
         )
+    
     if (
         task_type in {ResearchCommand.ITERATE, ResearchCommand.CLEAR}
-        and not rr_data.main_report  # COMBINE is screened upstream
+        and not rr_data.main_report  # COMBINE is screened downstream
     ):
         return format_invalid_input_answer(
             "Apologies, all research reports have been cleared from this collection. "
@@ -1112,12 +1117,12 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     elif task_type == ResearchCommand.STARTOVER:
         if rr_data.main_report:
             # Expand startover -> clear + more
-            task_type = research_params.task_type = ResearchCommand.CLEAR
+            research_params.task_type = ResearchCommand.CLEAR
             new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
             new_parsed_query.research_params.task_type = ResearchCommand.MORE
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
         else:
-            task_type = research_params.task_type = ResearchCommand.MORE
+            research_params.task_type = ResearchCommand.MORE
 
     # Validate number of iterations
     if chat_state.is_community_key:
@@ -1131,7 +1136,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
     else:
         if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:
             return format_invalid_input_answer(
-                f"Apologies, this command requires {num_iterations_left} research iterations, "
+                f"Apologies, this command specifies {num_iterations_left} research iterations, "
                 f"however, for your protection, a maximum of {MAX_ITERATIONS_IF_OWN_KEY} "
                 "iterations is allowed.",
                 "Please try a lower number of iterations.",

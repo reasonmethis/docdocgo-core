@@ -14,7 +14,7 @@ from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH, ddglogger
 from utils.strings import has_which_substring
-from utils.type_utils import JSONishDict
+from utils.type_utils import JSONishDict, Props
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
@@ -218,7 +218,7 @@ Output: """
 answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template)
 
 ## SAMPLE QUERIES
-# find example code showing how to update Ract state in shadcn ui Slider component
+# find example code showing how to update React state in shadcn ui Slider component
 # find a quote by obama about jill biden
 # /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
 
@@ -250,6 +250,7 @@ MIN_OK_URLS = 5
 INIT_BATCH_SIZE = 8
 MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and get split
 MAX_URL_RETRIEVALS_IN_ONE_GO = 1
+CHECKED_STR = "I checked but didn't find a good answer in "
 answer_found_evaluations = ["EXCELLENT"]
 
 
@@ -257,6 +258,7 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
     # Process URLs one by one (unless content is too big, then split it up)
     full_reply = ""
     new_checked_block = True
+    source = None
     init_num_url_retrievals = hs_data.url_conveyer.num_url_retrievals
     for _ in range(MAX_SUB_ITERATIONS_IN_ONE_GO):
         # Get next batch of URLs if needed
@@ -283,6 +285,7 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
             break  # unlikely to happen, but just in case
 
         # Construct the context and get response from LLM
+        prev_source = source
         source = docs[0].metadata["source"]
         ddglogger.info(f"Getting response from LLM for user query using {source}")
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
@@ -320,18 +323,27 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
         else:
             # If content is insufficient, add to the "Checked: " block
             ddglogger.info("Content is insufficient")
-            if new_checked_block:
-                piece = "\n\nChecked: " if full_reply else "Checked: "
-                new_checked_block = False
-            else:
-                piece = ", "
-            piece += f"[{shorten_url(source)}]({source})"
-            full_reply += piece
-            chat_state.add_to_output(piece)
+            if source != prev_source:
+                if new_checked_block:
+                    piece = f"\n\n{CHECKED_STR}" if full_reply else CHECKED_STR
+                    new_checked_block = False
+                else:
+                    piece = ", "
+                piece += f"[{shorten_url(source)}]({source})"
+                full_reply += piece
+                chat_state.add_to_output(piece)
 
-    if not hs_data.is_answer_found:
-        ddglogger.info("No satisfactory answer found")
-        piece = "\n\n I have not found a source with a satisfactory answer on this run."
+    # if not hs_data.is_answer_found:
+    #     ddglogger.info("No satisfactory answer found")
+    #     piece = "\n\n I have not found a source with a satisfactory answer on this run."
+    #     full_reply += piece
+    #     chat_state.add_to_output(piece)
+
+    if chat_state.parsed_query.research_params.num_iterations_left < 2:
+        piece = (
+            "\n\nTo continue checking more sources, type `/research heatseek N` "
+            "(or simply `/re hs N`), where N = number of iterations you want to auto-run."
+        )
         full_reply += piece
         chat_state.add_to_output(piece)
 
@@ -394,7 +406,7 @@ def get_heatseek_in_progress_response(
 
 
 # NOTE: should catch and handle exceptions in main handler
-def get_research_heatseek_response(chat_state: ChatState) -> JSONishDict:
+def get_research_heatseek_response(chat_state: ChatState) -> Props:
     if chat_state.message:
         return get_new_heatseek_response(chat_state)
 

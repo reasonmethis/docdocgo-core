@@ -29,6 +29,7 @@ from utils.prepare import (
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
     TEMPERATURE,
+    get_logger,
 )
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
@@ -42,6 +43,8 @@ from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
+
+logger = get_logger()
 
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
@@ -372,6 +375,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
         response = get_bot_response(chat_state)
+        logger.debug(str(list(response.keys())))
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
