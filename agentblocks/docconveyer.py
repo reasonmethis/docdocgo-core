@@ -11,7 +11,7 @@ from typing import TypeVar
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
 from utils.prepare import ddglogger
@@ -147,8 +147,25 @@ def limit_num_docs_by_tokens(
 
 
 class DocConveyer(BaseModel):
-    docs: list[Doc]
+    docs: list[Doc] = Field(default_factory=list)
+    max_tokens_for_breaking_up_docs: int | float | None = None
     idx_first_not_done: int = 0  # done = "pushed out" by get_next_docs
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.max_tokens_for_breaking_up_docs is not None:
+            self.docs = break_up_big_docs(
+                self.docs, self.max_tokens_for_breaking_up_docs
+            )
+
+    @property
+    def num_available_docs(self):
+        return len(self.docs) - self.idx_first_not_done
+    
+    def add_docs(self, docs: list[Doc]):
+        if self.max_tokens_for_breaking_up_docs is not None:
+            docs = break_up_big_docs(docs, self.max_tokens_for_breaking_up_docs)
+        self.docs.extend(docs)
 
     def get_next_docs(
         self,

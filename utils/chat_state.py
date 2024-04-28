@@ -97,6 +97,7 @@ class ChatState:
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
         self.agent_data = agent_data or {}
+        self.cached_collection_metadata: Props | None = None
 
     @property
     def collection_name(self) -> str:
@@ -161,7 +162,9 @@ class ChatState:
         collection name if provided
         """
         if coll_name in (None, self.vectorstore.name):
-            return self.vectorstore.fetch_collection_metadata()
+            tmp = self.vectorstore.fetch_collection_metadata()
+            self.cached_collection_metadata = tmp
+            return tmp
 
         if tmp_vectorstore := self.get_new_vectorstore(
             coll_name, create_if_not_exists=False
@@ -169,7 +172,10 @@ class ChatState:
             return tmp_vectorstore.fetch_collection_metadata()
         return None
 
-    def get_agent_data(self) -> AgentDataDict :
+    def get_cached_collection_metadata(self) -> Props | None:
+        return self.vectorstore.get_cached_ollection_metadata()
+
+    def get_agent_data(self) -> AgentDataDict:
         """
         Extract agent data from the currently selected collection's metadata
         """
@@ -178,11 +184,16 @@ class ChatState:
         except (TypeError, KeyError):
             return {}
 
-    def save_agent_data(self, agent_data: AgentDataDict) -> None:
+    def save_agent_data(
+        self, agent_data: AgentDataDict, use_cached_metadata=True
+    ) -> None:
         """
         Update the currently selected collection's metadata with the given agent data
         """
-        coll_metadata = self.fetch_collection_metadata() or {}
+        if use_cached_metadata:
+            coll_metadata = self.get_cached_collection_metadata() or {}
+        else:
+            coll_metadata = self.fetch_collection_metadata() or {}
         coll_metadata["agent_data"] = json.dumps(agent_data)
         self.vectorstore.save_collection_metadata(coll_metadata)
 

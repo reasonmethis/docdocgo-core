@@ -22,7 +22,7 @@ MAX_INIT_BATCH_SIZE = 10
 def get_content_from_urls(
     urls: list[str],
     min_ok_urls: int,
-    init_batch_size: int | None = None,  # auto-determined if None
+    init_batch_size: int = 0,  # auto-determined if 0
     batch_fetcher: Callable[[list[str]], list[str]] | None = None,
 ) -> URLRetrievalData:
     """

@@ -106,7 +106,7 @@ def load_into_chroma(
     # Handle special case of no docs - just create/update collection with given metadata
     if not docs:
         return ChromaDDG(
-            embedding=get_openai_embeddings(openai_api_key),
+            embedding_function=get_openai_embeddings(openai_api_key),
             client=chroma_client,
             persist_directory=save_dir,
             collection_name=collection_name,

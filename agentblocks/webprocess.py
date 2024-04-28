@@ -1,9 +1,13 @@
-from langchain_core.documents import Document
+from typing import Callable
+
 from pydantic import BaseModel, Field
 
-from agentblocks.webretrieve import URLRetrievalData
+from agentblocks.webretrieve import get_content_from_urls
 from utils.type_utils import Doc
 from utils.web import LinkData
+
+DEFAULT_MIN_OK_URLS = 5
+DEFAULT_INIT_BATCH_SIZE = 0  # 0 = "auto-determined"
 
 
 class URLConveyer(BaseModel):
@@ -12,25 +16,34 @@ class URLConveyer(BaseModel):
     # num_ok_urls: int = 0
     idx_first_not_done: int = 0  # done = "pushed out" by get_next_docs
     idx_first_not_tried: int = 0  # different from len(link_data_dict) if urls repeat
+    num_url_retrievals: int = 0
 
-    @staticmethod
-    def from_retrieval_data(url_retrieval_data: URLRetrievalData):
-        return URLConveyer(
-            urls=url_retrieval_data.urls,
-            link_data_dict=url_retrieval_data.link_data_dict,
-            idx_first_not_tried=url_retrieval_data.idx_first_not_tried,
-            idx_first_not_done=0,
-        )
+    default_min_ok_urls: int = DEFAULT_MIN_OK_URLS
+    default_init_batch_size: int = DEFAULT_INIT_BATCH_SIZE  # 0 = "auto-determined"
 
     def add_urls(self, urls: list[str]):
         self.urls.extend(urls)
 
-    def add_retrieval_data(
-        self, link_data_dict: dict[str, LinkData], new_idx_first_not_tried: int
+    def retrieve_content_from_urls(
+        self,
+        min_ok_urls: int | None = None,  # use default_min_ok_urls if None
+        init_batch_size: int | None = None,  # use default_init_batch_size if None
+        batch_fetcher: Callable[[list[str]], list[str]] | None = None,
     ):
-        # NOTE: not using URLRetrievalData to avoid confusion if urls are different
-        self.link_data_dict.update(link_data_dict)
-        self.idx_first_not_tried = new_idx_first_not_tried
+        url_retrieval_data = get_content_from_urls(
+            urls=self.urls[self.idx_first_not_tried :],
+            min_ok_urls=min_ok_urls
+            if min_ok_urls is not None
+            else self.default_min_ok_urls,
+            init_batch_size=init_batch_size
+            if init_batch_size is not None
+            else self.default_init_batch_size,
+            batch_fetcher=batch_fetcher,
+        )
+
+        self.num_url_retrievals += 1
+        self.link_data_dict.update(url_retrieval_data.link_data_dict)
+        self.idx_first_not_tried += url_retrieval_data.idx_first_not_tried
 
     def get_next_docs(self) -> list[Doc]:
         docs = []
@@ -45,3 +58,20 @@ class URLConveyer(BaseModel):
 
         self.idx_first_not_done = self.idx_first_not_tried
         return docs
+
+    def get_next_docs_with_url_retrieval(
+        self,
+        min_ok_urls: int | None = None,  # use default_min_ok_urls if None
+        init_batch_size: int | None = None,  # use default_init_batch_size if None
+        batch_fetcher: Callable[[list[str]], list[str]] | None = None,
+    ) -> list[Doc]:
+        if docs := self.get_next_docs():
+            return docs
+
+        # If no more docs, retrieve more content from URLs
+        self.retrieve_content_from_urls(
+            min_ok_urls=min_ok_urls,
+            init_batch_size=init_batch_size,
+            batch_fetcher=batch_fetcher,
+        )
+        return self.get_next_docs()
