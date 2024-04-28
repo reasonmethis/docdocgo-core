@@ -29,18 +29,21 @@ from utils.prepare import (
     DEFAULT_COLLECTION_NAME,
     INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG,
     MAX_UPLOAD_BYTES,
+    get_logger,
 )
 from utils.query_parsing import parse_query
 from utils.type_utils import (
+    INSTRUCT_AUTO_RUN_NEXT_QUERY,
     AccessRole,
     BotSettings,
     ChatMode,
     DDGError,
     Instruction,
-    JSONish,
     OperationMode,
     PairwiseChatHistory,
 )
+
+logger = get_logger()
 
 app = FastAPI()
 
@@ -57,11 +60,13 @@ is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 
 # Define Pydantic models for request and response
+RoleBasedChatMessage = dict[str, str] # {"role": "user" | "assistant", "content": str}
+
 class ChatRequestData(BaseModel):
     message: str
     api_key: str
     openai_api_key: str | None = None
-    chat_history: list[JSONish] = []
+    chat_history: list[RoleBasedChatMessage] = []
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
     agentic_flow_state_str: str | None = None  # JSON string that frontend passes back
@@ -70,10 +75,10 @@ class ChatRequestData(BaseModel):
     def parse_agentic_state(self):
         agentic_state: dict = json.loads(self.agentic_flow_state_str or "{}")
 
-        if tmp := agentic_state.get("scheduled_queries") is None:
+        if (tmp := agentic_state.get("scheduled_queries")) is None:
             scheduled_queries = ScheduledQueries()
         else:
-            scheduled_queries = ScheduledQueries.model_validate(tmp)
+            scheduled_queries = ScheduledQueries.model_validate_json(tmp)
 
         agent_data: AgentDataDict = agentic_state.get("agent_data", {})
         # TODO: validate agent_data
@@ -95,7 +100,7 @@ class ChatResponseData(BaseModel):
     ):
         return json.dumps(
             {
-                "scheduled_queries": scheduled_queries.model_dump(),
+                "scheduled_queries": scheduled_queries.model_dump_json(),
                 "agent_data": agent_data,
             }
         )
@@ -105,7 +110,7 @@ DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 
 
 def convert_chat_history(
-    chat_history_in_role_format: list[JSONish],
+    chat_history_in_role_format: list[RoleBasedChatMessage],
 ) -> PairwiseChatHistory:
     """Convert the chat history into a list of tuples of the form (user_message, bot_message)"""
 
@@ -137,6 +142,7 @@ async def handle_chat_or_ingest_request(
         # If admin pwd is sent, use default key
         if (
             BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
+            and data.openai_api_key
             and data.openai_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
         ):
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
@@ -277,6 +283,13 @@ async def handle_chat_or_ingest_request(
     if new_parsed_query := result.get("new_parsed_query"):
         chat_state.scheduled_queries.add_to_front(new_parsed_query)  # should move this
 
+    # If needed, add an explicit instruction to auto-run a query
+    instructions: list | None = result.get("instructions")
+    if chat_state.scheduled_queries:
+        instructions = instructions or []
+        instructions.append(Instruction(type=INSTRUCT_AUTO_RUN_NEXT_QUERY))
+        # NOTE: may want to move this to the main engine
+
     # Prepare the response
     rsp = ChatResponseData(
         content=result["answer"],
@@ -285,7 +298,7 @@ async def handle_chat_or_ingest_request(
         user_facing_collection_name=get_user_facing_collection_name(
             chat_state.user_id, collection_name
         ),
-        instructions=result.get("instructions"),
+        instructions=instructions,
         agentic_flow_state_str=ChatResponseData.encode_agentic_state(
             chat_state.scheduled_queries, chat_state.agent_data
         ),
