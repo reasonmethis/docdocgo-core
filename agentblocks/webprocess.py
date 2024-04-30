@@ -15,14 +15,41 @@ class URLConveyer(BaseModel):
     link_data_dict: dict[str, LinkData] = Field(default_factory=dict)
     # num_ok_urls: int = 0
     idx_first_not_done: int = 0  # done = "pushed out" by get_next_docs
-    idx_first_not_tried: int = 0  # different from len(link_data_dict) if urls repeat
+    idx_first_not_tried: int = 0  # not necessarily equal to len(link_data_dict)
+    idx_last_url_refresh: int = 0
+
     num_url_retrievals: int = 0
 
     default_min_ok_urls: int = DEFAULT_MIN_OK_URLS
     default_init_batch_size: int = DEFAULT_INIT_BATCH_SIZE  # 0 = "auto-determined"
 
-    def add_urls(self, urls: list[str]):
+    @property
+    def num_tried_urls_since_refresh(self) -> int:
+        return self.idx_first_not_tried - self.idx_last_url_refresh
+    
+    @property
+    def num_untried_urls(self) -> int:
+        return len(self.urls) - self.idx_first_not_tried
+
+    def refresh_urls(
+        self,
+        urls: list[str],
+        only_add_truly_new: bool = True,
+        idx_to_cut_at: int | None = None,
+    ):
+        if idx_to_cut_at is None:
+            idx_to_cut_at = self.idx_first_not_tried
+        elif idx_to_cut_at < 0 or idx_to_cut_at > len(self.urls):
+            raise ValueError(f"idx_to_cut_at must be between 0 and {len(self.urls)}")
+
+        del self.urls[idx_to_cut_at:]
+
+        if only_add_truly_new:
+            old_urls = set(self.urls)
+            urls = [url for url in urls if url not in old_urls]
+
         self.urls.extend(urls)
+        self.idx_last_url_refresh = idx_to_cut_at
 
     def retrieve_content_from_urls(
         self,

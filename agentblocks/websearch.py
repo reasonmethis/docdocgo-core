@@ -3,12 +3,12 @@ from typing import Any
 from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from pydantic import BaseModel
 
-from agentblocks.core import enforce_json_format
+from agentblocks.core import enforce_pydantic_json
 from utils.algo import interleave_iterables, remove_duplicates_keep_order
 from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.prepare import get_logger
-from utils.type_utils import DDGError, Props
+from utils.type_utils import DDGError
 
 logger = get_logger()
 
@@ -72,18 +72,14 @@ class Queries(BaseModel):
     queries: list[str]
 
 
-def get_web_search_result_urls_from_prompt(
-    prompt, inputs: Props, num_links, chat_state: ChatState
+def get_web_search_queries_from_prompt(
+    prompt, inputs: dict[str, str], chat_state: ChatState
 ) -> list[str]:
-    # Get queries to search for
+    """
+    Get web search queries from a prompt. The prompt should ask the LLM to generate
+    web search queries in the format {"queries": ["query1", "query2", ...]}
+    """
     logger.info("Submitting prompt to get web search queries")
     query_generator_chain = chat_state.get_prompt_llm_chain(prompt, to_user=False)
 
-    queries: list[str] = enforce_json_format(
-        query_generator_chain,
-        inputs=inputs,
-        validator_transformer=Queries.model_validate,
-    ).queries
-
-    # Perform web search, get links
-    return get_links_from_queries(queries, num_links)
+    return enforce_pydantic_json(query_generator_chain, inputs, Queries).queries

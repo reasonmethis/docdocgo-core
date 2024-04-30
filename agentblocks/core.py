@@ -1,7 +1,9 @@
 from typing import Callable
 
+from pydantic import BaseModel
+
 from utils.strings import extract_json
-from utils.type_utils import ChainType, DDGError
+from utils.type_utils import ChainType, DDGError, JSONish
 
 MAX_ENFORCE_FORMAT_ATTEMPTS = 4
 
@@ -46,7 +48,21 @@ def enforce_json_format(
     inputs: dict,
     validator_transformer: Callable,  # e.g. pydantic model's validator - model_validate() (!)
     max_attempts: int = MAX_ENFORCE_FORMAT_ATTEMPTS,
-):
+) -> JSONish:
     return enforce_format(
         chain, inputs, lambda x: validator_transformer(extract_json(x)), max_attempts
+    )
+
+
+def enforce_pydantic_json(
+    chain: ChainType,
+    inputs: dict,
+    pydantic_model: BaseModel,
+    max_attempts: int = MAX_ENFORCE_FORMAT_ATTEMPTS,
+) -> BaseModel:
+    return enforce_format(
+        chain,
+        inputs,
+        lambda x: pydantic_model.model_validate(extract_json(x)),
+        max_attempts,
     )

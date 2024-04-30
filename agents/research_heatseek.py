@@ -1,15 +1,19 @@
 import json
 
 from langchain.prompts import PromptTemplate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agentblocks.collectionhelper import (
     get_collection_name_from_query,
     start_new_collection,
 )
+from agentblocks.core import enforce_pydantic_json
 from agentblocks.docconveyer import DocConveyer
 from agentblocks.webprocess import URLConveyer
-from agentblocks.websearch import get_web_search_result_urls_from_prompt
+from agentblocks.websearch import (
+    get_links_from_queries,
+    get_web_search_queries_from_prompt,
+)
 from utils.chat_state import ChatState
 from utils.helpers import format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH, ddglogger
@@ -69,7 +73,7 @@ You are an advanced assistant in satisfying USER's information need.
 
 # High Level Task
 
-You will be provided information about USER's query and current state of formulating the answer. Your task is to determine what needs to be added or improved in order to better satisfy USER's information need and strategically design a list of google search queries that would be most helpful to perform.
+You will be provided information about USER's query and current answer drafts. Your task is to determine what needs to be added or improved in order to better satisfy USER's information need and strategically design a list of google search queries that would be most helpful to perform.
 
 # Input
 
@@ -79,17 +83,16 @@ END OF USER's query
 2. Current timestamp: {timestamp}
 END OF timestamp
 
-3. Requested answer format: {report_type}
-END OF requested answer format
-
-4. Google search queries used to generate the current draft of the answer: {search_queries}
+3. Past Google search queries used to generate the drafts of the answer: {past_search_queries}
 END OF search queries
 
-5. Current draft of the answer: {report}
+4. Past answer drafts and evaluations: 
+{past_answers}
+END OF past answers (the goal is to achieve evaluations of "EXCELLENT")
 
 # Detailed Task
 
-Let's work step by step. First, you need to determine what needs to be added or improved in order to better satisfy USER's information need. Then, based on the results of your analysis, you need to strategically design a list of google search queries that would be most helpful to perform to get an accurate, complete, unbiased, up-to-date answer. Design these queries so that the google search results will provide the necessary information to fill in any gaps in the current draft of the answer, or improve it in any way.
+Let's work step by step. First, you need to determine what needs to be added or improved in order to better satisfy USER's information need. Then, based on the results of your analysis, you need to strategically design a list of google search queries that would be most helpful to perform to get an accurate, complete, unbiased, up-to-date answer. Design these queries so that the google search results will provide the necessary information to fill in any gaps in the current drafts of the answer, or improve them in any way.
 
 Use everything you know about information foraging and information literacy in this task.
 
@@ -102,15 +105,14 @@ Your output should be in JSON in the following format:
 
 # Example
 
-Suppose the user wants to get a numbered list of top Slavic desserts and you notice that the current draft includes desserts from Russia and Ukraine, but is missing desserts from other, non-former-USSR Slavic countries. You would then provide appropriate analysis and design new google search queries to fill in that gap, for example your output could be:
+Suppose the user wants to get a numbered list of top Slavic desserts and you notice that the current answer drafts include desserts from Russia and Ukraine, but are missing desserts from other, non-former-USSR Slavic countries. You would then provide appropriate analysis and design new google search queries to fill in that gap, for example your output could be:
 
-{{"analysis": "The current draft of the answer is missing desserts from other Slavic countries besides Russia and Ukraine. The current search queries seem to have resulted in content being mostly about countries from the former USSR so we should specifically target other Slavic countries.",
+{{"analysis": "The current answers are missing desserts from other Slavic countries besides Russia and Ukraine. The current search queries seem to have resulted in content being mostly about countries from the former USSR so we should specifically target other Slavic countries.",
 "queries": ["top desserts Poland", "top desserts Czech Republic", "top desserts Slovakia", "top desserts Bulgaria", "best desserts from former Yugoslavia", "desserts from Easern Europe"]}}
 
 # Your actual output
 
-Now, please use the information in the "# Input" section to construct your actual output, which should start with the opening curly brace and end with the closing curly brace:
-
+Now, use the information in the "# Input" section to construct your actual output, which should start with the opening curly brace and end with the closing curly brace:
 
 """
 hs_query_updater_prompt = PromptTemplate.from_template(search_queries_updater_template)
@@ -240,10 +242,13 @@ def shorten_url(url: str) -> str:
 
 class HeatseekData(BaseModel):
     query: str
+    search_queries: list[str]
+    past_search_queries: list[str] = Field(default_factory=list)
     url_conveyer: URLConveyer
     doc_conveyer: DocConveyer
     is_answer_found: bool = False
-    # answer: str
+    answers: list[str] = Field(default_factory=list)
+    evaluations: list[str] = Field(default_factory=list)
 
 
 MIN_OK_URLS = 5
@@ -252,11 +257,16 @@ MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and ge
 MAX_URL_RETRIEVALS_IN_ONE_GO = 1
 CHECKED_STR = "I checked but didn't find a good answer in "
 answer_found_evaluations = ["EXCELLENT"]
+evaluations_to_record_answers = ["EXCELLENT", "GOOD", "MEDIUM"]
 
 
-def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
+def run_main_heatseek_workflow(
+    chat_state: ChatState, hs_data: HeatseekData, init_reply=""
+):
+    if full_reply := init_reply:
+        chat_state.add_to_output(full_reply)
+
     # Process URLs one by one (unless content is too big, then split it up)
-    full_reply = ""
     new_checked_block = True
     source = None
     init_num_url_retrievals = hs_data.url_conveyer.num_url_retrievals
@@ -317,6 +327,13 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
             full_reply += piece
             chat_state.add_to_output(piece)
             hs_data.is_answer_found = evaluation in answer_found_evaluations
+
+            # Record answer and evaluation if needed
+            if evaluation in evaluations_to_record_answers:
+                hs_data.answers.append(reply)
+                hs_data.evaluations.append(evaluation)
+
+            # If answer is found, break
             if hs_data.is_answer_found:
                 break
             new_checked_block = True
@@ -333,16 +350,11 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
                 full_reply += piece
                 chat_state.add_to_output(piece)
 
-    # if not hs_data.is_answer_found:
-    #     ddglogger.info("No satisfactory answer found")
-    #     piece = "\n\n I have not found a source with a satisfactory answer on this run."
-    #     full_reply += piece
-    #     chat_state.add_to_output(piece)
-
     if chat_state.parsed_query.research_params.num_iterations_left < 2:
         piece = (
-            "\n\nTo continue checking more sources, type `/research heatseek N` "
-            "(or simply `/re hs N`), where N = number of iterations you want to auto-run."
+            "\n\nTo continue checking more sources, type "
+            "`/research heatseek <number of iterations to auto-run>`. For example, try "
+            "`/re hs 4` (shorthand is ok)."
         )
         full_reply += piece
         chat_state.add_to_output(piece)
@@ -350,16 +362,79 @@ def _run_main_heatseek_workflow(chat_state: ChatState, hs_data: HeatseekData):
     return full_reply
 
 
+def _update_search_queries(hs_data: HeatseekData, queries: list[str]):
+    hs_data.past_search_queries.extend(hs_data.search_queries)
+    hs_data.search_queries = queries
+
+    # Get new URLs
+    urls = get_links_from_queries(queries, num_search_results=100)
+    hs_data.url_conveyer.refresh_urls(urls)
+    ddglogger.info(f"Refreshed URLs with {len(urls)} new URLs")
+    ddglogger.debug(f"New URLs: {urls}")
+
+
+MAX_PREV_ANSWERS = 10
+MAX_TOT_CHARS_IN_PREV_ANSWERS = 10000
+
+
+class AnalysisAndQueries(BaseModel):
+    analysis: str
+    queries: list[str]
+
+
+def auto_update_search_queries(hs_data: HeatseekData, chat_state: ChatState):
+    # Get previous answers and evaluations
+    answers_and_evals = []
+    num_chars_tot = 0  # don't want to spend cpu to count tokens
+    for answer, evaluation in zip(
+        hs_data.answers[: -MAX_PREV_ANSWERS - 1 : -1],
+        hs_data.evaluations[: -MAX_PREV_ANSWERS - 1 : -1],
+    ):
+        tmp = f"ANSWER (evaluation - {evaluation}): {answer}"
+        num_chars_tot += len(tmp)
+        if num_chars_tot > MAX_TOT_CHARS_IN_PREV_ANSWERS:
+            # Make sure we have at least one answer and break
+            if not answers_and_evals:
+                answers_and_evals.append(tmp[:MAX_TOT_CHARS_IN_PREV_ANSWERS] + "...")
+            break
+        answers_and_evals.append(tmp)
+
+    # Assemble answers and evaluations in chronological order
+    past_answers = "\n\n".join(reversed(answers_and_evals))
+
+    # Get new search queries
+    query_updater_chain = chat_state.get_prompt_llm_chain(
+        hs_query_updater_prompt, to_user=False
+    )
+    analysis_and_queries: AnalysisAndQueries = enforce_pydantic_json(
+        query_updater_chain,
+        inputs={
+            "query": hs_data.query,
+            "timestamp": get_timestamp(),
+            "past_answers": past_answers,
+            "past_search_queries": str(  # first 50 past search queries + latest
+                hs_data.past_search_queries[:50] + hs_data.search_queries
+            ),
+        },
+        pydantic_model=AnalysisAndQueries,
+    )
+    ddglogger.info(f"Analysis and new search queries: {analysis_and_queries}")
+    _update_search_queries(hs_data, analysis_and_queries.queries)
+    return analysis_and_queries
+
+
 def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
     query = chat_state.message
 
     # Get links from prompt
-    urls = get_web_search_result_urls_from_prompt(
+    queries = get_web_search_queries_from_prompt(
         hs_query_generator_prompt,
         inputs={"query": query, "timestamp": get_timestamp()},
-        num_links=100,
         chat_state=chat_state,
     )
+    urls = get_links_from_queries(queries, num_search_results=100)
+    # if not links:
+    #     return {"early_exit_msg": WEB_SEARCH_API_ISSUE_MSG}
 
     # Initialize URLConveyer and DocConveyer
     url_conveyer = URLConveyer(
@@ -372,12 +447,13 @@ def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
     # Initialize HeatseekData - representing the state of the heatseek agent
     hs_data = HeatseekData(
         query=query,
+        search_queries=queries,
         url_conveyer=url_conveyer,
         doc_conveyer=doc_conveyer,
     )
 
     # Perform main Heatseek workflow
-    full_reply = _run_main_heatseek_workflow(chat_state, hs_data)
+    full_reply = run_main_heatseek_workflow(chat_state, hs_data)
 
     # Save agent state into ChromaDB
     vectorstore = start_new_collection(
@@ -393,11 +469,29 @@ def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
     return {"answer": full_reply, "vectorstore": vectorstore}
 
 
+NUM_URLS_BEFORE_REFRESH = 10
+NUM_LEFT_URLS_FOR_REFRESH = 6
+
+
 def get_heatseek_in_progress_response(
     chat_state: ChatState, hs_data: HeatseekData
 ) -> JSONishDict:
+    # Check if search queries and URLs need to be updated
+    if (
+        hs_data.url_conveyer.num_tried_urls_since_refresh >= NUM_URLS_BEFORE_REFRESH
+        or hs_data.url_conveyer.num_untried_urls <= NUM_LEFT_URLS_FOR_REFRESH
+    ):
+        analysis_and_queries = auto_update_search_queries(hs_data, chat_state)
+        init_reply = (
+            "I decided to update the web search queries.\n\n"
+            f"**Analysis:** {analysis_and_queries.analysis}\n\n"
+            f"**New search queries:** {str(analysis_and_queries.queries)[1:-1]}\n\n"
+        )
+    else:
+        init_reply = ""
+
     # Perform main Heatseek workflow
-    full_reply = _run_main_heatseek_workflow(chat_state, hs_data)
+    full_reply = run_main_heatseek_workflow(chat_state, hs_data, init_reply)
 
     # Save agent state into ChromaDB
     chat_state.save_agent_data({"hs": hs_data.model_dump_json()})
