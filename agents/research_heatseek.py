@@ -223,6 +223,7 @@ answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template
 # find example code showing how to update React state in shadcn ui Slider component
 # find a quote by obama about jill biden
 # /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
+# /re hs search the web specifically for "llms wearing pants" and tell me what it means
 
 evaluation_code_to_grade = {
     "EXCELLENT": "A",
@@ -299,6 +300,8 @@ def run_main_heatseek_workflow(
         source = docs[0].metadata["source"]
         ddglogger.info(f"Getting response from LLM for user query using {source}")
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
+        ddglogger.debug(f"Context: {context}\n" + "-" * 40)
+
         inputs = {"query": hs_data.query, "context": context}
         reply = chat_state.get_llm_reply(
             hs_answer_generator_prompt, inputs, to_user=False

@@ -13,8 +13,11 @@ from langchain_openai import ChatOpenAI
 from utils.algo import insert_interval
 from utils.async_utils import execute_func_map_in_threads
 from utils.output import ConditionalLogger
+from utils.prepare import get_logger
 from utils.rag import rag_text_splitter
 from utils.type_utils import PairwiseChatHistory
+
+logger = get_logger()
 
 default_llm_for_token_counting = ChatOpenAI(api_key="DUMMY")  # "DUMMY" to avoid error
 
