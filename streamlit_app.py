@@ -291,6 +291,7 @@ for i, (msg_pair, sources) in enumerate(
     if answer is not None or sources is not None:
         with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             if answer is not None:
+                st.empty()  # to "replace" status & fix ghost double text issue
                 st.markdown(fix_markdown(answer))
             show_sources(sources)
     if i == st.session_state.idx_file_upload:
