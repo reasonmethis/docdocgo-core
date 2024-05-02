@@ -137,7 +137,7 @@ CNN is an American news-based pay television channel owned by AT&T's WarnerMedia
 </CONTENT>
 <QUERY>Who was USSR's leader when cnn appeared</QUERY>
 
-Output: As a partial answer, according to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The article does not mention the leader of the USSR at that time, but I am fairly confident it was Leonid Brezhnev.
+Output: According to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The leader of the USSR at that time was Leonid Brezhnev.
 
 Examples 3:
 <CONTENT>SOURCE: https://www.nationalgeographic.com/animals
@@ -186,7 +186,17 @@ def __init__(self, **kwargs):
 </CONTENT>
 <QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
 
-Output: This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference."""
+Output: This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference.
+
+Example 7:
+<CONTENT>SOURCE: https://www.nytimes.com/2024/05/01/trump-hush-money-trial-transcript.html
+
+The transcript of the trial on April 30, 2024, revealed that former President Donald Trump was involved in the hush money payments to Stormy Daniels. The trial also exposed the role of Michael Cohen in facilitating the payments and the subsequent cover-up. <...rest of article, which discusses the transcript further but doesn't provide the transcript itself or a link to it>
+</CONTENT>
+<QUERY>/re hs find transcript of trial involving Trump</QUERY>
+
+Output: This content does not contain needed information.
+"""
 
 hs_answer_generator_template = """\
 <CONTENT>{context}</CONTENT>
@@ -204,7 +214,7 @@ hs_answer_generator_prompt = ChatPromptTemplate.from_messages(
 answer_evaluator_template = """\
 You are an expert at evaluating the quality of answers. Input: you will be provided with user's query and an LLM's answer. Output: should be one of the following:
 1. Reply with just one word "EXCELLENT" - if the answer is perfectly relevant and complete
-2. "GOOD" - if the answer is mostly relevant and complete
+2. "GOOD" - if the answer provides important information clearly relevant to the query, but is not perfectly complete
 3. "MEDIUM" - if the answer is somewhat relevant, but needs significant improvement
 4. "BAD" - if the answer is irrelevant or unhelpful
 
@@ -232,7 +242,7 @@ Example 4:
 <ANSWER>According to [this source](https://www.cosmopolitan.com/entertainment/celebs/), Michelle Obama said, "Dr. Biden gives us a better example. And this is why I feel so strongly that we could not ask for a better First Lady. She will be a terrific role model not just for young girls but for all of us, wearing her accomplishments with grace, good humor, and, yes, pride."</ANSWER>
 
 Output: MEDIUM
-Explanation of output: technically relevant but user almost certainly wanted a quote from Barack Obama, not just any Obama
+Explanation of output: "obama" generally refers to Barack Obama, not Michelle Obama
 
 Example 5:
 <QUERY>How do electric cars contribute to reducing pollution?</QUERY>
@@ -246,7 +256,7 @@ Example 6:
 <ANSWER>The provided content does not contain specific information about the proper use of __init__ in Pydantic. For detailed tutorials or documentation showing the proper use of __init__ in Pydantic, it would be best to refer directly to the official Pydantic documentation or specific tutorials related to Pydantic's __init__ method.</ANSWER>
 
 Output: BAD
-Explanation of output: The answer is unhelpful as it explicitly states that the content does not contain the information requested, nor does it provide a source link.
+Explanation of output: The answer is unhelpful as it explicitly states that the content does not contain the information requested.
 
 Example 7:
 <QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
@@ -259,13 +269,6 @@ Example 8:
 <ANSWER>[HealthLine](https://www.healthline.com/nutrition/antioxidants-explained) explains that antioxidants help to neutralize free radicals in the body, which can prevent cellular damage and reduce the risk of certain chronic diseases. However, the article suggests that the impact of antioxidants might vary based on the source and type consumed. Specific examples of antioxidants include vitamins C and E, beta-carotene, and selenium. The article also notes that some studies have suggested that antioxidant supplements may not be as beneficial as consuming antioxidants through whole foods.</ANSWER>
 
 Output: EXCELLENT
-
-Example 9:
-<QUERY>Who was USSR's leader when cnn appeared</QUERY>
-<ANSWER>As a partial answer, according to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The article does not mention the leader of the USSR at that time.</ANSWER>
-
-Output: GOOD
-Explanation of output: Partial answers that provide one piece of requested info are ok.
 
 Actual prompt:
 <QUERY>{query}</QUERY>
