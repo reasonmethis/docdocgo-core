@@ -1,6 +1,6 @@
 import json
 
-from langchain.prompts import PromptTemplate
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
 from agentblocks.collectionhelper import (
@@ -116,12 +116,10 @@ Now, use the information in the "# Input" section to construct your actual outpu
 
 """
 hs_query_updater_prompt = PromptTemplate.from_template(search_queries_updater_template)
+hs_answer_generator_system_msg = """\
+You are an advanced assistant in satisfying USER's information need. 
 
-hs_answer_generator_template = """\
-You are an advanced assistant in satisfying USER's information need. Input: you will be provided CONTENT and user's QUERY. Output: should be one of the following:
-1. Reply with a full, accurate, unbiased, up-to-date answer to QUERY - if CONTENT is sufficient to produce such an answer
-OR
-2. Just one word "CONTENT_INSUFFICIENT" - if CONTENT is insufficient to produce such an answer.
+Input: you will be provided CONTENT and user's QUERY. Output: should be a full or partial (but still helpful!) answer to QUERY based on CONTENT. If CONTENT doesn't have needed info output should be "This content does not contain needed information.".
 
 Examples 1:
 <CONTENT>SOURCE: https://en.wikipedia.org/wiki/Python_(programming_language)
@@ -130,7 +128,7 @@ Python is an interpreted high-level general-purpose programming language. Python
 </CONTENT>
 <QUERY>python code for how to merge dictionaries</QUERY>
 
-Output: CONTENT_INSUFFICIENT
+Output: This content does not contain needed information.
 
 Examples 2:
 <CONTENT>SOURCE: https://www.marketplace.org/2020/06/19
@@ -139,7 +137,7 @@ CNN is an American news-based pay television channel owned by AT&T's WarnerMedia
 </CONTENT>
 <QUERY>Who was USSR's leader when cnn appeared</QUERY>
 
-Output: According to [this source](https://www.marketplace.org/2020/06/19), CNN was launched in 1980 by media proprietor Ted Turner. At that time, the leader of the USSR was Leonid Brezhnev. He led the Soviet Union from 1964 until his death in 1982. 
+Output: As a partial answer, according to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The article does not mention the leader of the USSR at that time, but I am fairly confident it was Leonid Brezhnev.
 
 Examples 3:
 <CONTENT>SOURCE: https://www.nationalgeographic.com/animals
@@ -159,12 +157,49 @@ The Colosseum, also known as the Flavian Amphitheatre, is an oval amphitheatre i
 
 Output: As explained in [this article](https://www.history.com/topics/ancient-rome/colosseum), the Colosseum was built using travertine limestone, tuff (volcanic rock), and brick-faced concrete.
 
-Actual prompt:
-<CONTENT>{context}</CONTENT>
-<QUERY>{query}</QUERY>
+Example 5:
+<CONTENT>SOURCE: https://docs.pydantic.dev/latest/concepts/unions
 
-Output: """
-hs_answer_generator_prompt = PromptTemplate.from_template(hs_answer_generator_template)
+Unions are fundamentally different to all other types Pydantic validates - instead of requiring all fields/items/values to be valid, unions require only one member to be valid.
+This leads to some nuance around how to validate unions:
+which member(s) of the union should you validate data against, and in which order?
+which errors to raise when validation fails?
+Validating unions feels like adding another orthogonal dimension to the validation process.
+<...rest of a long article about unions that doesn't contain information about using __init__ in pydantic>
+</CONTENT>
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+
+Output: This content does not contain needed information.
+
+Example 6:
+<CONTENT>SOURCE: https://stackoverflow.com/questions/66652334
+<beginning of thread about __init__ in pydantic>
+4 Answers
+Sorted by: Highest score (default) 9
+
+Because you have overidden pydantic's init method that is executed when a class that inherits from BaseModel is created. you should call super()
+
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    self.__exceptions = []
+<...further discussion about __init__ in pydantic with examples and links to docs>
+</CONTENT>
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+
+Output: This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference."""
+
+hs_answer_generator_template = """\
+<CONTENT>{context}</CONTENT>
+<QUERY>{query}</QUERY>"""
+
+hs_answer_generator_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", hs_answer_generator_system_msg),
+        # MessagesPlaceholder(variable_name="chat_history"),
+        ("user", hs_answer_generator_template),
+    ]
+)
+
 
 answer_evaluator_template = """\
 You are an expert at evaluating the quality of answers. Input: you will be provided with user's query and an LLM's answer. Output: should be one of the following:
@@ -207,10 +242,30 @@ Output: GOOD
 Explanation of output: This answer is relevant and but could be improved by addressing the production and disposal phases of electric cars to provide a more complete analysis.
 
 Example 6:
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+<ANSWER>The provided content does not contain specific information about the proper use of __init__ in Pydantic. For detailed tutorials or documentation showing the proper use of __init__ in Pydantic, it would be best to refer directly to the official Pydantic documentation or specific tutorials related to Pydantic's __init__ method.</ANSWER>
+
+Output: BAD
+Explanation of output: The answer is unhelpful as it explicitly states that the content does not contain the information requested, nor does it provide a source link.
+
+Example 7:
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+<ANSWER>This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference.</ANSWER>
+
+Output: EXCELLENT
+
+Example 8:
 <QUERY>What role do antioxidants play in human health?</QUERY>
 <ANSWER>[HealthLine](https://www.healthline.com/nutrition/antioxidants-explained) explains that antioxidants help to neutralize free radicals in the body, which can prevent cellular damage and reduce the risk of certain chronic diseases. However, the article suggests that the impact of antioxidants might vary based on the source and type consumed. Specific examples of antioxidants include vitamins C and E, beta-carotene, and selenium. The article also notes that some studies have suggested that antioxidant supplements may not be as beneficial as consuming antioxidants through whole foods.</ANSWER>
 
 Output: EXCELLENT
+
+Example 9:
+<QUERY>Who was USSR's leader when cnn appeared</QUERY>
+<ANSWER>As a partial answer, according to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The article does not mention the leader of the USSR at that time.</ANSWER>
+
+Output: GOOD
+Explanation of output: Partial answers that provide one piece of requested info are ok.
 
 Actual prompt:
 <QUERY>{query}</QUERY>
@@ -220,10 +275,12 @@ Output: """
 answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template)
 
 ## SAMPLE QUERIES
-# find example code showing how to update React state in shadcn ui Slider component
-# find a quote by obama about jill biden
-# /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
-# /re hs search the web specifically for "llms wearing pants" and tell me what it means
+"""
+/re hs find example code showing how to update React state in shadcn ui Slider component
+/re hs find a quote by obama about jill biden
+/re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
+/re hs search the web specifically for "llms wearing pants" and tell me what it means
+"""
 
 evaluation_code_to_grade = {
     "EXCELLENT": "A",
@@ -308,8 +365,12 @@ def run_main_heatseek_workflow(
         )
 
         # Parse response
-        if "CONTENT_INSUFFICIENT" not in reply:
-            # If LLM wrote a reply, add it to the full reply
+        if "content does not contain needed information" not in reply:
+            # If LLM wrote a reply, check if it included a source
+            if source not in reply:
+                reply += f"\n\nSource: {source}"
+
+            # Add to the full reply
             piece = ("\n\n" + reply) if full_reply else reply
             full_reply += piece
             chat_state.add_to_output(piece)
