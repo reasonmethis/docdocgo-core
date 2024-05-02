@@ -37,6 +37,7 @@ from utils.streamlit.helpers import (
     fix_markdown,
     show_sources,
     status_config,
+    just_chat_status_config,
     write_slowly,
 )
 from utils.streamlit.ingest import ingest_docs
@@ -53,9 +54,6 @@ st.markdown(
     "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
 )
-# st.markdown("Welcome to DocDocGo! 🦉")
-# st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
-# st.stop()
 
 
 def show_uploader(is_new_widget=False, border=True):
@@ -291,6 +289,7 @@ for i, (msg_pair, sources) in enumerate(
     if answer is not None or sources is not None:
         with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             if answer is not None:
+                st.empty()  # to "replace" status & fix ghost double text issue
                 st.markdown(fix_markdown(answer))
             show_sources(sources)
     if i == st.session_state.idx_file_upload:
@@ -378,7 +377,6 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
         response = get_bot_response(chat_state)
-        logger.debug(str(list(response.keys())))
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
@@ -399,7 +397,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         # Display the "complete" status - custom or default
         if status:
-            default_status = status_config[chat_mode]
+            default_status = status_config.get(chat_mode, just_chat_status_config)
             status.update(
                 label=response.get("status.header", default_status["complete.header"]),
                 state="complete",

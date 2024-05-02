@@ -5,7 +5,6 @@ import streamlit as st
 
 from utils.type_utils import ChatMode
 
-
 POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL = """\
 Your documents have been uploaded to a new collection: `{coll_name}`. \
 You can now use this collection in your queries. If you are done uploading, \
@@ -23,7 +22,7 @@ If you are done uploading, you can rename it:
 ```
 """
 
-default_status_config = {
+chat_with_docs_status_config = {
     "thinking.header": "One sec...",
     "thinking.body": "Retrieving sources and composing reply...",
     "complete.header": "Done!",
@@ -32,29 +31,29 @@ default_status_config = {
     "error.body": "Apologies, there was an error.",
 }
 
-just_chat_status_config = default_status_config | {
+just_chat_status_config = chat_with_docs_status_config | {
     "thinking.body": "Composing reply...",
 }
 
-web_status_config = default_status_config | {
+web_status_config = chat_with_docs_status_config | {
     "thinking.header": "Doing Internet research (takes 10-30s)...",
     "thinking.body": "Retrieving content from websites and composing report...",
     "complete.body": "Report composed.",
 }
 
-research_status_config = default_status_config | {
+research_status_config = chat_with_docs_status_config | {
     "thinking.header": "Doing Internet research (takes 10-30s)...",
     "thinking.body": "Retrieving content from websites and composing report...",
     "complete.body": "Report composed and sources added to the document collection.",
 }
 
-ingest_status_config = default_status_config | {
+ingest_status_config = chat_with_docs_status_config | {
     "thinking.header": "Ingesting...",
     "thinking.body": "Retrieving and ingesting content...",
     "complete.body": "Content was added to the document collection.",
 }
 
-summarize_status_config = default_status_config | {
+summarize_status_config = chat_with_docs_status_config | {
     "thinking.header": "Summarizing and ingesting...",
     "thinking.body": "Retrieving, summarizing, and ingesting content...",
     "complete.body": "Summary composed and retrieved content added to the document collection.",
@@ -62,10 +61,10 @@ summarize_status_config = default_status_config | {
 
 status_config = {
     ChatMode.JUST_CHAT_COMMAND_ID: just_chat_status_config,
-    ChatMode.CHAT_WITH_DOCS_COMMAND_ID: default_status_config,
-    ChatMode.DETAILS_COMMAND_ID: default_status_config,
-    ChatMode.QUOTES_COMMAND_ID: default_status_config,
-    ChatMode.HELP_COMMAND_ID: default_status_config,
+    ChatMode.CHAT_WITH_DOCS_COMMAND_ID: chat_with_docs_status_config,
+    ChatMode.DETAILS_COMMAND_ID: chat_with_docs_status_config,
+    ChatMode.QUOTES_COMMAND_ID: chat_with_docs_status_config,
+    ChatMode.HELP_COMMAND_ID: chat_with_docs_status_config,
     ChatMode.WEB_COMMAND_ID: web_status_config,
     ChatMode.RESEARCH_COMMAND_ID: research_status_config,
     ChatMode.INGEST_COMMAND_ID: ingest_status_config,
@@ -92,11 +91,12 @@ def fix_markdown(text: str) -> str:
     return re.sub(r"\$(?=\d)", r"\$", text).replace("\n", "  \n")
 
 
-def write_slowly(message_placeholder, answer):
-    """Write a message to the message placeholder slowly, character by character."""
-    delay = min(0.005, 2 / (len(answer) + 1))
-    for i in range(1, len(answer) + 1):
-        message_placeholder.markdown(fix_markdown(answer[:i]))
+def write_slowly(message_placeholder, answer, delay=None):
+    """Write a message to the message placeholder not all at once but word by word."""
+    pieces = answer.split(" ")
+    delay = delay or min(0.025, 10 / (len(pieces) + 1))
+    for i in range(1, len(pieces) + 1):
+        message_placeholder.markdown(fix_markdown(" ".join(pieces[:i])))
         time.sleep(delay)
 
 
