@@ -378,7 +378,6 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
     chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
         response = get_bot_response(chat_state)
-        logger.debug(str(list(response.keys())))
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
