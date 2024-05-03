@@ -196,6 +196,15 @@ The transcript of the trial on April 30, 2024, revealed that former President Do
 <QUERY>/re hs find transcript of trial involving Trump</QUERY>
 
 Output: This content does not contain needed information.
+
+Example 8:
+<CONTENT>SOURCE: https://whitehouse.gov/2024/05/01/remarks.html
+
+DR. JILL BIDEN: "Michelle Obama and I have been friends for many years. She is a wonderful person and a great friend. I am honored to have her support in my work as First Lady."
+</CONTENT>
+<QUERY>find a quote by president Biden about Michelle Obama</QUERY>
+
+Output: This content does not contain needed information.
 """
 
 hs_answer_generator_template = """\
