@@ -167,7 +167,7 @@ We'll delve into the most important commands in more detail in the sections belo
 
 ## Research Commands
 
-We'll first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
+There are now two modes of research: "heatseek" (for finding just that perfect website) and "regular" (for compiling information from multiple websites). Let's first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
 
 >_KB_ stands for _knowledge base_, also known as a _collection_.
 
@@ -180,7 +180,7 @@ Here are the most important commands you can use for Internet research:
 - `/research heatseek 6 <your query>`: perform 6 rounds of "heatseek" research
 - `/re hs 5`: perform 5 more rounds (can use shorthands for commands)
 
-This is a new, more lightweight mode that is highly useful when you need to find that "gem" of a website that contains some specific information and Google is just giving you too much noise.
+This is a newer, more lightweight mode that is highly useful when you need to find that "gem" of a website that contains some specific information and Google is just giving you too much noise.
 
 **2. Regular mode:** use content from multiple websites to write a detailed answer, create a KB
 
@@ -209,73 +209,97 @@ You can also view the reports:
 - `/research view base`: view the base reports
 - `/research view combined`: view the combined reports
 
+> To save keystrokes, you can use the shorthand `/re` instead of `/research`.
+
 Let's go over the commands in more detail to get a better understanding of what they do and the differences between them.
+
+### The `heatseek` mode
+
+The `/re heatseek` command is a newer, easy-to-use mode of research that doesn't try to compile information from multiple sources (as the regular mode does), but instead focuses on finding the perfect website that contains the answer to your query.
+
+You might ask - why not just use Google (or perhaps Perplexity)? The answer is that you in fact _should_ start with just a regular web search, and you may very well find what you need quickly. But sometimes you don't, and you need to dig deeper: go beyond the first page of search results, try different search queries, read through multiple websites, etc. `/research heatseek` automates all of this for you! For example, you can type:
+
+```markdown
+/re heatseek 3 Find code snippet that shows how to update React state in shadcn Slider component
+```
+
+and watch as DocDocGo fetches websites, reads through them, and tries to find one that contains what you asked for. If it doesn't find it in the first round, it will try again, and again, up to the number of rounds you specify. In the example above, it will do 3 rounds, and if you don't specify a number, it will default to one round.
+
+If you would like to do more rounds after the initial command finishes, you can type:
+
+```markdown
+/re hs <number of rounds>
+```
+
+and it will perform the specified number of additional rounds. Note that you can always use the shorthand `hs` instead of `heatseek`, just as you can use `re` instead of `research`.
+
+Now let's go over the subcommands for the regular research mode.
 
 ### The `iterate` subcommand
 
-If you type `/research iterate`, DocDocGo will fetch more content from the web and use it to try to improve the report. If you type `/research iterate N`, DocDocGo will automatically do `N` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report. All fetched content will be added to a KB (aka _collection_) for any follow-up questions.
+Assuming you have already initiated your research using `/re <your query>`, if you then type `/re iterate`, DocDocGo will fetch more content from the web and use it to try to improve its initial report. If you type `/re iterate N`, DocDocGo will automatically do `N` repetitions of the `/research iterate` command. Each repetition will fetch more content related to your original query and produce a new version of the report. All fetched content will be added to a KB (aka _collection_) for any follow-up questions.
 
-> If you are doing multiple iterations and want to abort, simply reload the app (in the Streamlit mode).
+> If you are doing multiple iterations and want to abort, simply reload the UI.
 
 ### The `deeper` subcommand
 
 The above approach sounds neat, but it doesn't always work in practice, especially if you use a not-so-smart model, like GPT-3.5. Specifically, it sometimes treats the information from the latest small batch of sources on an equal or higher footing than the information in the pre-existing report, even when the latter is based on many more sources and thus should be prioritized. Important information can then be lost and the report can become worse after a new iteration, not better.
 
-That's why we have the `/research deeper` command. Instead of using new sources to try to directly improve the report, it uses a combination of `more` and `combine` operations to generate _separate_ reports from additional sources and then combine them with the existing report(s) in a way that doesn't unfairly prioritize the new sources. Each run of the `/research deeper` command will double the number of sources in the report.
+That's why we have the `/research deeper` command. Instead of using new sources to try to directly improve the report, it uses a combination of `more` and `combine` operations to generate _separate_ reports from additional sources and then combine them with the existing report(s) in a way that doesn't unfairly prioritize the new sources. Each run of the `/re deeper` command will double the number of sources in the report.
 
 > As always, all fetched content will be added to the collection for any follow-up chat.
 
 ### The recommended workflow for "infinite" research
 
-The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/research deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
+The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/re deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
 
 Here's the simplest workflow for research:
 
-1. Start with `/research <your query>` to generate a report based on the initial sources.
+1. Start with `/re <your query>` to generate a report based on the initial sources.
 2. Decide on the next step:  
   a. If you are happy with the report, you can stop here.  
   b. If the report is completely off, you can go back to step 1 and try a new query.  
-  c. If some adjustments are needed use `/research set-...`, then `/research startover` (see below).
+  c. If some adjustments are needed use `/res set-...`, then `/re startover` (see below).
   d. Otherwise, continue to step 3.
-3. Use `/research deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
+3. Use `/re deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
 
 ### The `more` and `combine` subcommands
 
-What are these `more` and `combine` operations? `/research more` allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
+What are these `more` and `combine` operations? `/re more` allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
 
-Such separate reports are called _base reports_. If you'd like to combine the most important information from two base reports into one report, you can use the `/research combine` command. It will automatically find the two highest-level reports (at the same level) that haven't been combined yet and combine them. "Level" here roughly corresponds to the number of sources that went into the report. More precisely, base reports have level 0. When two reports are combined, the level of the new report is 1 higher than the level of the two reports that were combined.
+Such separate reports are called _base reports_. If you'd like to combine the most important information from two base reports into one report, you can use the `/re combine` command. It will automatically find the two highest-level reports (at the same level) that haven't been combined yet and combine them. "Level" here roughly corresponds to the number of sources that went into the report. More precisely, base reports have level 0. When two reports are combined, the level of the new report is 1 higher than the level of the two reports that were combined.
 
 ### The `auto` subcommand
 
-The `/research auto` command is a combination of the `/research more` and `/research combine` commands. It automatically selects one or the other. If there are reports to combine, it will use the `/research combine` command. Otherwise, it will use the `/research more` command to fetch more content from the web and generate a new base report.
+The `/research auto` command is a combination of the `/re more` and `/re combine` commands. It automatically selects one or the other. If there are reports to combine, it will use the `/re combine` command. Otherwise, it will use the `/re more` command to fetch more content from the web and generate a new base report.
 
-You can request multiple iterations of this command. For example, `/research auto 42` will automatically perform 42 iterations of `/research auto`. (To abort, simply reload the app.)
+You can request multiple iterations of this command. For example, `/re auto 42` will automatically perform 42 iterations of `/re auto`. (To abort, simply reload the app.)
 
-You can add a number to the end of the `/research more` and `/research combine` commands as well to repeat them multiple times.
+You can add a number to the end of the `/re more` and `/re combine` commands as well to repeat them multiple times.
 
 ### The relationship between the `auto` and `deeper` commands
 
 Both of these commands can be used to perform "infinite" research, but the `deeper` command is more user-friendly because most values for the number of `auto` iterations will result in a final output that may cause confusion.
 
-For example, after performing the initial research, running `/research auto 2` will perform one iteration of `more` and one iteration of `combine`. This will result in a report that is based on 2x more sources than the original report. Running `/research auto 3`, however, will perform the two iterations above, plus an additional `more` step. As a result, there will be 3 base reports and 1 combined report, and the final output will be the 3rd base report. While you can still view the combined report by scrolling up or by running `/re view`, this state of affairs is likely to be confusing.
+For example, after performing the initial research, running `/re auto 2` will perform one iteration of `more` and one iteration of `combine`. This will result in a report that is based on 2x more sources than the original report. Running `/re auto 3`, however, will perform the two iterations above, plus an additional `more` step. As a result, there will be 3 base reports and 1 combined report, and the final output will be the 3rd base report. While you can still view the combined report by scrolling up or by running `/re view`, this state of affairs is likely to be confusing.
 
-Only certain specific values for the number of `auto` iterations will result in a final output that is a report based on combining all of the previous reports. After doing a bit of math, you can convince yourself that if you only have one base report, then `/research auto 2^N - 2` will result in a report based on 2^(N-1) sources.
+Only certain specific values for the number of `auto` iterations will result in a final output that is a report based on combining all of the previous reports. After doing a bit of math, you can convince yourself that if you only have one base report, then `/re auto 2^N - 2` will result in a report based on 2^(N-1) sources.
 
 But of course, you don't want to have to do math to figure out how many iterations to run. That's why the `deeper` command is more user-friendly. It will automatically figure out how many iterations to run to get a report based on 2x more sources than the current main report.
 
 ### The `view` subcommand
 
-You can view the reports and some basic info on them using the `/research view` command. The `/research view stats` command will show the report basic info, such as the query and report type, as well as report stats, such as how many sources have been processed, how many base and combined reports there are, etc. The `/research view main` command (`main` is optional) will show the stats and main report, i.e. the report that combines the most sources. The `/research view base` command will show the base reports. The `/research view combined` command will show the combined reports.
+You can view the reports and some basic info on them using the `/re view` command. The `/re view stats` command will show the report basic info, such as the query and report type, as well as report stats, such as how many sources have been processed, how many base and combined reports there are, etc. The `/re view main` command (`main` is optional) will show the stats and main report, i.e. the report that combines the most sources. The `/re view base` command will show the base reports. The `/re view combined` command will show the combined reports.
 
 ### The `set-...` subcommands
 
-If you are not quite happy with how the report is shaping up, you have the option to change the focus and/or the format of the report, without having to re-fetch and re-ingest the already ingested websites. The `/research set-query` command allows you to change the query for the current research. The `/research set-report-type` command allows you to change the report format. The `/research set-search-queries` command allows you to specify new web search queries DocDocGo will use to fetch more content from the web.
+If you are not quite happy with how the report is shaping up, you have the option to change the focus and/or the format of the report, without having to re-fetch and re-ingest the already ingested websites. The `/re set-query` command allows you to change the query for the current research. The `/re set-report-type` command allows you to change the report format. The `/re set-search-queries` command allows you to specify new web search queries DocDocGo will use to fetch more content from the web.
 
-What are the query and report format? The query is just what you specified in your initial `/research <query>` command. The report format is originally automatically inferred by DocDocGo based on your query, but you can change it a new format. For example, you can request:
+What are the query and report format? The query is just what you specified in your initial `/re <query>` command. The report format is originally automatically inferred by DocDocGo based on your query, but you can change it to a new format. For example, you can type:
 
 ```markdown
-/research set-report-type Numbered list with short bullet points and URL of corresponding source
+/re set-report-type Numbered list with short bullet points and URL of corresponding source
 ```
 
 All subsequent reports will be generated using the new query, format, and/or search queries. Here are a couple of possible (but not the only) workflows:
@@ -285,7 +309,7 @@ All subsequent reports will be generated using the new query, format, and/or sea
 
 ### The `clear` and `startover` subcommands
 
-The `/research clear` command will remove all reports but keep the ingested content. The `/research startover` command will perform the `/research clear` command, then rewrite the initial report. This is useful if you want to change the query and/or report format, but don't want to re-ingest the already ingested websites. Rewriting the reports without having to re-fetch and re-ingest the websites makes things go much faster and is especially useful if you have already accumulated a lot of relevant content.
+The `/re clear` command will remove all reports but keep the ingested content. The `/re startover` command will perform the `/re clear` command, then rewrite the initial report. This is useful if you want to change the query and/or report format, but don't want to re-ingest the already ingested websites. Rewriting the reports without having to re-fetch and re-ingest the websites makes things go much faster and is especially useful if you have already accumulated a lot of relevant content.
 
 ## Database Management
 
@@ -374,7 +398,7 @@ A: Before you entered your own OpenAI API key, you were using the community key 
 
 You still have access to the public collections, you can switch to any public collection by typing `/db use <collection name>`. If you want to see all available public collections again, you can switch back to the community key by changing the key to an empty string, then running `/db list` again.
 
-#### Q: I got a shareable link to a collection but using it reloads the app, so it ends up in its default state of using the community key. How can I use the link with my own OpenAI API key?
+#### Q: I got a shareable link to a collection but using it reloads the Streamlit app, after which it ends up in its default state of using the community key. How can I use the link with my own OpenAI API key?
 
 A: Simply enter your key in the OpenAI API key field after the app has reloaded. The access code will still be valid.
 
