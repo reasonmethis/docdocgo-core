@@ -11,7 +11,12 @@ from utils.type_utils import OperationMode
 
 
 def prepare_app():
-    # Whether or not the OpenAI API key has succeeded at least once
+    if os.getenv("STREAMLIT_SCHEDULED_MAINTENANCE"):
+        st.markdown("Welcome to DocDocGo! 🦉")
+        st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
+        st.stop()
+
+    # Flag for whether or not the OpenAI API key has succeeded at least once
     st.session_state.llm_api_key_ok_status = False
 
     print("query params:", st.query_params)

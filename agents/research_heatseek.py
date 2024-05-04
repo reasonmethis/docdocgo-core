@@ -1,6 +1,6 @@
 import json
 
-from langchain.prompts import PromptTemplate
+from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
 from agentblocks.collectionhelper import (
@@ -15,7 +15,7 @@ from agentblocks.websearch import (
     get_web_search_queries_from_prompt,
 )
 from utils.chat_state import ChatState
-from utils.helpers import format_nonstreaming_answer, get_timestamp
+from utils.helpers import DELIMITER40, format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH, ddglogger
 from utils.strings import has_which_substring
 from utils.type_utils import JSONishDict, Props
@@ -116,12 +116,10 @@ Now, use the information in the "# Input" section to construct your actual outpu
 
 """
 hs_query_updater_prompt = PromptTemplate.from_template(search_queries_updater_template)
+hs_answer_generator_system_msg = """\
+You are an advanced assistant in satisfying USER's information need. 
 
-hs_answer_generator_template = """\
-You are an advanced assistant in satisfying USER's information need. Input: you will be provided CONTENT and user's QUERY. Output: should be one of the following:
-1. Reply with a full, accurate, unbiased, up-to-date answer to QUERY - if CONTENT is sufficient to produce such an answer
-OR
-2. Just one word "CONTENT_INSUFFICIENT" - if CONTENT is insufficient to produce such an answer.
+Input: you will be provided CONTENT and user's QUERY. Output: should be a full or partial (but still helpful!) answer to QUERY based on CONTENT. If CONTENT doesn't have needed info output should be "This content does not contain needed information.".
 
 Examples 1:
 <CONTENT>SOURCE: https://en.wikipedia.org/wiki/Python_(programming_language)
@@ -130,7 +128,7 @@ Python is an interpreted high-level general-purpose programming language. Python
 </CONTENT>
 <QUERY>python code for how to merge dictionaries</QUERY>
 
-Output: CONTENT_INSUFFICIENT
+Output: This content does not contain needed information.
 
 Examples 2:
 <CONTENT>SOURCE: https://www.marketplace.org/2020/06/19
@@ -139,7 +137,7 @@ CNN is an American news-based pay television channel owned by AT&T's WarnerMedia
 </CONTENT>
 <QUERY>Who was USSR's leader when cnn appeared</QUERY>
 
-Output: According to [this source](https://www.marketplace.org/2020/06/19), CNN was launched in 1980 by media proprietor Ted Turner. At that time, the leader of the USSR was Leonid Brezhnev. He led the Soviet Union from 1964 until his death in 1982. 
+Output: According to this [marketplace.org article](https://www.marketplace.org/2020/06/19) from June 19, 2020, CNN was launched in 1980 by media proprietor Ted Turner. The leader of the USSR at that time was Leonid Brezhnev.
 
 Examples 3:
 <CONTENT>SOURCE: https://www.nationalgeographic.com/animals
@@ -159,17 +157,73 @@ The Colosseum, also known as the Flavian Amphitheatre, is an oval amphitheatre i
 
 Output: As explained in [this article](https://www.history.com/topics/ancient-rome/colosseum), the Colosseum was built using travertine limestone, tuff (volcanic rock), and brick-faced concrete.
 
-Actual prompt:
-<CONTENT>{context}</CONTENT>
-<QUERY>{query}</QUERY>
+Example 5:
+<CONTENT>SOURCE: https://docs.pydantic.dev/latest/concepts/unions
 
-Output: """
-hs_answer_generator_prompt = PromptTemplate.from_template(hs_answer_generator_template)
+Unions are fundamentally different to all other types Pydantic validates - instead of requiring all fields/items/values to be valid, unions require only one member to be valid.
+This leads to some nuance around how to validate unions:
+which member(s) of the union should you validate data against, and in which order?
+which errors to raise when validation fails?
+Validating unions feels like adding another orthogonal dimension to the validation process.
+<...rest of a long article about unions that doesn't contain information about using __init__ in pydantic>
+</CONTENT>
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+
+Output: This content does not contain needed information.
+
+Example 6:
+<CONTENT>SOURCE: https://stackoverflow.com/questions/66652334
+<beginning of thread about __init__ in pydantic>
+4 Answers
+Sorted by: Highest score (default) 9
+
+Because you have overidden pydantic's init method that is executed when a class that inherits from BaseModel is created. you should call super()
+
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    self.__exceptions = []
+<...further discussion about __init__ in pydantic with examples and links to docs>
+</CONTENT>
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+
+Output: This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference.
+
+Example 7:
+<CONTENT>SOURCE: https://www.nytimes.com/2024/05/01/trump-hush-money-trial-transcript.html
+
+The transcript of the trial on April 30, 2024, revealed that former President Donald Trump was involved in the hush money payments to Stormy Daniels. The trial also exposed the role of Michael Cohen in facilitating the payments and the subsequent cover-up. <...rest of article, which discusses the transcript further but doesn't provide the transcript itself or a link to it>
+</CONTENT>
+<QUERY>/re hs find transcript of trial involving Trump</QUERY>
+
+Output: This content does not contain needed information.
+
+Example 8:
+<CONTENT>SOURCE: https://whitehouse.gov/2024/05/01/remarks.html
+
+DR. JILL BIDEN: "Michelle Obama and I have been friends for many years. She is a wonderful person and a great friend. I am honored to have her support in my work as First Lady."
+</CONTENT>
+<QUERY>find a quote by president Biden about Michelle Obama</QUERY>
+
+Output: This content does not contain needed information.
+"""
+
+hs_answer_generator_template = """\
+<CONTENT>{context}</CONTENT>
+<QUERY>{query}</QUERY>"""
+
+hs_answer_generator_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", hs_answer_generator_system_msg),
+        # MessagesPlaceholder(variable_name="chat_history"),
+        ("user", hs_answer_generator_template),
+    ]
+)
+
 
 answer_evaluator_template = """\
 You are an expert at evaluating the quality of answers. Input: you will be provided with user's query and an LLM's answer. Output: should be one of the following:
 1. Reply with just one word "EXCELLENT" - if the answer is perfectly relevant and complete
-2. "GOOD" - if the answer is mostly relevant and complete
+2. "GOOD" - if the answer provides important information clearly relevant to the query, but is not perfectly complete
 3. "MEDIUM" - if the answer is somewhat relevant, but needs significant improvement
 4. "BAD" - if the answer is irrelevant or unhelpful
 
@@ -197,7 +251,7 @@ Example 4:
 <ANSWER>According to [this source](https://www.cosmopolitan.com/entertainment/celebs/), Michelle Obama said, "Dr. Biden gives us a better example. And this is why I feel so strongly that we could not ask for a better First Lady. She will be a terrific role model not just for young girls but for all of us, wearing her accomplishments with grace, good humor, and, yes, pride."</ANSWER>
 
 Output: MEDIUM
-Explanation of output: technically relevant but user almost certainly wanted a quote from Barack Obama, not just any Obama
+Explanation of output: "obama" generally refers to Barack Obama, not Michelle Obama
 
 Example 5:
 <QUERY>How do electric cars contribute to reducing pollution?</QUERY>
@@ -207,6 +261,19 @@ Output: GOOD
 Explanation of output: This answer is relevant and but could be improved by addressing the production and disposal phases of electric cars to provide a more complete analysis.
 
 Example 6:
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+<ANSWER>The provided content does not contain specific information about the proper use of __init__ in Pydantic. For detailed tutorials or documentation showing the proper use of __init__ in Pydantic, it would be best to refer directly to the official Pydantic documentation or specific tutorials related to Pydantic's __init__ method.</ANSWER>
+
+Output: BAD
+Explanation of output: The answer is unhelpful as it explicitly states that the content does not contain the information requested.
+
+Example 7:
+<QUERY>tutorial or documentation showing proper use of __init__ in pydantic</QUERY>
+<ANSWER>This [Stack Overflow post](https://stackoverflow.com/questions/66652334) discusses the proper use of __init__ in Pydantic. It explains that when defining a Base model that inherits from Pydantic's BaseModel, you should call super().__init__(**kwargs) in the __init__ method to avoid errors. Additionally, it provides examples and links to Pydantic documentation for further reference.</ANSWER>
+
+Output: EXCELLENT
+
+Example 8:
 <QUERY>What role do antioxidants play in human health?</QUERY>
 <ANSWER>[HealthLine](https://www.healthline.com/nutrition/antioxidants-explained) explains that antioxidants help to neutralize free radicals in the body, which can prevent cellular damage and reduce the risk of certain chronic diseases. However, the article suggests that the impact of antioxidants might vary based on the source and type consumed. Specific examples of antioxidants include vitamins C and E, beta-carotene, and selenium. The article also notes that some studies have suggested that antioxidant supplements may not be as beneficial as consuming antioxidants through whole foods.</ANSWER>
 
@@ -220,10 +287,12 @@ Output: """
 answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template)
 
 ## SAMPLE QUERIES
-# find example code showing how to update React state in shadcn ui Slider component
-# find a quote by obama about jill biden
-# /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
-# /re hs search the web specifically for "llms wearing pants" and tell me what it means
+"""
+/re hs find example code showing how to update React state in shadcn ui Slider component
+/re hs find a quote by obama about jill biden
+/re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
+/re hs search the web specifically for "llms wearing pants" and tell me what it means
+"""
 
 evaluation_code_to_grade = {
     "EXCELLENT": "A",
@@ -258,6 +327,7 @@ MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and ge
 MAX_URL_RETRIEVALS_IN_ONE_GO = 1
 CHECKED_STR = "I checked but didn't find a good answer in "
 answer_found_evaluations = ["EXCELLENT"]
+content_insufficient_evaluations = ["BAD"]
 evaluations_to_record_answers = ["EXCELLENT", "GOOD", "MEDIUM"]
 
 
@@ -269,7 +339,7 @@ def run_main_heatseek_workflow(
 
     # Process URLs one by one (unless content is too big, then split it up)
     new_checked_block = True
-    source = None
+    source = "SOME RANDOM STRING TO THEN INITIALIZE prev_source"
     init_num_url_retrievals = hs_data.url_conveyer.num_url_retrievals
     for _ in range(MAX_SUB_ITERATIONS_IN_ONE_GO):
         # Get next batch of URLs if needed
@@ -289,32 +359,34 @@ def run_main_heatseek_workflow(
         docs = hs_data.doc_conveyer.get_next_docs(
             max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1
         )
-        ddglogger.debug(
-            f"Values for part_id of docs: {[doc.metadata.get('part_id') for doc in docs]}"
-        )
         if not docs:
+            ddglogger.warning("No docs available")
             break  # unlikely to happen, but just in case
 
-        # Construct the context and get response from LLM
         prev_source = source
         source = docs[0].metadata["source"]
-        ddglogger.info(f"Getting response from LLM for user query using {source}")
+        ddglogger.info(
+            f"Getting response from LLM for source: {source} "
+            f"(values of part_id: {[doc.metadata.get('part_id') for doc in docs]}"
+        )
+
+        # Construct the context and get response from LLM
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
-        ddglogger.debug(f"Context: {context}\n" + "-" * 40)
+        ddglogger.debug(f"Context:\n{DELIMITER40}{context}\n{DELIMITER40}")
 
         inputs = {"query": hs_data.query, "context": context}
         reply = chat_state.get_llm_reply(
             hs_answer_generator_prompt, inputs, to_user=False
         )
+        ddglogger.debug(f"LLM reply: {reply}")
+
+        # Check if content is insufficient (this can change from False to True if
+        # the evaluator gives a bad evaluation later on)
+        is_content_insufficient = "content does not contain needed information" in reply
 
         # Parse response
-        if "CONTENT_INSUFFICIENT" not in reply:
-            # If LLM wrote a reply, add it to the full reply
-            piece = ("\n\n" + reply) if full_reply else reply
-            full_reply += piece
-            chat_state.add_to_output(piece)
-
-            # Get response from evaluator
+        if not is_content_insufficient:
+            # If LLM wrote a reply, evaluate it first
             inputs = {"query": hs_data.query, "answer": reply}
             ddglogger.info("Getting response from evaluator")
             evaluator_reply = chat_state.get_llm_reply(
@@ -326,10 +398,21 @@ def run_main_heatseek_workflow(
                 evaluator_reply, ["EXCELLENT", "GOOD", "MEDIUM", "BAD"]
             )
             ddglogger.info(f"Evaluation: {evaluation}")
-            piece = f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
-            full_reply += piece
-            chat_state.add_to_output(piece)
-            hs_data.is_answer_found = evaluation in answer_found_evaluations
+
+            is_content_insufficient = evaluation in content_insufficient_evaluations
+
+            if not is_content_insufficient:
+                # If LLM omitted the source, add it
+                if source not in reply:
+                    reply += f"\n\nSource: {source}"
+
+                # Add to the full reply
+                piece = ("\n\n" if full_reply else "") + reply
+                piece += f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
+                full_reply += piece
+                chat_state.add_to_output(piece)
+                hs_data.is_answer_found = evaluation in answer_found_evaluations
+                new_checked_block = True
 
             # Record answer and evaluation if needed
             if evaluation in evaluations_to_record_answers:
@@ -339,10 +422,11 @@ def run_main_heatseek_workflow(
             # If answer is found, break
             if hs_data.is_answer_found:
                 break
-            new_checked_block = True
-        else:
+
+        if is_content_insufficient:
             # If content is insufficient, add to the "Checked: " block
             ddglogger.info("Content is insufficient")
+            ddglogger.debug(f"{source=}, {prev_source=}, {new_checked_block=}")
             if source != prev_source:
                 if new_checked_block:
                     piece = f"\n\n{CHECKED_STR}" if full_reply else CHECKED_STR
@@ -353,12 +437,22 @@ def run_main_heatseek_workflow(
                 full_reply += piece
                 chat_state.add_to_output(piece)
 
+    # Add final piece if needed
+    piece = ""
+    if full_reply == init_reply: # just in case
+        ddglogger.warning("Shouldn't happen: full_reply == init_reply")
+        if init_reply:
+            piece="\n\n"
+        piece+="I checked but didn't find a good answer on this round."
+        
     if chat_state.parsed_query.research_params.num_iterations_left < 2:
-        piece = (
+        piece += (
             "\n\nTo continue checking more sources, type "
             "`/research heatseek <number of iterations to auto-run>`. For example, try "
             "`/re hs 4` (shorthand is ok)."
         )
+
+    if piece:
         full_reply += piece
         chat_state.add_to_output(piece)
 

@@ -1,7 +1,7 @@
 import os
 
 import streamlit as st
-from icecream import ic
+from icecream import ic  # noqa: F401
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
@@ -37,6 +37,7 @@ from utils.streamlit.helpers import (
     fix_markdown,
     show_sources,
     status_config,
+    just_chat_status_config,
     write_slowly,
 )
 from utils.streamlit.ingest import ingest_docs
@@ -45,7 +46,8 @@ from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
 
 logger = get_logger()
-
+logger.debug("Streamlit app started.")
+input("Press Enter to continue...")
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
@@ -53,9 +55,6 @@ st.markdown(
     "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
 )
-# st.markdown("Welcome to DocDocGo! 🦉")
-# st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
-# st.stop()
 
 
 def show_uploader(is_new_widget=False, border=True):
@@ -399,7 +398,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         # Display the "complete" status - custom or default
         if status:
-            default_status = status_config[chat_mode]
+            default_status = status_config.get(chat_mode, just_chat_status_config)
             status.update(
                 label=response.get("status.header", default_status["complete.header"]),
                 state="complete",
@@ -476,18 +475,19 @@ if is_ingest_via_file_uploader:
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
-ic(chat_state.vectorstore.name, coll_name_full)
 
-# If there are scheduled queries, rerun to run the next one
-if chat_state.scheduled_queries:
-    st.rerun()
+if coll_name_full != chat_state.vectorstore.name:
+    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
     st.session_state.llm_api_key_ok_status = True
     st.rerun()
 
+# If there are scheduled queries, rerun to run the next one
+if chat_state.scheduled_queries:
+    st.rerun()
+
 # If user switched to a different collection, rerun to display new collection name
 if coll_name_full != chat_state.vectorstore.name:
-    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
     st.rerun()

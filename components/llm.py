@@ -3,7 +3,7 @@ from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chat_models.base import BaseChatModel
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
+from langchain.prompts import PromptTemplate
 from langchain.prompts.chat import ChatPromptValue
 
 # from langchain.schema import HumanMessage, AIMessage, SystemMessage
@@ -18,8 +18,6 @@ from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
-    MODEL_NAME,
-    TEMPERATURE,
 )
 from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone

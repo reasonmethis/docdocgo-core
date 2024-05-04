@@ -143,10 +143,17 @@ class QueueListenerHandler(QueueHandler):
 
 
 def setup_logging(log_level: str | None, log_format: str | None):
-    if log_level or log_format:
-        raise NotImplementedError(
-            "Setting log level and log format is not yet implemented"
-        )
     ensure_path_exists("logs/ddg-logs.jsonl")
     with open(pathlib.Path("config/logging.json")) as f:
-        logging.config.dictConfig(json.load(f))
+        config = json.load(f)
+        if log_format:
+            config["formatters"]["custom"] = {
+                "format": log_format,
+                "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+            }
+            config["handlers"]["h1_stderr"]["formatter"] = "custom"
+
+        if log_level:
+            config["handlers"]["h1_stderr"]["level"] = log_level
+    
+    logging.config.dictConfig(config)

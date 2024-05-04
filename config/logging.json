@@ -23,7 +23,7 @@
   "handlers": {
     "h1_stderr": {
       "class": "logging.StreamHandler",
-      "level": "DEBUG",
+      "level": "INFO",
       "formatter": "simple",
       "stream": "ext://sys.stderr"
     },
