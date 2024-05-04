@@ -474,18 +474,19 @@ if is_ingest_via_file_uploader:
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
-ic(chat_state.vectorstore.name, coll_name_full)
 
-# If there are scheduled queries, rerun to run the next one
-if chat_state.scheduled_queries:
-    st.rerun()
+if coll_name_full != chat_state.vectorstore.name:
+    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
     st.session_state.llm_api_key_ok_status = True
     st.rerun()
 
+# If there are scheduled queries, rerun to run the next one
+if chat_state.scheduled_queries:
+    st.rerun()
+
 # If user switched to a different collection, rerun to display new collection name
 if coll_name_full != chat_state.vectorstore.name:
-    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
     st.rerun()
