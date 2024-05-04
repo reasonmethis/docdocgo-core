@@ -46,8 +46,7 @@ from utils.strings import limit_number_of_characters
 from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
 
 logger = get_logger()
-logger.debug("Streamlit app started.")
-input("Press Enter to continue...")
+
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
