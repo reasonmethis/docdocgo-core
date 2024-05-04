@@ -15,7 +15,7 @@ from agentblocks.websearch import (
     get_web_search_queries_from_prompt,
 )
 from utils.chat_state import ChatState
-from utils.helpers import format_nonstreaming_answer, get_timestamp
+from utils.helpers import DELIMITER40, format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH, ddglogger
 from utils.strings import has_which_substring
 from utils.type_utils import JSONishDict, Props
@@ -327,6 +327,7 @@ MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and ge
 MAX_URL_RETRIEVALS_IN_ONE_GO = 1
 CHECKED_STR = "I checked but didn't find a good answer in "
 answer_found_evaluations = ["EXCELLENT"]
+content_insufficient_evaluations = ["BAD"]
 evaluations_to_record_answers = ["EXCELLENT", "GOOD", "MEDIUM"]
 
 
@@ -338,7 +339,7 @@ def run_main_heatseek_workflow(
 
     # Process URLs one by one (unless content is too big, then split it up)
     new_checked_block = True
-    source = None
+    source = "SOME RANDOM STRING TO THEN INITIALIZE prev_source"
     init_num_url_retrievals = hs_data.url_conveyer.num_url_retrievals
     for _ in range(MAX_SUB_ITERATIONS_IN_ONE_GO):
         # Get next batch of URLs if needed
@@ -358,36 +359,34 @@ def run_main_heatseek_workflow(
         docs = hs_data.doc_conveyer.get_next_docs(
             max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1
         )
-        ddglogger.debug(
-            f"Values for part_id of docs: {[doc.metadata.get('part_id') for doc in docs]}"
-        )
         if not docs:
+            ddglogger.warning("No docs available")
             break  # unlikely to happen, but just in case
 
-        # Construct the context and get response from LLM
         prev_source = source
         source = docs[0].metadata["source"]
-        ddglogger.info(f"Getting response from LLM for user query using {source}")
+        ddglogger.info(
+            f"Getting response from LLM for source: {source} "
+            f"(values of part_id: {[doc.metadata.get('part_id') for doc in docs]}"
+        )
+
+        # Construct the context and get response from LLM
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
-        ddglogger.debug(f"Context: {context}\n" + "-" * 40)
+        ddglogger.debug(f"Context:\n{DELIMITER40}{context}\n{DELIMITER40}")
 
         inputs = {"query": hs_data.query, "context": context}
         reply = chat_state.get_llm_reply(
             hs_answer_generator_prompt, inputs, to_user=False
         )
+        ddglogger.debug(f"LLM reply: {reply}")
+
+        # Check if content is insufficient (this can change from False to True if
+        # the evaluator gives a bad evaluation later on)
+        is_content_insufficient = "content does not contain needed information" in reply
 
         # Parse response
-        if "content does not contain needed information" not in reply:
-            # If LLM wrote a reply, check if it included a source
-            if source not in reply:
-                reply += f"\n\nSource: {source}"
-
-            # Add to the full reply
-            piece = ("\n\n" + reply) if full_reply else reply
-            full_reply += piece
-            chat_state.add_to_output(piece)
-
-            # Get response from evaluator
+        if not is_content_insufficient:
+            # If LLM wrote a reply, evaluate it first
             inputs = {"query": hs_data.query, "answer": reply}
             ddglogger.info("Getting response from evaluator")
             evaluator_reply = chat_state.get_llm_reply(
@@ -399,10 +398,21 @@ def run_main_heatseek_workflow(
                 evaluator_reply, ["EXCELLENT", "GOOD", "MEDIUM", "BAD"]
             )
             ddglogger.info(f"Evaluation: {evaluation}")
-            piece = f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
-            full_reply += piece
-            chat_state.add_to_output(piece)
-            hs_data.is_answer_found = evaluation in answer_found_evaluations
+
+            is_content_insufficient = evaluation in content_insufficient_evaluations
+
+            if not is_content_insufficient:
+                # If LLM omitted the source, add it
+                if source not in reply:
+                    reply += f"\n\nSource: {source}"
+
+                # Add to the full reply
+                piece = ("\n\n" if full_reply else "") + reply
+                piece += f"\n\nEVALUATION: {evaluation_code_to_grade[evaluation]}"
+                full_reply += piece
+                chat_state.add_to_output(piece)
+                hs_data.is_answer_found = evaluation in answer_found_evaluations
+                new_checked_block = True
 
             # Record answer and evaluation if needed
             if evaluation in evaluations_to_record_answers:
@@ -412,10 +422,11 @@ def run_main_heatseek_workflow(
             # If answer is found, break
             if hs_data.is_answer_found:
                 break
-            new_checked_block = True
-        else:
+
+        if is_content_insufficient:
             # If content is insufficient, add to the "Checked: " block
             ddglogger.info("Content is insufficient")
+            ddglogger.debug(f"{source=}, {prev_source=}, {new_checked_block=}")
             if source != prev_source:
                 if new_checked_block:
                     piece = f"\n\n{CHECKED_STR}" if full_reply else CHECKED_STR
@@ -426,12 +437,22 @@ def run_main_heatseek_workflow(
                 full_reply += piece
                 chat_state.add_to_output(piece)
 
+    # Add final piece if needed
+    piece = ""
+    if full_reply == init_reply: # just in case
+        ddglogger.warning("Shouldn't happen: full_reply == init_reply")
+        if init_reply:
+            piece="\n\n"
+        piece+="I checked but didn't find a good answer on this round."
+        
     if chat_state.parsed_query.research_params.num_iterations_left < 2:
-        piece = (
+        piece += (
             "\n\nTo continue checking more sources, type "
             "`/research heatseek <number of iterations to auto-run>`. For example, try "
             "`/re hs 4` (shorthand is ok)."
         )
+
+    if piece:
         full_reply += piece
         chat_state.add_to_output(piece)
 

@@ -5,6 +5,7 @@ from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
 DELIMITER = "-" * 94 + "\n"
+DELIMITER40 = "-" * 40 + "\n"
 INTRO_ASCII_ART = """\
  ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
