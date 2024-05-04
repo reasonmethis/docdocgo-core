@@ -1,7 +1,7 @@
 import os
 
 import streamlit as st
-from icecream import ic
+from icecream import ic  # noqa: F401
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import (
