@@ -91,11 +91,10 @@ if IS_AZURE and not (
     and os.getenv("AZURE_OPENAI_API_KEY")
     and os.getenv("OPENAI_API_BASE")
 ):
-    print(
+    raise ValueError(
         "You have set some but not all environment variables necessary to utilize the "
         "Azure OpenAI API endpoint. Please refer to .env.example for details."
     )
-    sys.exit()
 elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
     # We don't exit because we could get the key from the Streamlit app
     print(
@@ -108,18 +107,17 @@ elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
     os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
     # TODO investigate the behavior when this happens
 
-if not os.getenv("SERPER_API_KEY"):
-    print(
-        "WARNING: You have not set the SERPER_API_KEY environment variable. "
-        "We will set it to a free key, but it is possible "
-        "that this key will have run out of credits by now. "
-        "If the Internet search functionality does not work, please set "
-        "the SERPER_API_KEY environment variable to your own Google Serper API key, "
-        "which you can get for free, without a credit card, at https://serper.dev. "
+if not os.getenv("SERPER_API_KEY") and not os.getenv("IGNORE_LACK_OF_SERPER_API_KEY"):
+    raise ValueError(
+        "You have not set the SERPER_API_KEY environment variable, "
+        "which is necessary for the Internet search functionality."
+        "Pease set the SERPER_API_KEY environment variable to your Google Serper API key, "
+        "which you can get for free, with no credit card, at https://serper.dev. "
+        "This free key will allow you to make about 1250 searches until payment is required.\n\n"
+        "If you want to supress this error, set the IGNORE_LACK_OF_SERPER_API_KEY environment "
+        "variable to any non-empty value. You can then use features that do not require the "
+        "Internet search functionality."
     )
-    # Set the free key explicitly (there is no payment info associated with this key)
-    os.environ["SERPER_API_KEY"] = "dc1e2534afe8cbd358cbb53cb84f437a48b536fd"
-
 
 # Verify the validity of the db path
 if not os.getenv("USE_CHROMA_VIA_HTTP") and not os.path.isdir(VECTORDB_DIR):
@@ -127,7 +125,7 @@ if not os.getenv("USE_CHROMA_VIA_HTTP") and not os.path.isdir(VECTORDB_DIR):
         abs_path = os.path.abspath(VECTORDB_DIR)
     except Exception:
         abs_path = "INVALID PATH"
-    print(
+    raise ValueError(
         "You have not specified a valid directory for the vector database. "
         "Please set the VECTORDB_DIR environment variable in .env, as shown in .env.example. "
         "Alternatively, if you have a Chroma DB server running, you can set the "
@@ -135,7 +133,6 @@ if not os.getenv("USE_CHROMA_VIA_HTTP") and not os.path.isdir(VECTORDB_DIR):
         f"\n\nThe path you have specified is: {VECTORDB_DIR}.\n"
         f"The absolute path resolves to: {abs_path}."
     )
-    sys.exit()
 
 
 is_env_loaded = True

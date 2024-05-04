@@ -279,7 +279,7 @@ def get_websearcher_response(chat_state: ChatState, mode=WebsearcherMode.MEDIUM)
     raise ValueError(f"Invalid mode: {mode}")
 
 
-def get_initial_iterative_researcher_response(chat_state: ChatState) -> Props:
+def get_initial_researcher_response(chat_state: ChatState) -> Props:
     """Process "new" command."""
     response = get_web_research_response_no_ingestion(chat_state)
 
@@ -369,19 +369,6 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         )
 
     t_start = datetime.now()
-
-    # Sanity check
-    if (
-        sum(
-            1
-            for link in rr_data.unprocessed_links[
-                : rr_data.num_obtained_unprocessed_links
-            ]
-            if not rr_data.link_data_dict[link].error
-        )
-        != rr_data.num_obtained_unprocessed_ok_links
-    ):
-        raise ValueError("Mismatch in the number of obtained unprocessed good links")
 
     # Update search queries and links if needed
     ic(rr_data.num_processed_links_from_latest_queries)
@@ -1021,7 +1008,7 @@ def get_research_clear_response(chat_state: ChatState):
 
 
 task_handlers = {
-    ResearchCommand.NEW: get_initial_iterative_researcher_response,
+    ResearchCommand.NEW: get_initial_researcher_response,
     ResearchCommand.ITERATE: get_iterative_researcher_response,
     ResearchCommand.MORE: get_iterative_researcher_response,
     ResearchCommand.COMBINE: get_report_combiner_response,
