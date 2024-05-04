@@ -111,6 +111,7 @@ def load_into_chroma(
             persist_directory=save_dir,
             collection_name=collection_name,
             collection_metadata=collection_metadata,
+            create_if_not_exists=True,
         )
 
     # Prepare full texts, metadatas and ids
@@ -126,9 +127,11 @@ def load_into_chroma(
         persist_directory=save_dir,
         collection_name=collection_name,
         collection_metadata=collection_metadata,
+        create_if_not_exists=True, # ok to pass (kwargs are passed to __init__)
     )
 
     # Add the original full docs (with fake embeddings)
+    # NOTE: should be possible to add everything in one call, with some work
     fake_embeddings = [FAKE_FULL_DOC_EMBEDDING for _ in range(len(docs))]
     vectorstore.collection.add(full_doc_ids, fake_embeddings, metadatas, texts)
 

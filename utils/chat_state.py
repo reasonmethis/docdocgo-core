@@ -7,7 +7,11 @@ from langchain.schema import Document
 from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData
-from components.chroma_ddg import ChromaDDG, load_vectorstore
+from components.chroma_ddg import (
+    ChromaDDG,
+    CollectionDoesNotExist,
+    get_vectorstore_using_openai_api_key,
+)
 from components.llm import get_prompt_llm_chain
 from utils.helpers import PRIVATE_COLLECTION_PREFIX, PRIVATE_COLLECTION_USER_ID_LENGTH
 from utils.prepare import DEFAULT_COLLECTION_NAME
@@ -330,12 +334,15 @@ class ChatState:
         does not exist, either returns None or creates a new collection, depending on
         the value of create_if_not_exists (default: True).
         """
-        return load_vectorstore(
-            collection_name,
-            openai_api_key=self.openai_api_key,
-            client=self.vectorstore.client,
-            create_if_not_exists=create_if_not_exists,
-        )
+        try:
+            return get_vectorstore_using_openai_api_key(
+                collection_name,
+                openai_api_key=self.openai_api_key,
+                client=self.vectorstore.client,
+                create_if_not_exists=create_if_not_exists,
+            )
+        except CollectionDoesNotExist:
+            return None
 
     def get_prompt_llm_chain(self, prompt, *, to_user: bool):
         return get_prompt_llm_chain(

@@ -18,7 +18,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
-from components.chroma_ddg import load_vectorstore
+from components.chroma_ddg import get_vectorstore_using_openai_api_key
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import AgentDataDict, ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
@@ -60,7 +60,8 @@ is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
 
 # Define Pydantic models for request and response
-RoleBasedChatMessage = dict[str, str] # {"role": "user" | "assistant", "content": str}
+RoleBasedChatMessage = dict[str, str]  # {"role": "user" | "assistant", "content": str}
+
 
 class ChatRequestData(BaseModel):
     message: str
@@ -215,7 +216,7 @@ async def handle_chat_or_ingest_request(
 
         # Initialize vectorstore and chat state
         try:
-            vectorstore = load_vectorstore(
+            vectorstore = get_vectorstore_using_openai_api_key(
                 collection_name, openai_api_key=openai_api_key
             )
         except Exception as e:

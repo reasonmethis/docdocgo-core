@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Callable, Optional
 
 from chromadb import ClientAPI, Collection, HttpClient, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
@@ -7,6 +7,7 @@ from chromadb.config import Settings
 from langchain.schema import Document
 from langchain.vectorstores.chroma import Chroma
 from langchain_community.vectorstores.chroma import _results_to_docs_and_scores
+from langchain_core.embeddings import Embeddings
 
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.prepare import (
@@ -16,16 +17,67 @@ from utils.prepare import (
     USE_CHROMA_VIA_HTTP,
     VECTORDB_DIR,
 )
+from utils.type_utils import DDGError
+
+
+class CollectionDoesNotExist(DDGError):
+    """Exception raised when a collection does not exist."""
+
+    pass  # REVIEW
 
 
 class ChromaDDG(Chroma):
     """
     Modified Chroma vectorstore for DocDocGo.
 
-    Specifically, it enables the kwargs passed to similarity_search_with_score
+    Specifically:
+    1. It enables the kwargs passed to similarity_search_with_score
     to be passed to the __query_collection method rather than ignored,
     which allows us to pass the 'where_document' parameter.
+    2. __init__ is overridden to allow the option of using get_collection (which doesn't create
+    a collection if it doesn't exist) rather than always using get_or_create_collection (which does).
     """
+
+    def __init__(
+        self,
+        *,
+        collection_name: str,
+        client: ClientAPI,
+        create_if_not_exists: bool,
+        embedding_function: Optional[Embeddings] = None,
+        persist_directory: Optional[str] = None,
+        client_settings: Optional[Settings] = None,
+        collection_metadata: Optional[dict] = None,
+        relevance_score_fn: Optional[Callable[[float], float]] = None,
+    ) -> None:
+        """Initialize with a Chroma client."""
+        self._client_settings = client_settings
+        self._client = client
+        self._persist_directory = persist_directory
+
+        self._embedding_function = embedding_function
+        self.override_relevance_score_fn = relevance_score_fn
+
+        if not create_if_not_exists and collection_metadata is not None:
+            # We must check if the collection exists in this case because when metadata
+            # is passed, we must use get_or_create_collection to update the metadata
+            if not exists_collection(collection_name, client):
+                raise CollectionDoesNotExist()
+
+        if create_if_not_exists or collection_metadata is not None:
+            self._collection = self._client.get_or_create_collection(
+                name=collection_name,
+                embedding_function=None,
+                metadata=collection_metadata,
+            )
+        else:
+            try:
+                self._collection = self._client.get_collection(
+                    name=collection_name,
+                    embedding_function=None,
+                )
+            except ValueError as e:
+                raise CollectionDoesNotExist() if "does not exist" in str(e) else e
 
     @property
     def name(self) -> str:
@@ -127,7 +179,7 @@ def exists_collection(
     try:
         client.get_collection(collection_name)
         return True
-    except Exception as e:
+    except ValueError as e:
         if "does not exist" in str(e):
             return False  # collection does not exist
         raise e
@@ -163,25 +215,20 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
     return client or initialize_client()
 
 
-def load_vectorstore(
+def get_vectorstore_using_openai_api_key(
     collection_name: str,
     *,
     openai_api_key: str,
     client: ClientAPI | None = None,
-    create_if_not_exists: bool = True,
-) -> ChromaDDG | None:
+    create_if_not_exists: bool = False,
+) -> ChromaDDG:
     """
-    Load a ChromaDDG vectorstore from a given collection name.
+    Load a ChromaDDG vectorstore from a given collection name and OpenAI API key.
     """
     client = ensure_chroma_client(client)
-    if not create_if_not_exists and not exists_collection(collection_name, client):
-        return
-    # TODO: Chroma uses get_or_create_collection, but it should be possible to use 
-    # get_collection instead, if create_if_not_exists is False to save a call
-    # to the db.
-
     return ChromaDDG(
         client=client,
         collection_name=collection_name,
+        create_if_not_exists=create_if_not_exists,
         embedding_function=get_openai_embeddings(openai_api_key),
     )

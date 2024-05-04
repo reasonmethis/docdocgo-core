@@ -9,7 +9,7 @@ from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
 from agents.share_manager import handle_share_command
 from components.chat_with_docs_chain import ChatWithDocsChain
-from components.chroma_ddg import ChromaDDG, load_vectorstore
+from components.chroma_ddg import ChromaDDG, get_vectorstore_using_openai_api_key
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm, get_llm_from_prompt_llm_chain, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
@@ -43,7 +43,9 @@ default_vectorstore = None  # can move to chat_state
 
 def get_bot_response(chat_state: ChatState):
     global default_vectorstore
-    chat_mode_val = chat_state.chat_mode.value # use value due to Streamlit code reloading
+    chat_mode_val = (
+        chat_state.chat_mode.value
+    )  # use value due to Streamlit code reloading
     if chat_mode_val == ChatMode.CHAT_WITH_DOCS_COMMAND_ID.value:  # /docs command
         chat_chain = get_docs_chat_chain(chat_state)
     elif chat_mode_val == ChatMode.DETAILS_COMMAND_ID.value:  # /details command
@@ -223,7 +225,7 @@ def do_intro_tasks(
 
     # Load and save default vector store
     try:
-        vectorstore = default_vectorstore = load_vectorstore(
+        vectorstore = default_vectorstore = get_vectorstore_using_openai_api_key(
             DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
         )
     except Exception as e:
@@ -238,7 +240,7 @@ def do_intro_tasks(
     # NOTE/TODO: This is not used in the current version of the code
     if collection_name:
         try:
-            vectorstore = load_vectorstore(
+            vectorstore = get_vectorstore_using_openai_api_key(
                 collection_name, openai_api_key=openai_api_key
             )
         except Exception as e:
