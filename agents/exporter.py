@@ -49,7 +49,7 @@ def get_exporter_response(chat_state: ChatState) -> Props:
             "answer": "I have collected our chat history and sent it to the UI for export.",
             "instructions": [
                 Instruction(
-                    type=INSTRUCT_EXPORT_CHAT_HISTORY, data=delimiter.join(msgs)
+                    type=INSTRUCT_EXPORT_CHAT_HISTORY, data=delimiter.join(msgs[::-1])
                 )
             ],
         }
