@@ -36,12 +36,12 @@ def get_exporter_response(chat_state: ChatState) -> Props:
             if i >= num_messages:
                 break
             if user_msg is not None:
-                msgs.append(f"USER: {user_msg}")
+                msgs.append(f"**USER:** {user_msg}")
             if ai_msg is not None or sources:
-                ai_msg_full = f"DDG: {ai_msg or ''}"
+                ai_msg_full = f"**DDG:** {ai_msg or ''}"
                 if sources:
                     tmp = "\n- ".join(sources)
-                    ai_msg_full += f"\n\nSOURCES:\n\n- {tmp}"
+                    ai_msg_full += f"\n\n**SOURCES:**\n\n- {tmp}"
                 msgs.append(ai_msg_full)
 
         delimiter = f"\n\n{DELIMITER20}\n\n"
