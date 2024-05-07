@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
@@ -246,6 +246,14 @@ After you enter your command as described above, you will get a link that you ca
 **Tip:** If you have owner access to a collection, you can use `/db status` to see the access level of other users.\
 """
 
+EXPORT_COMMAND_HELP_MSG = """\
+To export your conversation, use the command:
+
+- `/ex chat <number of past messages>` (or `/export` instead of `/ex`)
+
+If the number of past messages is not specified, the entire conversation will be exported.
+"""
+
 
 def print_no_newline(*args, **kwargs):
     """
@@ -306,6 +314,7 @@ def format_invalid_input_answer(answer, status_body):
         "status.header": "Invalid input",
         "status.body": status_body,
     }
+
 
 def get_timestamp():
     return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")

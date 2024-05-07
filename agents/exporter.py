@@ -1,17 +1,7 @@
 from utils.chat_state import ChatState
-from utils.helpers import DELIMITER20
+from utils.helpers import DELIMITER20, EXPORT_COMMAND_HELP_MSG
 from utils.query_parsing import ExportCommand, get_int
 from utils.type_utils import INSTRUCT_EXPORT_CHAT_HISTORY, Instruction, Props
-
-EXPORTER_HELP_MSG = """\
-To export your conversation, use the command:
-
-```markdown
-/ex chat <number of past messages>
-```
-
-If the number of past messages is not specified, the entire conversation will be exported.
-"""
 
 
 def get_exporter_response(chat_state: ChatState) -> Props:
@@ -19,7 +9,7 @@ def get_exporter_response(chat_state: ChatState) -> Props:
     subcommand = chat_state.parsed_query.export_command
 
     if subcommand == ExportCommand.NONE:
-        return {"answer": EXPORTER_HELP_MSG}
+        return {"answer": EXPORT_COMMAND_HELP_MSG}
 
     if subcommand == ExportCommand.CHAT:
         if not message:
@@ -27,7 +17,7 @@ def get_exporter_response(chat_state: ChatState) -> Props:
         else:
             num_messages, rest = get_int(message)
             if num_messages is None:
-                return {"answer": EXPORTER_HELP_MSG}
+                return {"answer": EXPORT_COMMAND_HELP_MSG}
 
         msgs = []
         for i, ((user_msg, ai_msg), sources) in enumerate(
