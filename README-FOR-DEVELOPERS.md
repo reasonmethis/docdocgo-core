@@ -58,9 +58,9 @@ The chat history (which represents what you would like the bot to assume has bee
 
 The `collection_name` field is used to specify the collection that the bot should use when responding to the message. If not specified, the default collection will be used. The optional `access_code` field is used to specify the access code for the collection. The bot will determine your access level and respond accordingly.
 
-The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` variable in the `.env` file.
+The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` environment variable in.
 
-The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, if it's specified by the `DEFAULT_OPENAI_API_KEY` variable in the `.env` file.
+The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, assuming the `DEFAULT_OPENAI_API_KEY` environment variable is set.
 
 The `access_codes_cache` field is an object mapping collection names to access codes that the client has stored for them for the current user. The bot will use these access codes to determine grant the user access to collections that require it.
 
