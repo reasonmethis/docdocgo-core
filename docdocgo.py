@@ -26,7 +26,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME, get_logger
+from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENAI_API_KEY, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -254,7 +254,7 @@ def do_intro_tasks(
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks(os.getenv("DEFAULT_OPENAI_API_KEY", ""))
+    vectorstore = do_intro_tasks(DEFAULT_OPENAI_API_KEY)
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -290,7 +290,8 @@ if __name__ == "__main__":
                     parsed_query=parsed_query,
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
-                    openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
+                    openai_api_key=DEFAULT_OPENAI_API_KEY,
+                    user_id=None, # would be set to None by default but just to be explicit
                 )
             )
         except Exception as e:

@@ -36,7 +36,7 @@ def get_short_user_id(user_id: str | None) -> str | None:
     """
     Get the last PRIVATE_COLLECTION_USER_ID_LENGTH characters of the user ID.
     """
-    return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id is not None else None
+    return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id else None
 
 
 def get_main_owner_user_id(collection_name: str) -> str | None:

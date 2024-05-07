@@ -26,6 +26,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
+    DEFAULT_OPENAI_API_KEY,
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
     TEMPERATURE,
@@ -97,6 +98,8 @@ with st.sidebar:
 
         elif supplied_openai_api_key in ("public", "community"):
             # TODO: document this
+            # This allows the user to use community key mode (and see public collections
+            # even if BYPASS_SETTINGS_RESTRICTIONS is set
             openai_api_key_to_use: str = st.session_state.default_openai_api_key
             is_community_key = True
 
@@ -411,7 +414,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         if err_type == "OPENAI_API_AUTH":
             if is_community_key:
-                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{os.getenv('DEFAULT_OPENAI_API_KEY', '')[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{DEFAULT_OPENAI_API_KEY[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             elif openai_api_key_to_use:
                 answer = f"Apologies, the OpenAI API key you entered ({openai_api_key_to_use[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             else:
