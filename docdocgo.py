@@ -5,6 +5,7 @@ from langchain.chains import LLMChain
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import get_user_facing_collection_name, handle_db_command
+from agents.exporter import get_exporter_response
 from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
 from agents.share_manager import handle_share_command
@@ -111,6 +112,8 @@ def get_bot_response(chat_state: ChatState):
                 "in console mode. Please run `python ingest_local_docs.py`."
             }
         return get_ingester_summarizer_response(chat_state)
+    elif chat_mode_val == ChatMode.EXPORT_COMMAND_ID.value:  # /export command
+        return get_exporter_response(chat_state)
     else:
         # Should never happen
         raise ValueError(f"Invalid chat mode: {chat_state.chat_mode}")

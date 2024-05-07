@@ -83,6 +83,10 @@ share_revoke_subcommand_to_enum = {
 }
 HEATSEEKER_DEFAULT_NUM_ITERATIONS = 1
 
+ExportCommand = Enum("ExportCommand", "CHAT KB NONE")
+export_command_to_enum = {
+    "chat": ExportCommand.CHAT,
+}
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
@@ -107,6 +111,7 @@ class ParsedQuery(BaseModel):
     research_params: ResearchParams | None = None
     db_command: DBCommand | None = None
     ingest_command: IngestCommand | None = None
+    export_command: ExportCommand | None = None
     share_params: ShareParams | None = None
 
     def is_ingestion_needed(self) -> bool:
@@ -397,5 +402,9 @@ def parse_query(
     if chat_mode == ChatMode.SHARE_COMMAND_ID:
         s = parse_share_command(query)
         return ParsedQuery(chat_mode=chat_mode, share_params=s)
+    
+    if chat_mode == ChatMode.EXPORT_COMMAND_ID:
+        e, m = get_command(query, export_command_to_enum, ExportCommand.NONE)
+        return ParsedQuery(chat_mode=chat_mode, export_command=e, message=m)
 
     return ParsedQuery(chat_mode=chat_mode, message=query)

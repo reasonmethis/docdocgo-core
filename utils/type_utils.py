@@ -1,16 +1,17 @@
 from enum import Enum
 from typing import Any
 
-from langchain_core.documents.base import Document
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.documents.base import Document
 from langchain_core.runnables import RunnableSerializable
 from pydantic import BaseModel, Field
 
 from utils.prepare import MODEL_NAME, TEMPERATURE
 
 JSONish = str | int | float | dict[str, "JSONish"] | list["JSONish"]
-Props = dict[str, Any]
 JSONishDict = dict[str, JSONish]
+JSONishSimple = str | int | float | dict[str, Any] | list  # for use in pydantic models
+Props = dict[str, Any]
 
 PairwiseChatHistory = list[tuple[str, str]]
 CallbacksOrNone = list[BaseCallbackHandler] | None
@@ -31,7 +32,7 @@ class ChatMode(Enum):
     DB_COMMAND_ID = 7
     HELP_COMMAND_ID = 8
     INGEST_COMMAND_ID = 9
-
+    EXPORT_COMMAND_ID = 10
     SUMMARIZE_COMMAND_ID = 11
     SHARE_COMMAND_ID = 12
 
@@ -61,7 +62,7 @@ class DDGError(Exception):
         http_status_code: int | None = None,
     ):
         super().__init__(message)  # could include user_facing_message
-        
+
         if user_facing_message is not None:
             self.user_facing_message = user_facing_message
         else:
@@ -129,6 +130,7 @@ class CollectionPermissions(BaseModel):
 INSTRUCT_SHOW_UPLOADER = "INSTRUCT_SHOW_UPLOADER"
 INSTRUCT_CACHE_ACCESS_CODE = "INSTRUCT_CACHE_ACCESS_CODE"
 INSTRUCT_AUTO_RUN_NEXT_QUERY = "INSTRUCT_AUTO_RUN_NEXT_QUERY"
+INSTRUCT_EXPORT_CHAT_HISTORY = "INSTRUCT_EXPORT_CHAT_HISTORY"
 # INSTRUCTION_SKIP_CHAT_HISTORY = "INSTRUCTION_SKIP_CHAT_HISTORY"
 
 
@@ -136,6 +138,7 @@ class Instruction(BaseModel):
     type: str
     user_id: str | None = None
     access_code: str | None = None
+    data: JSONishSimple | None = None  # NOTE: absorb the two fields above into this one
 
 
 class Doc(BaseModel):
@@ -146,7 +149,9 @@ class Doc(BaseModel):
 
     @staticmethod
     def from_lc_doc(langchain_doc: Document) -> "Doc":
-        return Doc(page_content=langchain_doc.page_content, metadata=langchain_doc.metadata)
-    
+        return Doc(
+            page_content=langchain_doc.page_content, metadata=langchain_doc.metadata
+        )
+
     def to_lc_doc(self) -> Document:
         return Document(page_content=self.page_content, metadata=self.metadata)

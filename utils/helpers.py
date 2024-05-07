@@ -6,6 +6,8 @@ from utils.type_utils import ChatMode
 
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
+DELIMITER20 = "-" * 20
+
 INTRO_ASCII_ART = """\
  ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
@@ -49,6 +51,8 @@ command_ids = {
     "/in": ChatMode.INGEST_COMMAND_ID,
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
     "/up": ChatMode.INGEST_COMMAND_ID,
+    "/export": ChatMode.EXPORT_COMMAND_ID,
+    "/ex": ChatMode.EXPORT_COMMAND_ID,
     "/summarize": ChatMode.SUMMARIZE_COMMAND_ID,
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     "/share": ChatMode.SHARE_COMMAND_ID,

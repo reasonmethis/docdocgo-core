@@ -81,7 +81,7 @@ class ChatState:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
         self.parsed_query = parsed_query or ParsedQuery()
-        self.chat_history = chat_history or []
+        self.chat_history = chat_history or [] # tuple of (user_message, bot_response)
         self.chat_history_all = chat_and_command_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now
         self.vectorstore = vectorstore

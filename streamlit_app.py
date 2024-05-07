@@ -34,16 +34,24 @@ from utils.prepare import (
 from utils.query_parsing import parse_query
 from utils.streamlit.helpers import (
     STAND_BY_FOR_INGESTION_MESSAGE,
+    DownloaderData,
     fix_markdown,
-    show_sources,
-    status_config,
     just_chat_status_config,
+    show_downloader,
+    show_sources,
+    show_uploader,
+    status_config,
     write_slowly,
 )
 from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
 from utils.strings import limit_number_of_characters
-from utils.type_utils import AccessRole, ChatMode, chat_modes_needing_llm
+from utils.type_utils import (
+    INSTRUCT_EXPORT_CHAT_HISTORY,
+    AccessRole,
+    ChatMode,
+    chat_modes_needing_llm,
+)
 
 logger = get_logger()
 
@@ -54,39 +62,6 @@ st.markdown(
     "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
 )
-
-
-def show_uploader(is_new_widget=False, border=True):
-    if is_new_widget:
-        try:
-            st.session_state.uploader_placeholder.empty()
-        except AttributeError:
-            pass  # should never happen, but just in case
-        # Switch between one of the two possible keys (to avoid duplicate key error)
-        st.session_state.uploader_form_key = (
-            "uploader-form-alt"
-            if st.session_state.uploader_form_key == "uploader-form"
-            else "uploader-form"
-        )
-
-    # Show the uploader
-    st.session_state.uploader_placeholder = st.empty()
-    with st.session_state.uploader_placeholder:
-        with st.form(
-            st.session_state.uploader_form_key, clear_on_submit=True, border=border
-        ):
-            files = st.file_uploader(
-                "Upload your documents",
-                accept_multiple_files=True,
-                label_visibility="collapsed",
-            )
-            cols = st.columns([1, 1])
-            with cols[0]:
-                is_submitted = st.form_submit_button("Upload")
-            with cols[1]:
-                allow_all_ext = st.toggle("Allow all extensions", value=False)
-    return (files if is_submitted else []), allow_all_ext
-
 
 # Run just once
 if "chat_state" not in st.session_state:
@@ -279,6 +254,7 @@ with st.expander("Want to upload your own documents?"):
     st.markdown(":grey[**Tip:** During chat, just say `/upload` to upload more docs!]")
 
 # Show previous exchanges and sources
+is_downloaded = False
 for i, (msg_pair, sources) in enumerate(
     zip(chat_state.chat_history_all, chat_state.sources_history)
 ):
@@ -294,6 +270,8 @@ for i, (msg_pair, sources) in enumerate(
             show_sources(sources)
     if i == st.session_state.idx_file_upload:
         files, allow_all_ext = show_uploader()  # there can be only one
+    if i == st.session_state.idx_file_download:
+        is_downloaded = show_downloader()  # there can be only one
 
 
 # Check if the user has uploaded files
@@ -469,12 +447,22 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 # Display the file uploader if needed
 if is_ingest_via_file_uploader:
     st.session_state.idx_file_upload = len(chat_state.chat_history_all) - 1
-    files, allow_all_ext = show_uploader(is_new_widget=True)
+    files, allow_all_ext = show_uploader(is_teleporting=True)
+
+# Display the file downloader if needed
+for instruction in response.get("instructions", []):
+    if instruction.type == INSTRUCT_EXPORT_CHAT_HISTORY:
+        st.session_state.idx_file_download = len(chat_state.chat_history_all) - 1
+        is_downloaded = show_downloader(
+            DownloaderData(data=instruction.data, file_name="chat-history.md"),
+            is_teleporting=True,
+        )
 
 # Update vectorstore if needed
 if "vectorstore" in response:
     chat_state.vectorstore = response["vectorstore"]
 
+# Update the collection name in the address bar if collection has changed
 if coll_name_full != chat_state.vectorstore.name:
     st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
 

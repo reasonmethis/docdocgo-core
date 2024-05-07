@@ -53,5 +53,8 @@ def prepare_app():
     st.session_state.idx_file_upload = -1
     st.session_state.uploader_form_key = "uploader-form"
 
+    st.session_state.idx_file_download = -1
+    st.session_state.downloader_form_key = "downloader"
+
     st.session_state.user_avatar = os.getenv("USER_AVATAR") or None
     st.session_state.bot_avatar = os.getenv("BOT_AVATAR") or None
