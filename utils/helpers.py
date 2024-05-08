@@ -135,6 +135,7 @@ Other prefixes:
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
+- `/export`: export your data
 
 Ingesting into the current vs a new collection:
 
