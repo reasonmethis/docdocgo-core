@@ -11,6 +11,8 @@
 - [Research Commands](#research-commands)
 - [Database Management](#database-management)
 - [Ingesting Documents](#ingesting-documents)
+- [Exporting data](#exporting-data)
+- [Sharing your collection with others](#sharing-your-collection-with-others)
 - [Querying based on substrings](#querying-based-on-substrings)
 - [FAQ](#faq)
 - [Contributing](#contributing)
@@ -143,6 +145,7 @@ Other prefixes:
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
+- `/export`: export your data
 
 Ingesting into the current vs a new collection:
 
@@ -349,6 +352,14 @@ You can also explicitly control whether the documents are ingested into a new co
 ### Summarizing local documents or URLs
 
 The `/summarize` command works similarly to the `/ingest` command, except, in addition to ingesting the content of the URL it also generates a summary of the content (the summary is not itself ingested).
+
+## Exporting data
+
+To export your conversation, use the command:
+
+- `/ex chat <number of past messages>` (or `/export` instead of `/ex`)
+
+If the number of past messages is not specified, the entire conversation will be exported.
 
 ## Sharing your collection with others
 
