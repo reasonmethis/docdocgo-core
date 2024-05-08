@@ -255,6 +255,37 @@ To export your conversation, use the command:
 If the number of past messages is not specified, the entire conversation will be exported.
 """
 
+DESCRIPTION_FOR_HEALTH_UNIVERSE = """\
+DocDocGo is more than just a chatbot, it's your tireless research assistant. It automates tasks that normally involve manually sifting through dozens (or hundreds!) of online resources in search of precious nuggets of relevant hard-to-find information. It can
+
+- find hundreds of websites about your chosen topic/query and ingest into a knowledge base
+- write a report on your topic/query based on the ingested content
+- allow you to chat with the created knowledge base and ask any follow-up questions 
+- search for an answer to a specific narrow question or hard-to-find piece of data by sifting through hundreds of Google search results
+- create a knowledge base from your local documents (Word docs, PDFs, etc.)
+
+Oh, and it's "self-aware" -  you can ask DocDocGo questions about itself and it will help you navigate its many features.
+
+Basic usage:
+
+1. Get help - if you are just starting out and not sure what to do, start with:
+
+- `/help I heard you can help me with web research. How?`
+
+2. Research a topic, get a report and build a knowledge base:
+
+- `/research role of oxytocin in reptiles` - this does an initial round generates a report 
+- `/re deeper` - roughly doubles the number of ingested sources and generates a new report
+- `What studies about reptiles are in your knowledge base?` - chat with the knowledge base
+- `/re deeper <optional number of doublings>` - keep doubling the number of ingested sources
+
+ NOTE: There will be several intermediate reports produced as DDG performs its iterations, but you may wish to focus on the ones at the end of each "deepening" - they amalgamate all previous reports.
+
+3. Look for something specific:
+
+- `/re heatseek Find articles criticizing Vickers' meta-analysis of acupuncture for chronic pain`
+- `/re heatseek 6` - perform 6 more iterations (each iteration looks at 2-5 websites)
+"""
 
 def print_no_newline(*args, **kwargs):
     """
