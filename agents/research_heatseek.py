@@ -292,6 +292,8 @@ answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template
 /re hs find a quote by obama about jill biden
 /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
 /re hs search the web specifically for "llms wearing pants" and tell me what it means
+example code in python how to stream response from openai api.
+[NOTE: ChatGPT and Gemini Advanced give bad answers to the above query.]
 """
 
 evaluation_code_to_grade = {
