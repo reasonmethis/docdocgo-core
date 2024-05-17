@@ -168,14 +168,17 @@ Your current document collection's full name: `{current_db}`
 You can use the following commands to manage your collections:
 
 - `/db list`: list all your collections
+- `/db list bla`: list your collections whose names contain "bla"
 - `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
 - `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
 - `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
 - `/db status`: show your access level for the current collection and related info
+- `/db`: show database management options
 
 Additional shorthands:
 
 - `/db use 3`: switch to collection #3 in the list
+- `/db list bla*`: list collections whose names start with "bla"
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
 
