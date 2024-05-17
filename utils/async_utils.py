@@ -1,7 +1,7 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
-# TODO: consider using async_to_sync from asgiref.sync library
+# NOTE: consider using async_to_sync from asgiref.sync library
 
 
 def run_task_sync(task):
