@@ -18,6 +18,8 @@
 - [Contributing](#contributing)
   [License](#license)
 
+> If you are a developer, you may want to check out the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md) for more detailed information on how to work with DocDocGo from a developer's perspective. Among other things, it explains [how to work with the DocDocGo FastAPI server](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server) and has an [FAQ](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#faq) for miscellaneous questions.
+
 ## Introduction
 
 DocDocGo is a chatbot that can ingest the content of websites and your local documents and use them in its responses. In other words, it is like ChatGPT with custom knowledge bases built from your documents or from sources it gathers online on your behalf. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
@@ -54,7 +56,7 @@ For reference, DocDocGo Carbon (not available here) has these features:
 
 If you simply wish to use the bot, you don't need to install it. It is available at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app). If you would like to run the bot on your local machine, you can follow the instructions below.
 
-> Note: there's a lot more information about working with DocDocGo from a developer's perspective in the [Developer Guide](README-FOR-DEVELOPERS.md). You can also switch to the `developer-docs` collection and ask development-related questions to the bot. Happy building!
+**For developers:** There's a lot more information about working with DocDocGo from a developer's perspective in the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md). A likely even better way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
 
 ### 1. Clone this repository and cd into it
 
@@ -121,7 +123,7 @@ uvicorn api:app --reload
 
 or by running `api.py` directly.
 
-The details of using the API are described in the [Developer Guide](README-FOR-DEVELOPERS.md#using-the-fastapi-server). The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+The details of using the API are described in the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server). The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
