@@ -16,9 +16,11 @@ from agentblocks.websearch import (
 )
 from utils.chat_state import ChatState
 from utils.helpers import DELIMITER40, format_nonstreaming_answer, get_timestamp
-from utils.prepare import CONTEXT_LENGTH, ddglogger
+from utils.prepare import CONTEXT_LENGTH, get_logger
 from utils.strings import has_which_substring
 from utils.type_utils import JSONishDict, Props
+
+logger = get_logger()
 
 query_generator_template = """# MISSION
 You are an advanced assistant in satisfying USER's information need.
@@ -354,9 +356,9 @@ def run_main_heatseek_workflow(
                 hs_data.url_conveyer.num_url_retrievals - init_num_url_retrievals
                 >= MAX_URL_RETRIEVALS_IN_ONE_GO
             ):
-                ddglogger.info("Reached max number of URL retrievals")
+                logger.info("Reached max number of URL retrievals")
                 break
-            ddglogger.info("Getting next batch of URL content")
+            logger.info("Getting next batch of URL content")
             docs = hs_data.url_conveyer.get_next_docs_with_url_retrieval()
             hs_data.doc_conveyer.add_docs(docs)
 
@@ -366,25 +368,25 @@ def run_main_heatseek_workflow(
             max_tokens=CONTEXT_LENGTH * 0.5, max_full_docs=1
         )
         if not docs:
-            ddglogger.warning("No docs available")
+            logger.warning("No docs available")
             break  # unlikely to happen, but just in case
 
         prev_source = source
         source = docs[0].metadata["source"]
-        ddglogger.info(
+        logger.info(
             f"Getting response from LLM for source: {source} "
             f"(values of part_id: {[doc.metadata.get('part_id') for doc in docs]}"
         )
 
         # Construct the context and get response from LLM
         context = f"SOURCE: {source}\n\n{''.join(doc.page_content for doc in docs)}"
-        ddglogger.debug(f"Context:\n{DELIMITER40}{context}\n{DELIMITER40}")
+        logger.debug(f"Context:\n{DELIMITER40}{context}\n{DELIMITER40}")
 
         inputs = {"query": hs_data.query, "context": context}
         reply = chat_state.get_llm_reply(
             hs_answer_generator_prompt, inputs, to_user=False
         )
-        ddglogger.debug(f"LLM reply: {reply}")
+        logger.debug(f"LLM reply: {reply}")
 
         # Check if content is insufficient (this can change from False to True if
         # the evaluator gives a bad evaluation later on)
@@ -394,7 +396,7 @@ def run_main_heatseek_workflow(
         if not is_content_insufficient:
             # If LLM wrote a reply, evaluate it first
             inputs = {"query": hs_data.query, "answer": reply}
-            ddglogger.info("Getting response from evaluator")
+            logger.info("Getting response from evaluator")
             evaluator_reply = chat_state.get_llm_reply(
                 answer_evaluator_prompt, inputs, to_user=False
             )
@@ -403,7 +405,7 @@ def run_main_heatseek_workflow(
             evaluation = has_which_substring(
                 evaluator_reply, ["EXCELLENT", "GOOD", "MEDIUM", "BAD"]
             )
-            ddglogger.info(f"Evaluation: {evaluation}")
+            logger.info(f"Evaluation: {evaluation}")
 
             is_content_insufficient = evaluation in content_insufficient_evaluations
 
@@ -431,8 +433,8 @@ def run_main_heatseek_workflow(
 
         if is_content_insufficient:
             # If content is insufficient, add to the "Checked: " block
-            ddglogger.info("Content is insufficient")
-            ddglogger.debug(f"{source=}, {prev_source=}, {new_checked_block=}")
+            logger.info("Content is insufficient")
+            logger.debug(f"{source=}, {prev_source=}, {new_checked_block=}")
             if source != prev_source:
                 if new_checked_block:
                     piece = f"\n\n{CHECKED_STR}" if full_reply else CHECKED_STR
@@ -446,7 +448,7 @@ def run_main_heatseek_workflow(
     # Add final piece if needed
     piece = ""
     if full_reply == init_reply: # just in case
-        ddglogger.warning("Shouldn't happen: full_reply == init_reply")
+        logger.warning("Shouldn't happen: full_reply == init_reply")
         if init_reply:
             piece="\n\n"
         piece+="I checked but didn't find a good answer on this round."
@@ -472,8 +474,8 @@ def _update_search_queries(hs_data: HeatseekData, queries: list[str]):
     # Get new URLs
     urls = get_links_from_queries(queries, num_search_results=100)
     hs_data.url_conveyer.refresh_urls(urls)
-    ddglogger.info(f"Refreshed URLs with {len(urls)} new URLs")
-    ddglogger.debug(f"New URLs: {urls}")
+    logger.info(f"Refreshed URLs with {len(urls)} new URLs")
+    logger.debug(f"New URLs: {urls}")
 
 
 MAX_PREV_ANSWERS = 10
@@ -521,7 +523,7 @@ def auto_update_search_queries(hs_data: HeatseekData, chat_state: ChatState):
         },
         pydantic_model=AnalysisAndQueries,
     )
-    ddglogger.info(f"Analysis and new search queries: {analysis_and_queries}")
+    logger.info(f"Analysis and new search queries: {analysis_and_queries}")
     _update_search_queries(hs_data, analysis_and_queries.queries)
     return analysis_and_queries
 

@@ -14,8 +14,10 @@ from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
 from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
-from utils.prepare import ddglogger
+from utils.prepare import get_logger
 from utils.type_utils import Doc
+
+logger = get_logger()
 
 DocT = TypeVar("DocT", Document, Doc)
 
@@ -103,11 +105,11 @@ def break_up_big_docs(
     Split each big document into parts, leaving the small ones as they are. Big vs small is
     determined by how the number of tokens in the document compares to the max_tokens parameter.
     """
-    ddglogger.info(f"Breaking up {len(docs)} docs into parts with max_tokens={max_tokens}")
+    logger.info(f"Breaking up {len(docs)} docs into parts with max_tokens={max_tokens}")
     new_docs = []
     for doc in docs:
         doc_parts = split_doc_based_on_tokens(doc, max_tokens)
-        ddglogger.debug(f"Split doc {doc.metadata.get('source')} into {len(doc_parts)} parts")
+        logger.debug(f"Split doc {doc.metadata.get('source')} into {len(doc_parts)} parts")
         if len(doc_parts) > 1:
             # Create an id representing the original doc
             full_doc_ref = uuid.uuid4().hex[:8]
@@ -171,7 +173,7 @@ class DocConveyer(BaseModel):
         max_docs: int | None = None,
         max_full_docs: int | None = None,
     ) -> list[Doc]:
-        ddglogger.debug(f"{self.num_available_docs} docs available")
+        logger.debug(f"{self.num_available_docs} docs available")
         num_docs, _ = limit_num_docs_by_tokens(
             self.docs[self.idx_first_not_done :], max_tokens
         )
@@ -195,7 +197,7 @@ class DocConveyer(BaseModel):
             num_docs = new_num_docs
 
         self.idx_first_not_done += num_docs
-        ddglogger.debug(f"Returning {num_docs} docs")
+        logger.debug(f"Returning {num_docs} docs")
         return self.docs[self.idx_first_not_done - num_docs : self.idx_first_not_done]
 
     def clear_done_docs(self):

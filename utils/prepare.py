@@ -29,9 +29,6 @@ def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
     return logging.getLogger(logger_name)
 
 
-ddglogger = get_logger()
-ddg_logger = ddglogger
-
 # Set up the environment variables
 DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY", "")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
