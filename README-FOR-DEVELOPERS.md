@@ -1,6 +1,6 @@
 # Developer Documentation
 
-Here we provide information useful for developers who want to build on top of DocDocGo or contribute to its development. 
+Here we provide information useful for developers who want to build on top of DocDocGo or contribute to its development.
 
 > An alternative way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
 
