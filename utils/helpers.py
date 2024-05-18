@@ -253,9 +253,9 @@ After you enter your command as described above, you will get a link that you ca
 EXPORT_COMMAND_HELP_MSG = """\
 To export your conversation, use the command:
 
-- `/ex chat <number of past messages>` (or `/export` instead of `/ex`)
+- `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
 
-If the number of past messages is not specified, the entire conversation will be exported.
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
 """
 
 DESCRIPTION_FOR_HEALTH_UNIVERSE = """\

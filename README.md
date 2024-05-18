@@ -361,9 +361,9 @@ The `/summarize` command works similarly to the `/ingest` command, except, in ad
 
 To export your conversation, use the command:
 
-- `/ex chat <number of past messages>` (or `/export` instead of `/ex`)
+- `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
 
-If the number of past messages is not specified, the entire conversation will be exported.
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
 
 ## Sharing your collection with others
 
