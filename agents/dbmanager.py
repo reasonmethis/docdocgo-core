@@ -36,7 +36,7 @@ def get_short_user_id(user_id: str | None) -> str | None:
     """
     Get the last PRIVATE_COLLECTION_USER_ID_LENGTH characters of the user ID.
     """
-    return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id is not None else None
+    return user_id[-PRIVATE_COLLECTION_USER_ID_LENGTH:] if user_id else None
 
 
 def get_main_owner_user_id(collection_name: str) -> str | None:
@@ -295,9 +295,27 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
         coll_names_as_shown, coll_names_full
     )
 
-    def get_available_dbs_str() -> str:
-        tmp = "\n".join([f"{i+1}. {n}" for i, n in enumerate(coll_names_as_shown)])
-        return f"Available collections:\n\n{tmp}"
+    def get_available_dbs_str(search_str: str | None = None) -> str:
+        if search_str:
+            if search_str.endswith("*"):
+                search_str = search_str.rstrip("*")
+                filter_func = lambda name: name.startswith(search_str)  # noqa
+                if search_str:
+                    extra_msg = f" (starting with `{search_str}`)"
+            else:
+                filter_func = lambda name: search_str in name  # noqa
+                extra_msg = f" (containing `{search_str}`)"
+        else:
+            extra_msg = ""
+
+        collections_str = "\n".join(
+            [
+                f"**{i + 1}.** {name}  "
+                for i, name in enumerate(coll_names_as_shown)
+                if extra_msg == "" or filter_func(name)
+            ]
+        ) or "- No collections found"
+        return f"Available collections{extra_msg}:\n\n{collections_str}"
 
     def get_db_not_found_str(name: str, access_role: str = "owner") -> str:
         return (
@@ -348,9 +366,15 @@ def handle_db_command_with_subcommand(chat_state: ChatState) -> Props:
                 f"Full collection names for all users:\n\n{tmp}"
             )
 
+        avail_collections = get_available_dbs_str(search_str=value)
+        if not value and len(avail_collections) > 1000:
+            extra_msg = "To narrow down the search, use `/db list <search string>`. "
+        else:
+            extra_msg = ""
+
         return format_nonstreaming_answer(
-            f"{get_available_dbs_str()}\n\n"
-            "**Tip:** To switch to collection number N, type `/db use N`. To switch to a "
+            f"{avail_collections}\n\n**Tip:** {extra_msg}"
+            "To switch to collection number N, type `/db use N`. To switch to a "
             "different collection you have access to, "
             "type `/db use <collection name or shareable link>`."
         )

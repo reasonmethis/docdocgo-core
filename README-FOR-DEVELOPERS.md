@@ -2,12 +2,86 @@
 
 Here we provide information useful for developers who want to build on top of DocDocGo or contribute to its development.
 
+> An alternative way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
+
 ## Table of Contents
 
+- [Installation](#installation)
 - [Using the FastAPI server](#using-the-fastapi-server)
 - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
 - [Running the FastAPI server in Docker](#running-the-fastapi-server-in-docker)
 - [FAQ](#faq)
+
+## Installation
+
+If you simply wish to use the bot, you don't need to install it. It is available at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app). If you would like to run the bot on your local machine, you can follow the instructions below.
+
+### 1. Clone this repository and cd into it
+
+```bash
+git clone https://github.com/reasonmethis/docdocgo-core.git
+cd docdocgo-core
+```
+
+### 2. Create and activate a virtual environment
+
+First, make sure you are using Python 3.11 or higher. Then, create a virtual environment and activate it.
+
+On Windows:
+
+```bash
+python -m venv .venv && .venv\scripts\activate
+```
+
+On Mac/Linux:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+```
+
+### 3. Install the requirements
+
+Run:
+
+```bash
+pip install -r requirements.txt
+```
+
+It's possible you may get the error message:
+
+```bash
+Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools": https://visualstudio.microsoft.com/visual-cpp-build-tools/
+```
+
+If this happens you will need to install the Microsoft C++ Build Tools. You can get them [here](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Then try installing the requirements again.
+
+### 4. Copy the `.env.example` file to `.env` and fill in the values
+
+At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are. Please see `.env.example` for additional details.
+
+## Running DocDocGo
+
+The easiest way to interact with the bot is to run its Streamlit UI:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+If you prefer to chat with the bot in the console, you can instead run:
+
+```bash
+python docdocgo.py
+```
+
+DocDocGo also comes with a FastAPI server, which can be run with:
+
+```bash
+uvicorn api:app --reload
+```
+
+or by running `api.py` directly.
+
+The details of using the API are described in the [Using the FastAPI Server](#using-the-fastapi-server) section. The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using the FastAPI server
 
@@ -58,9 +132,9 @@ The chat history (which represents what you would like the bot to assume has bee
 
 The `collection_name` field is used to specify the collection that the bot should use when responding to the message. If not specified, the default collection will be used. The optional `access_code` field is used to specify the access code for the collection. The bot will determine your access level and respond accordingly.
 
-The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` variable in the `.env` file.
+The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` environment variable in.
 
-The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, if it's specified by the `DEFAULT_OPENAI_API_KEY` variable in the `.env` file.
+The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, assuming the `DEFAULT_OPENAI_API_KEY` environment variable is set.
 
 The `access_codes_cache` field is an object mapping collection names to access codes that the client has stored for them for the current user. The bot will use these access codes to determine grant the user access to collections that require it.
 

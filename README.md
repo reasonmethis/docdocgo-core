@@ -11,10 +11,14 @@
 - [Research Commands](#research-commands)
 - [Database Management](#database-management)
 - [Ingesting Documents](#ingesting-documents)
+- [Exporting data](#exporting-data)
+- [Sharing your collection with others](#sharing-your-collection-with-others)
 - [Querying based on substrings](#querying-based-on-substrings)
 - [FAQ](#faq)
 - [Contributing](#contributing)
   [License](#license)
+
+> If you are a developer, you may want to check out the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md) for more detailed information on how to work with DocDocGo from a developer's perspective. Among other things, it explains [how to work with the DocDocGo FastAPI server](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server) and has an [FAQ](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#faq) for miscellaneous questions.
 
 ## Introduction
 
@@ -52,7 +56,7 @@ For reference, DocDocGo Carbon (not available here) has these features:
 
 If you simply wish to use the bot, you don't need to install it. It is available at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app). If you would like to run the bot on your local machine, you can follow the instructions below.
 
-> Note: there's a lot more information about working with DocDocGo from a developer's perspective in the [Developer Guide](README-FOR-DEVELOPERS.md). You can also switch to the `developer-docs` collection and ask development-related questions to the bot. Happy building!
+**For developers:** There's a lot more information about working with DocDocGo from a developer's perspective in the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md). A likely even better way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
 
 ### 1. Clone this repository and cd into it
 
@@ -119,7 +123,7 @@ uvicorn api:app --reload
 
 or by running `api.py` directly.
 
-The details of using the API are described in the [Developer Guide](README-FOR-DEVELOPERS.md#using-the-fastapi-server). The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+The details of using the API are described in the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server). The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using DocDocGo
 
@@ -143,6 +147,7 @@ Other prefixes:
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
+- `/export`: export your data
 
 Ingesting into the current vs a new collection:
 
@@ -316,6 +321,7 @@ The `/re clear` command will remove all reports but keep the ingested content. T
 You can use the following commands to manage your collections:
 
 - `/db list`: list all your collections
+- `/db list bla`: list your collections whose names contain "bla"
 - `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
 - `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
 - `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
@@ -325,6 +331,7 @@ You can use the following commands to manage your collections:
 Additional shorthands:
 
 - `/db use 3`: switch to collection #3 in the list
+- `/db list bla*`: list collections whose names start with "bla"
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
 
@@ -349,6 +356,14 @@ You can also explicitly control whether the documents are ingested into a new co
 ### Summarizing local documents or URLs
 
 The `/summarize` command works similarly to the `/ingest` command, except, in addition to ingesting the content of the URL it also generates a summary of the content (the summary is not itself ingested).
+
+## Exporting data
+
+To export your conversation, use the command:
+
+- `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
+
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
 
 ## Sharing your collection with others
 

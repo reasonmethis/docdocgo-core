@@ -1,11 +1,13 @@
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
+DELIMITER20 = "-" * 20
+
 INTRO_ASCII_ART = """\
  ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
@@ -49,6 +51,8 @@ command_ids = {
     "/in": ChatMode.INGEST_COMMAND_ID,
     "/upload": ChatMode.INGEST_COMMAND_ID,  # alias for /ingest
     "/up": ChatMode.INGEST_COMMAND_ID,
+    "/export": ChatMode.EXPORT_COMMAND_ID,
+    "/ex": ChatMode.EXPORT_COMMAND_ID,
     "/summarize": ChatMode.SUMMARIZE_COMMAND_ID,
     "/su": ChatMode.SUMMARIZE_COMMAND_ID,
     "/share": ChatMode.SHARE_COMMAND_ID,
@@ -131,6 +135,7 @@ Other prefixes:
 - `/quotes <your query>`: get quotes from the retrieved documents
 - `/web <your query>`: perform web searches and generate a report without ingesting
 - `/chat <your query>`: regular chat, without retrieving docs or websites
+- `/export`: export your data
 
 Ingesting into the current vs a new collection:
 
@@ -163,14 +168,17 @@ Your current document collection's full name: `{current_db}`
 You can use the following commands to manage your collections:
 
 - `/db list`: list all your collections
+- `/db list bla`: list your collections whose names contain "bla"
 - `/db use my-cool-collection`: switch to the collection named "my-cool-collection"
 - `/db rename my-cool-collection`: rename the current collection to "my-cool-collection"
 - `/db delete my-cool-collection`: delete the collection named "my-cool-collection"
 - `/db status`: show your access level for the current collection and related info
+- `/db`: show database management options
 
 Additional shorthands:
 
 - `/db use 3`: switch to collection #3 in the list
+- `/db list bla*`: list collections whose names start with "bla"
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
 
@@ -242,6 +250,45 @@ After you enter your command as described above, you will get a link that you ca
 **Tip:** If you have owner access to a collection, you can use `/db status` to see the access level of other users.\
 """
 
+EXPORT_COMMAND_HELP_MSG = """\
+To export your conversation, use the command:
+
+- `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
+
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
+"""
+
+DESCRIPTION_FOR_HEALTH_UNIVERSE = """\
+DocDocGo is more than just a chatbot, it's your tireless research assistant. It automates tasks that normally involve manually sifting through dozens (or hundreds!) of online resources in search of precious nuggets of relevant hard-to-find information. It can
+
+- find hundreds of websites about your chosen topic/query and ingest into a knowledge base
+- write a report on your topic/query based on the ingested content
+- allow you to chat with the created knowledge base and ask any follow-up questions 
+- search for an answer to a specific narrow question or hard-to-find piece of data by sifting through hundreds of Google search results
+- create a knowledge base from your local documents (Word docs, PDFs, etc.)
+
+Oh, and it's "self-aware" -  you can ask DocDocGo questions about itself and it will help you navigate its many features.
+
+Basic usage:
+
+1. Get help - if you are just starting out and not sure what to do, start with:
+
+- `/help I heard you can help me with web research. How?`
+
+2. Research a topic, get a report and build a knowledge base:
+
+- `/research role of oxytocin in reptiles` - this does an initial round generates a report 
+- `/re deeper` - roughly doubles the number of ingested sources and generates a new report
+- `What studies about reptiles are in your knowledge base?` - chat with the knowledge base
+- `/re deeper <optional number of doublings>` - keep doubling the number of ingested sources
+
+ NOTE: There will be several intermediate reports produced as DDG performs its iterations, but you may wish to focus on the ones at the end of each "deepening" - they amalgamate all previous reports.
+
+3. Look for something specific:
+
+- `/re heatseek Find articles criticizing Vickers' meta-analysis of acupuncture for chronic pain`
+- `/re heatseek 6` - perform 6 more iterations (each iteration looks at 2-5 websites)
+"""
 
 def print_no_newline(*args, **kwargs):
     """
@@ -302,6 +349,7 @@ def format_invalid_input_answer(answer, status_body):
         "status.header": "Invalid input",
         "status.body": status_body,
     }
+
 
 def get_timestamp():
     return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")

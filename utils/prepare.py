@@ -33,6 +33,7 @@ ddglogger = get_logger()
 ddg_logger = ddglogger
 
 # Set up the environment variables
+DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY", "")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
@@ -95,7 +96,7 @@ if IS_AZURE and not (
         "You have set some but not all environment variables necessary to utilize the "
         "Azure OpenAI API endpoint. Please refer to .env.example for details."
     )
-elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
+elif not IS_AZURE and not DEFAULT_OPENAI_API_KEY:
     # We don't exit because we could get the key from the Streamlit app
     print(
         "WARNING: You have not set the DEFAULT_OPENAI_API_KEY environment variable. "
@@ -105,6 +106,7 @@ elif not IS_AZURE and not os.getenv("DEFAULT_OPENAI_API_KEY"):
         "Please refer to .env.example for additional information."
     )
     os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
+    DEFAULT_OPENAI_API_KEY = DUMMY_OPENAI_API_KEY_PLACEHOLDER
     # TODO investigate the behavior when this happens
 
 if not os.getenv("SERPER_API_KEY") and not os.getenv("IGNORE_LACK_OF_SERPER_API_KEY"):

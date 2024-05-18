@@ -1,7 +1,9 @@
 import re
 import time
+from typing import Any
 
 import streamlit as st
+from pydantic import BaseModel
 
 from utils.type_utils import ChatMode
 
@@ -114,3 +116,79 @@ def show_sources(
     with st.expander("Sources"):
         for source in sources:
             st.markdown(source)
+
+
+def show_uploader(is_teleporting=False, border=True):
+    if is_teleporting:
+        try:
+            st.session_state.uploader_placeholder.empty()
+        except AttributeError:
+            pass  # should never happen, but just in case
+        # Switch between one of the two possible keys (to avoid duplicate key error)
+        st.session_state.uploader_form_key = (
+            "uploader-form-alt"
+            if st.session_state.uploader_form_key == "uploader-form"
+            else "uploader-form"
+        )
+
+    # Show the uploader
+    st.session_state.uploader_placeholder = st.empty()
+    with st.session_state.uploader_placeholder:
+        with st.form(
+            st.session_state.uploader_form_key, clear_on_submit=True, border=border
+        ):
+            files = st.file_uploader(
+                "Upload your documents",
+                accept_multiple_files=True,
+                label_visibility="collapsed",
+            )
+            cols = st.columns([1, 1])
+            with cols[0]:
+                is_submitted = st.form_submit_button("Upload")
+            with cols[1]:
+                allow_all_ext = st.toggle("Allow all extensions", value=False)
+    return (files if is_submitted else []), allow_all_ext
+
+
+class DownloaderData(BaseModel):
+    data: Any
+    file_name: str
+    mime: str = "text/plain"
+
+
+def show_downloader(
+    downloader_data: DownloaderData | None = None, is_teleporting=False
+):
+    if downloader_data is None:
+        try:
+            # Use the data from the already existing downloader
+            downloader_data = st.session_state.downloader_data
+        except AttributeError:
+            raise ValueError("downloader_data not provided and not in session state")
+    else:
+        st.session_state.downloader_data = downloader_data
+
+    if is_teleporting:
+        try:
+            st.session_state.downloader_placeholder.empty()
+        except AttributeError:
+            pass  # should never happen, but just in case
+
+        # Switch between one of the two possible keys (to avoid duplicate key error)
+        st.session_state.downloader_form_key = (
+            "downloader-alt"
+            if st.session_state.downloader_form_key == "downloader"
+            else "downloader"
+        )
+
+    # Show the downloader
+    st.session_state.downloader_placeholder = st.empty()
+    with st.session_state.downloader_placeholder:
+        is_downloaded = st.download_button(
+            label="Download Exported Data",
+            data=downloader_data.data,
+            file_name=downloader_data.file_name,
+            mime=downloader_data.mime,
+            key=st.session_state.downloader_form_key,
+        )
+    return is_downloaded

@@ -5,6 +5,7 @@ from langchain.chains import LLMChain
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import get_user_facing_collection_name, handle_db_command
+from agents.exporter import get_exporter_response
 from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
 from agents.share_manager import handle_share_command
@@ -25,7 +26,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME, get_logger
+from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENAI_API_KEY, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -113,6 +114,8 @@ def get_bot_response(chat_state: ChatState):
                 "in console mode. Please run `python ingest_local_docs.py`."
             }
         return get_ingester_summarizer_response(chat_state)
+    elif chat_mode_val == ChatMode.EXPORT_COMMAND_ID.value:  # /export command
+        return get_exporter_response(chat_state)
     else:
         # Should never happen
         raise ValueError(f"Invalid chat mode: {chat_state.chat_mode}")
@@ -253,7 +256,7 @@ def do_intro_tasks(
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks(os.getenv("DEFAULT_OPENAI_API_KEY", ""))
+    vectorstore = do_intro_tasks(DEFAULT_OPENAI_API_KEY)
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -289,7 +292,8 @@ if __name__ == "__main__":
                     parsed_query=parsed_query,
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
-                    openai_api_key=os.getenv("DEFAULT_OPENAI_API_KEY", ""),
+                    openai_api_key=DEFAULT_OPENAI_API_KEY,
+                    user_id=None, # would be set to None by default but just to be explicit
                 )
             )
         except Exception as e:

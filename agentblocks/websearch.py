@@ -34,11 +34,18 @@ def _extract_domain(url: str):
 
 
 def get_links_from_search_results(search_results: list[dict[str, Any]]):
+    logger.debug(
+        f"Getting links from results of {len(search_results)} searches "
+        f"with {[len(s) for s in search_results]} links each."
+    )
     links_for_each_query = [
         [x["link"] for x in search_result.get("organic", []) if "link" in x]
         for search_result in search_results
     ]  # [[links for query 1], [links for query 2], ...]
 
+    logger.debug(
+        f"Number of links for each query: {[len(links) for links in links_for_each_query]}"
+    )
     # NOTE: can ask LLM to decide which links to keep
     return [
         link
@@ -62,8 +69,20 @@ def get_links_from_queries(
         search_tasks = [search.aresults(query) for query in queries]
         search_results = gather_tasks_sync(search_tasks)  # can use serper's batching
 
+        # Check for errors
+        for search_result in search_results:
+            try:
+                if search_result["statusCode"] // 100 != 2:
+                    logger.error(f"Error in search result: {search_result}")
+                    # search_result can be {"statusCode": 400, "message": "Not enough credits"}
+                    raise WebSearchAPIError() # TODO: add message, make sure it gets logged
+            except KeyError:
+                logger.warning("No status code in search result, assuming success.")
+
         # Get links from search results
         return get_links_from_search_results(search_results)
+    except WebSearchAPIError as e:
+        raise e
     except Exception as e:
         raise WebSearchAPIError() from e
 

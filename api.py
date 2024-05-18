@@ -27,6 +27,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
+    DEFAULT_OPENAI_API_KEY,
     INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG,
     MAX_UPLOAD_BYTES,
     get_logger,
@@ -107,9 +108,6 @@ class ChatResponseData(BaseModel):
         )
 
 
-DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
-
-
 def convert_chat_history(
     chat_history_in_role_format: list[RoleBasedChatMessage],
 ) -> PairwiseChatHistory:
@@ -140,23 +138,23 @@ async def handle_chat_or_ingest_request(
         message = data.message.strip()
         api_key = data.api_key  # DocDocGo API key
 
-        # If admin pwd is sent, use default key
+        # If admin pwd is sent, treat it as if the default key was sent
         if (
             BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
             and data.openai_api_key
             and data.openai_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
+            and DEFAULT_OPENAI_API_KEY # only do this if the default key is configured
         ):
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
-
-        openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
-
-        # If BYPASS_SETTINGS_RESTRICTIONS is set, no key = use default key in *private* mode
-        if (
-            is_community_key := not data.openai_api_key
-        ) and BYPASS_SETTINGS_RESTRICTIONS:
+        # Same story if no key is sent but BYPASS_SETTINGS_RESTRICTIONS is set
+        elif not data.openai_api_key and BYPASS_SETTINGS_RESTRICTIONS:
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
-            is_community_key = False
 
+        # If no key is specified, use the default key (but set is_community_key to True)
+        openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
+        is_community_key = not data.openai_api_key
+
+        # User id is determined from the OpenAI API key (or None if community key)
         user_id: str | None = get_short_user_id(data.openai_api_key)
         # TODO: use full api key as user id (but show only the short version)
 

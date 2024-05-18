@@ -83,6 +83,11 @@ share_revoke_subcommand_to_enum = {
 }
 HEATSEEKER_DEFAULT_NUM_ITERATIONS = 1
 
+ExportCommand = Enum("ExportCommand", "CHAT KB NONE")
+export_command_to_enum = {
+    "chat": ExportCommand.CHAT,
+}
+
 
 class ResearchParams(BaseModel):
     task_type: ResearchCommand
@@ -107,6 +112,7 @@ class ParsedQuery(BaseModel):
     research_params: ResearchParams | None = None
     db_command: DBCommand | None = None
     ingest_command: IngestCommand | None = None
+    export_command: ExportCommand | None = None
     share_params: ShareParams | None = None
 
     def is_ingestion_needed(self) -> bool:
@@ -190,8 +196,29 @@ def get_value(text: str, transform: Callable) -> tuple[Any, str]:
         return value, ""
 
 
-def get_int(text: str) -> tuple[int | None, str]:
-    return get_value(text, int)
+def get_int(
+    text: str, min_val: int | None = None, max_val: int | None = None
+) -> tuple[int | None, str]:
+    val, rest = get_value(text, int)
+    if (
+        val is None
+        or (min_val is not None and val < min_val)
+        or (max_val is not None and val > max_val)
+    ):
+        return None, text
+    return val, rest
+
+
+def get_int_or_command(
+    text: str,
+    commands: Container[str],
+    min_val: int | None = None,
+    max_val: int | None = None,
+) -> tuple[int | str | None, str]:
+    val, rest = get_int(text, min_val, max_val)
+    if val is not None:
+        return val, rest
+    return get_command(text, commands, None)
 
 
 def extract_chat_mode(
@@ -397,5 +424,9 @@ def parse_query(
     if chat_mode == ChatMode.SHARE_COMMAND_ID:
         s = parse_share_command(query)
         return ParsedQuery(chat_mode=chat_mode, share_params=s)
+
+    if chat_mode == ChatMode.EXPORT_COMMAND_ID:
+        e, m = get_command(query, export_command_to_enum, ExportCommand.NONE)
+        return ParsedQuery(chat_mode=chat_mode, export_command=e, message=m)
 
     return ParsedQuery(chat_mode=chat_mode, message=query)

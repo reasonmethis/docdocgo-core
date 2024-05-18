@@ -292,6 +292,8 @@ answer_evaluator_prompt = PromptTemplate.from_template(answer_evaluator_template
 /re hs find a quote by obama about jill biden
 /re hs 2 tutorial or documentation showing proper use of __init__ in pydantic
 /re hs search the web specifically for "llms wearing pants" and tell me what it means
+example code in python how to stream response from openai api.
+[NOTE: ChatGPT and Gemini Advanced give bad answers to the above query.]
 """
 
 evaluation_code_to_grade = {
@@ -325,6 +327,10 @@ MIN_OK_URLS = 5
 INIT_BATCH_SIZE = 8
 MAX_SUB_ITERATIONS_IN_ONE_GO = 12  # can only reach if some sites are big and get split
 MAX_URL_RETRIEVALS_IN_ONE_GO = 1
+
+NUM_URLS_BEFORE_REFRESH = 70
+NUM_LEFT_URLS_FOR_REFRESH = 12
+
 CHECKED_STR = "I checked but didn't find a good answer in "
 answer_found_evaluations = ["EXCELLENT"]
 content_insufficient_evaluations = ["BAD"]
@@ -564,10 +570,6 @@ def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
 
     # Return response (next iteration info will be added upstream)
     return {"answer": full_reply, "vectorstore": vectorstore}
-
-
-NUM_URLS_BEFORE_REFRESH = 10
-NUM_LEFT_URLS_FOR_REFRESH = 6
 
 
 def get_heatseek_in_progress_response(
