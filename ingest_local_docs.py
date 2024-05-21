@@ -1,15 +1,15 @@
 import os
 import sys
 
-from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
 
 from _prepare_env import is_env_loaded
 from components.chroma_ddg import initialize_client
 from utils.docgrab import (
     JSONLDocumentLoader,
-    load_into_chroma,
+    ingest_into_chroma,
 )
-from utils.helpers import clear_directory, is_directory_empty, print_no_newline
+from utils.helpers import clear_directory, get_timestamp, is_directory_empty, print_no_newline
 from utils.prepare import DEFAULT_OPENAI_API_KEY
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
@@ -19,7 +19,9 @@ if __name__ == "__main__":
         "-" * 70
         + "\n"
         + " " * 20
-        + "Ingestion of Local Docs into Loca DB\n"
+        + "Ingestion of Local Docs into Local DB\n"
+        + "NOTE: It's recommended to use the Streamlit UI for ingestion instead,\n"
+        + "as this script is not maintained as frequently.\n"
         + "-" * 70
         + "\n"
     )
@@ -142,11 +144,12 @@ if __name__ == "__main__":
     print("Done!")
 
     # Ingest into chromadb (this will print messages regarding the status)
-    load_into_chroma(
+    timestamp = get_timestamp()
+    ingest_into_chroma(
         docs,
         collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
         chroma_client=chroma_client,
         save_dir=None if chroma_client else VECTORDB_DIR,
         openai_api_key=DEFAULT_OPENAI_API_KEY,
-        verbose=True,
+        collection_metadata={"created_at": timestamp, "updated_at": timestamp},
     )

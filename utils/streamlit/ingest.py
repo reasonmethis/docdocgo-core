@@ -3,12 +3,12 @@ import uuid
 import streamlit as st
 from langchain.schema import Document
 
+from agentblocks.collectionhelper import ingest_into_collection
 from agents.dbmanager import (
     construct_full_collection_name,
     get_user_facing_collection_name,
 )
 from utils.chat_state import ChatState
-from utils.docgrab import load_into_chroma
 from utils.helpers import ADDITIVE_COLLECTION_PREFIX, INGESTED_DOCS_INIT_PREFIX
 from utils.prepare import DEFAULT_COLLECTION_NAME
 from utils.query_parsing import IngestCommand
@@ -32,9 +32,15 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
         )
     ):
         # We will use the same collection
+        is_new_collection = False
         uploaded_docs_coll_name_full = chat_state.vectorstore.name
+
+        # Fetch the collection metadata so we can add timestamps
+        collection_metadata = chat_state.fetch_collection_metadata()
     else:
         # We will need to create a new collection
+        is_new_collection = True
+        collection_metadata = {}
         uploaded_docs_coll_name_as_shown = (
             INGESTED_DOCS_INIT_PREFIX + uuid.uuid4().hex[:8]
         )
@@ -42,21 +48,19 @@ def ingest_docs(docs: list[Document], chat_state: ChatState):
             chat_state.user_id, uploaded_docs_coll_name_as_shown
         )
     try:
-        load_into_chroma(
-            docs,
+        vectorstore = ingest_into_collection(
             collection_name=uploaded_docs_coll_name_full,
-            chroma_client=chat_state.vectorstore.client,
-            openai_api_key=chat_state.openai_api_key,
-            verbose=True,
+            docs=docs,
+            collection_metadata=collection_metadata,
+            chat_state=chat_state,
+            is_new_collection=is_new_collection,
         )
-        if chat_state.vectorstore.name == uploaded_docs_coll_name_full:
-            msg_template = POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL
-        else:
+        if is_new_collection:
             # Switch to the newly created collection
-            chat_state.vectorstore = chat_state.get_new_vectorstore(
-                uploaded_docs_coll_name_full
-            )
+            chat_state.vectorstore = vectorstore
             msg_template = POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL
+        else:
+            msg_template = POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL
 
         with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
             st.markdown(msg_template.format(coll_name=uploaded_docs_coll_name_as_shown))

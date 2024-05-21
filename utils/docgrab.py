@@ -9,11 +9,11 @@ from langchain_community.document_loaders import GitbookLoader
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
-from utils.output import ConditionalLogger
-from utils.prepare import EMBEDDINGS_DIMENSIONS
+from utils.prepare import EMBEDDINGS_DIMENSIONS, get_logger
 from utils.rag import rag_text_splitter
 
 load_dotenv(override=True)
+logger = get_logger()
 
 
 class JSONLDocumentLoader:
@@ -50,7 +50,7 @@ def load_gitbook(root_url: str) -> list[Document]:
 
 
 def prepare_chunks(
-    texts: list[str], metadatas: list[dict], ids: list[str], verbose: bool = False
+    texts: list[str], metadatas: list[dict], ids: list[str]
 ) -> list[Document]:
     """
     Split documents into chunks and add parent ids to the chunks' metadata.
@@ -58,8 +58,7 @@ def prepare_chunks(
 
     It is ok to pass an empty list of texts.
     """
-    clg = ConditionalLogger(verbose)
-    clg.log(f"Splitting {len(texts)} documents into chunks...")
+    logger.info(f"Splitting {len(texts)} documents into chunks...")
 
     # Add parent ids to metadata (will delete, but only after it they propagate to snippets)
     for metadata, id in zip(metadatas, ids):
@@ -67,7 +66,7 @@ def prepare_chunks(
 
     # Split into snippets
     snippets = rag_text_splitter.create_documents(texts, metadatas)
-    clg.log(f"Obtained {len(snippets)} chunks.")
+    logger.info(f"Obtained {len(snippets)} chunks.")
 
     # Restore original metadata
     for metadata in metadatas:
@@ -78,29 +77,27 @@ def prepare_chunks(
 
 FAKE_FULL_DOC_EMBEDDING = [1.0] * EMBEDDINGS_DIMENSIONS
 
-
-def load_into_chroma(
+# TODO: remove the logic of saving to the db, leave only doc preparation. We should 
+# separate concerns and reduce the number of places we write to the db.
+def ingest_into_chroma(
     docs: list[Document],
     *,
     collection_name: str,
     openai_api_key: str,
     chroma_client: ClientAPI | None = None,
     save_dir: str | None = None,
-    collection_metadata: dict | None = None,
-    verbose: bool = False,
+    collection_metadata: dict[str, str] | None = None,
 ) -> ChromaDDG:
     """
     Load documents and/or collection metadata into a Chroma collection, return a vectorstore
-    object. 
+    object.
 
     If collection_metadata is passed and the collection exists, the metadata will be
     replaced with the passed metadata, according to the Chroma docs.
+
+    NOTE: Normally, the higher level agentblocks.collectionhelper.ingest_into_collection 
+    should be used, which creates/updates the "created_at" and "updated_at" metadata fields.
     """
-    # NOTE: it looks like this appends to the existing collection if it exists
-    # (we use it in ingest_local_docs.py for both creating a new collection and
-    # adding to an existing one). But I am still not 100% sure if the returned vectorstore
-    # incorporates the existing docs (I think it does, but I need to double check).
-    clg = ConditionalLogger(verbose)
     assert bool(chroma_client) != bool(save_dir), "Invalid vector db destination"
 
     # Handle special case of no docs - just create/update collection with given metadata
@@ -121,13 +118,13 @@ def load_into_chroma(
 
     # Split into snippets, embed and add them
     vectorstore: ChromaDDG = ChromaDDG.from_documents(
-        prepare_chunks(texts, metadatas, full_doc_ids, verbose=verbose),
+        prepare_chunks(texts, metadatas, full_doc_ids),
         embedding=get_openai_embeddings(openai_api_key),
         client=chroma_client,
         persist_directory=save_dir,
         collection_name=collection_name,
         collection_metadata=collection_metadata,
-        create_if_not_exists=True, # ok to pass (kwargs are passed to __init__)
+        create_if_not_exists=True,  # ok to pass (kwargs are passed to __init__)
     )
 
     # Add the original full docs (with fake embeddings)
@@ -135,9 +132,9 @@ def load_into_chroma(
     fake_embeddings = [FAKE_FULL_DOC_EMBEDDING for _ in range(len(docs))]
     vectorstore.collection.add(full_doc_ids, fake_embeddings, metadatas, texts)
 
-    clg.log(f"Ingested documents into collection {collection_name}")
+    logger.info(f"Ingested documents into collection {collection_name}")
     if save_dir:
-        clg.log(f"Saved to {save_dir}")
+        logger.info(f"Saved to {save_dir}")
     return vectorstore
 
 

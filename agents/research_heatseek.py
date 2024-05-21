@@ -4,8 +4,8 @@ from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
 from agentblocks.collectionhelper import (
-    get_collection_name_from_query,
-    start_new_collection,
+    construct_new_collection_name,
+    ingest_into_collection,
 )
 from agentblocks.core import enforce_pydantic_json
 from agentblocks.docconveyer import DocConveyer
@@ -447,12 +447,12 @@ def run_main_heatseek_workflow(
 
     # Add final piece if needed
     piece = ""
-    if full_reply == init_reply: # just in case
+    if full_reply == init_reply:  # just in case
         logger.warning("Shouldn't happen: full_reply == init_reply")
         if init_reply:
-            piece="\n\n"
-        piece+="I checked but didn't find a good answer on this round."
-        
+            piece = "\n\n"
+        piece += "I checked but didn't find a good answer on this round."
+
     if chat_state.parsed_query.research_params.num_iterations_left < 2:
         piece += (
             "\n\nTo continue checking more sources, type "
@@ -561,13 +561,15 @@ def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
     full_reply = run_main_heatseek_workflow(chat_state, hs_data)
 
     # Save agent state into ChromaDB
-    vectorstore = start_new_collection(
-        likely_coll_name=get_collection_name_from_query(query, chat_state),
+    vectorstore = ingest_into_collection(
         docs=[],
+        collection_name=construct_new_collection_name(query, chat_state),
         collection_metadata={
             "agent_data": json.dumps({"hs": hs_data.model_dump_json()})
         },
         chat_state=chat_state,
+        is_new_collection=True,
+        retry_with_random_name=True,
     )
 
     # Return response (next iteration info will be added upstream)
@@ -595,7 +597,10 @@ def get_heatseek_in_progress_response(
     full_reply = run_main_heatseek_workflow(chat_state, hs_data, init_reply)
 
     # Save agent state into ChromaDB
-    chat_state.save_agent_data({"hs": hs_data.model_dump_json()})
+    chat_state.save_agent_data(
+        {"hs": hs_data.model_dump_json()},
+        use_cached_metadata=True,
+    )
 
     return {"answer": full_reply}
 
@@ -605,7 +610,9 @@ def get_research_heatseek_response(chat_state: ChatState) -> Props:
     if chat_state.message:
         return get_new_heatseek_response(chat_state)
 
-    hs_data = chat_state.get_agent_data().get("hs")
+    hs_data = chat_state.get_agent_data(use_cached_metadata=True).get("hs")
+    # NOTE: We are using use_cached_metadata=True because metadata was fetched in the
+    # call to get_rr_data in the get_research_response function
     if hs_data:
         hs_data = HeatseekData.model_validate_json(hs_data)
         return get_heatseek_in_progress_response(chat_state, hs_data)

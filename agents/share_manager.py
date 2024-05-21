@@ -149,7 +149,9 @@ def handle_share_command(chat_state: ChatState) -> Props:
                     "Apologies, Dmitriy hasn't implemented this share subcommand for me yet."
                 )
 
-        chat_state.save_collection_permissions(collection_permissions)
+        chat_state.save_collection_permissions(
+            collection_permissions, use_cached_metadata=True
+        )
         return format_nonstreaming_answer(ans)
 
     return format_nonstreaming_answer(

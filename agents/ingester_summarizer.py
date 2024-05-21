@@ -3,6 +3,7 @@ import uuid
 from icecream import ic
 from langchain.schema import Document
 
+from agentblocks.collectionhelper import ingest_into_collection
 from agents.dbmanager import (
     construct_full_collection_name,
     get_access_role,
@@ -10,7 +11,6 @@ from agents.dbmanager import (
 )
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
-from utils.docgrab import load_into_chroma
 from utils.helpers import (
     ADDITIVE_COLLECTION_PREFIX,
     INGESTED_DOCS_INIT_PREFIX,
@@ -95,6 +95,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
         and coll_name_as_shown.startswith(ADDITIVE_COLLECTION_PREFIX)
     ):
         # We will use the same collection
+        is_new_collection = False
         coll_name_full = chat_state.vectorstore.name
 
         # Check for editor access
@@ -113,6 +114,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             )
     else:
         # We will need to create a new collection
+        is_new_collection = True
         coll_name_as_shown = INGESTED_DOCS_INIT_PREFIX + uuid.uuid4().hex[:8]
         coll_name_full = construct_full_collection_name(
             chat_state.user_id, coll_name_as_shown
@@ -158,18 +160,18 @@ def get_ingester_summarizer_response(chat_state: ChatState):
         else:
             res = {"answer": summarize(docs, chat_state)}
 
-    # Ingest into Chroma
-    load_into_chroma(
-        docs,
+    # Ingest into the collection
+    coll_metadata = {} if is_new_collection else chat_state.fetch_collection_metadata() 
+    vectorstore = ingest_into_collection(
         collection_name=coll_name_full,
-        chroma_client=chat_state.vectorstore.client,
-        openai_api_key=chat_state.openai_api_key,
-        verbose=True,
+        docs=docs,
+        collection_metadata=coll_metadata,
+        chat_state=chat_state,
+        is_new_collection=is_new_collection,
     )
 
-    if chat_state.vectorstore.name != coll_name_full:
+    if is_new_collection:
         # Switch to the newly created collection
-        vectorstore = chat_state.get_new_vectorstore(coll_name_full)
         res["vectorstore"] = vectorstore
 
     return res

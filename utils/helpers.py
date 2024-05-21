@@ -351,6 +351,16 @@ def format_invalid_input_answer(answer, status_body):
     }
 
 
-def get_timestamp():
-    return datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
+DEFAULT_TIMESTAMP_FORMAT = None # iso
+RESEARCH_TIMESTAMP_FORMAT = "%A, %B %d, %Y, %I:%M %p"
+
+def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
+    if format is None:
+        return datetime.now().isoformat()
+    return datetime.now().strftime(format)
     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+
+def parse_timestamp(timestamp: str, format: str | None = DEFAULT_TIMESTAMP_FORMAT):
+    if format is None:
+        return datetime.fromisoformat(timestamp)
+    return datetime.strptime(timestamp, format)

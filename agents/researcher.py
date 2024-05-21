@@ -7,8 +7,8 @@ from icecream import ic
 from langchain.schema import Document
 
 from agentblocks.collectionhelper import (
-    get_collection_name_from_query,
-    start_new_collection,
+    construct_new_collection_name,
+    ingest_into_collection,
 )
 from agentblocks.webretrieve import get_content_from_urls
 from agentblocks.websearch import WEB_SEARCH_API_ISSUE_MSG, get_links_from_queries
@@ -21,13 +21,12 @@ from agents.researcher_data import Report, ResearchReportData
 from agents.websearcher_quick import get_websearcher_response_quick
 from components.llm import get_prompt_llm_chain
 from utils.chat_state import ChatState
-from utils.docgrab import load_into_chroma
 from utils.helpers import (
     RESEARCH_COMMAND_HELP_MSG,
+    RESEARCH_TIMESTAMP_FORMAT,
     format_invalid_input_answer,
     format_nonstreaming_answer,
     get_timestamp,
-    print_no_newline,
 )
 from utils.lang_utils import (
     get_num_tokens,
@@ -144,7 +143,7 @@ def get_web_research_response_no_ingestion(
             query_generator_output = query_generator_chain.invoke(
                 {
                     "query": query,
-                    "timestamp": get_timestamp(),
+                    "timestamp": get_timestamp(format=RESEARCH_TIMESTAMP_FORMAT),
                 }
             )
             query_generator_dict = extract_json(query_generator_output)
@@ -316,11 +315,13 @@ def get_initial_researcher_response(chat_state: ChatState) -> Props:
         docs.append(Document(page_content=link_data.text, metadata=metadata))
 
     # Ingest documents into ChromaDB
-    vectorstore = start_new_collection(
-        likely_coll_name=get_collection_name_from_query(rr_data.query, chat_state),
+    vectorstore = ingest_into_collection(
+        collection_name=construct_new_collection_name(rr_data.query, chat_state),
         docs=docs,
         collection_metadata={"rr_data": rr_data.model_dump_json()},
         chat_state=chat_state,
+        is_new_collection=True,
+        retry_with_random_name=True,
     )
 
     return response | {"vectorstore": vectorstore}
@@ -333,7 +334,9 @@ def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
         return {}
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
-    new_parsed_query.message = ""  # otherwise will be treated as a new query (at least in hs)
+    new_parsed_query.message = (
+        ""  # otherwise will be treated as a new query (at least in hs)
+    )
     return {"new_parsed_query": new_parsed_query}
 
 
@@ -355,18 +358,22 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     if task_type == ResearchCommand.AUTO:
         task_type = ResearchCommand.MORE  # we were routed here from main handler
 
-    rr_data: ResearchReportData = chat_state.get_rr_data()
+    # Get rr_data from the collection metadata (using metadata cached upstream)
+    rr_data: ResearchReportData = chat_state.get_rr_data(use_cached_metadata=True)
 
     # Fix for older style collections
     if not rr_data.base_reports and rr_data.main_report:
-        ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
-        rr_data.base_reports.append(
-            Report(
-                report_text=rr_data.main_report,
-                sources=ok_links[: -rr_data.num_obtained_unprocessed_ok_links],
-                evaluation=rr_data.evaluation,
-            )
+        return format_nonstreaming_answer(
+            "Apologies, this collection uses an older format, which is no longer supported."
         )
+        # ok_links = [k for k, v in rr_data.link_data_dict.items() if not v.error]
+        # rr_data.base_reports.append(
+        #     Report(
+        #         report_text=rr_data.main_report,
+        #         sources=ok_links[: -rr_data.num_obtained_unprocessed_ok_links],
+        #         evaluation=rr_data.evaluation,
+        #     )
+        # )
 
     t_start = datetime.now()
 
@@ -379,7 +386,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
         > NUM_LINKS_TO_PROCESS_BEFORE_REFRESHING_QUERIES
         or len(rr_data.unprocessed_links) < 6  # TODO: make customizable
     ):
-        tmp = auto_update_search_queries_and_links(chat_state, cached_rr_data=rr_data)
+        tmp = auto_update_search_queries_and_links(chat_state)
         try:
             rr_data = tmp["rr_data"]  # rr_data has new unprocessed_links
             ic(tmp["analysis"])
@@ -550,40 +557,36 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     # Prepare new documents for ingestion
     # NOTE: links_to_include is non-empty if we got here
     docs: list[Document] = []
-    link_datas_to_ingest = []
     for link in links_to_include:
         link_data = rr_data.link_data_dict[link]
         if link_data.is_ingested:
             continue
+        link_data.is_ingested = True
         metadata = {"source": link}
         if link_data.num_tokens is not None:
             metadata["num_tokens"] = link_data.num_tokens
         docs.append(Document(page_content=link_data.text, metadata=metadata))
-        link_datas_to_ingest.append(link_data)
 
-    # Ingest documents into ChromaDB
+    # Ingest documents into collection
     if docs:
-        print_no_newline("\nIngesting new documents into ChromaDB...")
-        load_into_chroma(
-            docs,
+        logger.info("Ingesting new documents and saving rr_data.")
+        collection_metadata = chat_state.get_cached_collection_metadata()
+        collection_metadata["rr_data"] = rr_data.model_dump_json()
+        ingest_into_collection(
             collection_name=chat_state.collection_name,
-            chroma_client=chat_state.vectorstore.client,
-            openai_api_key=chat_state.openai_api_key,
+            docs=docs,
+            collection_metadata=collection_metadata,
+            chat_state=chat_state,
+            is_new_collection=False,
         )
     else:
-        print_no_newline("No new documents to ingest. Saving rr_data...")
+        logger.info("No new documents to ingest. Saving rr_data.")
+        chat_state.save_rr_data(rr_data)  # this updates "updated_at" field
+        # NOTE: could also save a metadata fetch if we used the cached metadata and
+        # used ingest_into_collection like above
+    logger.info("Finished saving data.")
 
-    # Save new rr_data in chat_state (which saves it in the database)
-    for link_data in link_datas_to_ingest:
-        link_data.is_ingested = True  # this will be saved in rr_data
-    chat_state.save_rr_data(rr_data)
-    print("Done")
-
-    return {
-        "answer": answer,
-        # "rr_data": rr_data, NOTE: saved in chat_state
-        "source_links": links_to_include,
-    }  # NOTE: look into removing rr_data from the response
+    return {"answer": answer, "source_links": links_to_include}
 
 
 NUM_REPORTS_TO_COMBINE = 2
@@ -623,7 +626,9 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
             NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
         )
 
-    rr_data: ResearchReportData | None = chat_state.get_rr_data()
+    rr_data: ResearchReportData | None = chat_state.get_rr_data(
+        use_cached_metadata=True
+    )
     if not rr_data:
         return format_invalid_input_answer(INVALID_COMBINE_MSG, INVALID_COMBINE_STATUS)
 
@@ -687,7 +692,6 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
     chat_state.save_rr_data(rr_data)
     sources = rr_data.get_sources(new_report)
     return {"answer": answer, "source_links": sources}
-    # return {"answer": answer, "rr_data": rr_data, "source_links": sources}
 
 
 def get_num_reports_per_level(rr_data: ResearchReportData) -> list[int]:
@@ -742,7 +746,7 @@ def get_research_view_response(chat_state: ChatState) -> Props:
             rr_data.get_sources(report)
         )
 
-    rr_data: ResearchReportData = chat_state.get_rr_data()
+    rr_data: ResearchReportData = chat_state.get_rr_data(use_cached_metadata=True)
     num_base_reports = len(rr_data.base_reports)
 
     num_obtained_ok_links = sum(
@@ -813,7 +817,7 @@ def get_research_set_response(chat_state: ChatState) -> Props:
         )
 
     parsed_query = chat_state.parsed_query
-    rr_data = chat_state.get_rr_data()
+    rr_data: ResearchReportData = chat_state.get_rr_data(use_cached_metadata=True)
     is_set_query = parsed_query.research_params.task_type == ResearchCommand.SET_QUERY
 
     # Update rr_data with the new query or report type
@@ -823,7 +827,7 @@ def get_research_set_response(chat_state: ChatState) -> Props:
         rr_data.report_type = parsed_query.message
 
     # Save new rr_data in chat_state (which saves it in the database) and return
-    chat_state.save_rr_data(rr_data)
+    chat_state.save_rr_data(rr_data, use_cached_metadata=True)
 
     # Return the response
     if is_set_query:
@@ -877,7 +881,7 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
         )
 
     parsed_query = chat_state.parsed_query
-    rr_data = chat_state.get_rr_data()
+    rr_data: ResearchReportData = chat_state.get_rr_data(use_cached_metadata=True)
     new_queries = json.loads(parsed_query.message)  # validated by the parser
 
     # Update search queries and links
@@ -885,7 +889,7 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
         return format_nonstreaming_answer(tmp["early_exit_msg"])
 
     # Save new rr_data in chat_state (which saves it in the database) and return
-    chat_state.save_rr_data(rr_data)
+    chat_state.save_rr_data(rr_data, use_cached_metadata=True)
 
     # Return the response
     return format_nonstreaming_answer(
@@ -896,17 +900,15 @@ def get_research_set_search_queries_response(chat_state: ChatState) -> Props:
     )
 
 
-def auto_update_search_queries_and_links(
-    chat_state: ChatState, cached_rr_data: ResearchReportData | None = None
-) -> Props:
+def auto_update_search_queries_and_links(chat_state: ChatState) -> Props:
     # We have checked for editor access upstream
 
-    rr_data = cached_rr_data or chat_state.get_rr_data()
+    rr_data = chat_state.get_rr_data(use_cached_metadata=True)
 
     # Construct query generator chain and inputs
     inputs = {
         "query": rr_data.query,
-        "timestamp": get_timestamp(),
+        "timestamp": get_timestamp(format=RESEARCH_TIMESTAMP_FORMAT),
         "report_type": rr_data.report_type,
         "search_queries": rr_data.search_queries,
         "report": rr_data.main_report,
@@ -945,7 +947,7 @@ def auto_update_search_queries_and_links(
         return early_exit_obj  # {"early_exit_msg": WEB_SEARCH_API_ISSUE_MSG}
 
     # Save new rr_data in chat_state (which saves it in the database) and return
-    chat_state.save_rr_data(rr_data)
+    chat_state.save_rr_data(rr_data, use_cached_metadata=True)
 
     return {"analysis": analysis, "rr_data": rr_data}
 
@@ -959,7 +961,7 @@ def get_research_auto_update_search_queries_response(chat_state: ChatState) -> P
 
     rsp = auto_update_search_queries_and_links(chat_state)
     try:
-        rr_data = rsp["rr_data"]
+        rr_data: ResearchReportData = rsp["rr_data"]
     except KeyError:
         return format_nonstreaming_answer(rsp["early_exit_msg"])
 
@@ -981,7 +983,7 @@ def get_research_clear_response(chat_state: ChatState):
             NO_EDITOR_ACCESS_MSG, NO_EDITOR_ACCESS_STATUS
         )
 
-    rr_data = chat_state.get_rr_data()
+    rr_data = chat_state.get_rr_data(use_cached_metadata=True)
 
     rr_data.base_reports = []
     rr_data.combined_reports = []
@@ -999,7 +1001,7 @@ def get_research_clear_response(chat_state: ChatState):
     rr_data.processed_links = []
 
     # Save new rr_data in chat_state (which saves it in the database) and return
-    chat_state.save_rr_data(rr_data)
+    chat_state.save_rr_data(rr_data, use_cached_metadata=True)
     return format_nonstreaming_answer(
         "All reports have been cleared. The collection still contains the "
         "previously fetched content, which can be used to generate a new report "
@@ -1050,10 +1052,10 @@ def get_researcher_response(chat_state: ChatState) -> Props:
 
     # Due to Streamlit reloading quirks, we need to do this dance:
     research_params.task_type = ResearchCommand(research_params.task_type.value)
-    task_type = research_params.task_type  
-    
-    rr_data = chat_state.get_rr_data()
+    task_type = research_params.task_type
     logger.info(f"get_researcher_response: {task_type=} {num_iterations_left=}")
+
+    rr_data = chat_state.get_rr_data()
 
     # Screen commands that require pre-existing research
     # TODO: probably should screen editor access here too
@@ -1068,7 +1070,7 @@ def get_researcher_response(chat_state: ChatState) -> Props:
             "You can generate a new report using `/research new <query>`.",
             "You can generate a new report using `/research new <query>`.",
         )
-    
+
     if (
         task_type in {ResearchCommand.ITERATE, ResearchCommand.CLEAR}
         and not rr_data.main_report  # COMBINE is screened downstream

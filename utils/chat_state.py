@@ -2,7 +2,6 @@ import json
 from typing import Callable
 
 from chromadb import Collection
-from icecream import ic
 from langchain.schema import Document
 from pydantic import BaseModel, Field
 
@@ -13,8 +12,12 @@ from components.chroma_ddg import (
     get_vectorstore_using_openai_api_key,
 )
 from components.llm import get_prompt_llm_chain
-from utils.helpers import PRIVATE_COLLECTION_PREFIX, PRIVATE_COLLECTION_USER_ID_LENGTH
-from utils.prepare import DEFAULT_COLLECTION_NAME
+from utils.helpers import (
+    PRIVATE_COLLECTION_PREFIX,
+    PRIVATE_COLLECTION_USER_ID_LENGTH,
+    get_timestamp,
+)
+from utils.prepare import DEFAULT_COLLECTION_NAME, get_logger
 from utils.query_parsing import ParsedQuery
 from utils.type_utils import (
     COLLECTION_USERS_METADATA_KEY,
@@ -30,6 +33,8 @@ from utils.type_utils import (
     PairwiseChatHistory,
     Props,
 )
+
+logger = get_logger()
 
 
 class ScheduledQueries(BaseModel):
@@ -80,12 +85,13 @@ class ChatState:
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
         uploaded_docs: list[Document] | None = None,
-        agent_data: AgentDataDict | None = None,
+        agent_data: AgentDataDict | None = None,  # currently not used (agent
+        # data is stored in collection metadata)
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
         self.parsed_query = parsed_query or ParsedQuery()
-        self.chat_history = chat_history or [] # tuple of (user_message, bot_response)
+        self.chat_history = chat_history or []  # tuple of (user_message, bot_response)
         self.chat_history_all = chat_and_command_history or []
         self.sources_history = sources_history or []  # used only in Streamlit for now
         self.vectorstore = vectorstore
@@ -101,7 +107,6 @@ class ChatState:
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
         self.agent_data = agent_data or {}
-        self.cached_collection_metadata: Props | None = None
 
     @property
     def collection_name(self) -> str:
@@ -163,130 +168,186 @@ class ChatState:
     def fetch_collection_metadata(self, coll_name: str | None = None) -> Props | None:
         """
         Fetch metadata for the currently selected collection, or for the given
-        collection name if provided
+        collection name if provided. If the collection does not exist, returns None.
         """
         if coll_name in (None, self.vectorstore.name):
-            tmp = self.vectorstore.fetch_collection_metadata()
-            self.cached_collection_metadata = tmp
-            return tmp
-
-        if tmp_vectorstore := self.get_new_vectorstore(
+            return self.vectorstore.fetch_collection_metadata()
+        elif tmp_vectorstore := self.get_new_vectorstore(
             coll_name, create_if_not_exists=False
         ):
-            return tmp_vectorstore.fetch_collection_metadata()
-        return None
+            # return tmp_vectorstore.fetch_collection_metadata()
+            # Since we fetched a new vectorstore, it includes the latest metadata
+            return tmp_vectorstore.get_cached_collection_metadata()
+        else:
+            return None  # redundant but for clarity
 
     def get_cached_collection_metadata(self) -> Props | None:
-        return self.vectorstore.get_cached_ollection_metadata()
+        return self.vectorstore.get_cached_collection_metadata()
 
-    def get_agent_data(self) -> AgentDataDict:
+    def get_collection_metadata(
+        self, use_cached_metadata: bool = False
+    ) -> Props | None:
+        """
+        Get the metadata for the currently selected collection, either from the cache
+        or by fetching it from the database, depending on the value of use_cached_metadata.
+        """
+        return (
+            self.vectorstore.get_cached_collection_metadata()
+            if use_cached_metadata
+            else self.vectorstore.fetch_collection_metadata()
+        )
+
+    def save_collection_metadata(self, metadata: Props) -> None:
+        """
+        Update the metadata for the currently selected collection
+        """
+        metadata["updated_at"] = get_timestamp()
+        self.vectorstore.save_collection_metadata(metadata)
+
+    def get_agent_data(self, use_cached_metadata: bool = False) -> AgentDataDict:
         """
         Extract agent data from the currently selected collection's metadata
         """
         try:
-            return json.loads(self.fetch_collection_metadata()["agent_data"])
+            agent_data = self.get_collection_metadata(use_cached_metadata)["agent_data"]
+            return json.loads(agent_data)
         except (TypeError, KeyError):
             return {}
 
     def save_agent_data(
-        self, agent_data: AgentDataDict, use_cached_metadata=True
+        self, agent_data: AgentDataDict, use_cached_metadata: bool = False
     ) -> None:
         """
         Update the currently selected collection's metadata with the given agent data
         """
-        if use_cached_metadata:
-            coll_metadata = self.get_cached_collection_metadata() or {}
-        else:
-            coll_metadata = self.fetch_collection_metadata() or {}
+        # NOTE: currently, agent_data is assumed to be able to have only one key at
+        # a time for a given collection, such as "hs" or "rr".
+        coll_metadata = self.get_collection_metadata(use_cached_metadata) or {}
         coll_metadata["agent_data"] = json.dumps(agent_data)
-        self.vectorstore.save_collection_metadata(coll_metadata)
+        self.save_collection_metadata(coll_metadata)
 
-    def get_rr_data(self) -> ResearchReportData | None:
+    def get_rr_data(
+        self, use_cached_metadata: bool = False
+    ) -> ResearchReportData | None:
         """
         Extract ResearchReportData from the currently selected collection's metadata
         """
+        logger.info("Getting rr_data")
+        coll_metadata = self.get_collection_metadata(use_cached_metadata)
         try:
-            rr_data_json = self.fetch_collection_metadata()["rr_data"]
+            rr_data_json = coll_metadata["rr_data"]
         except (TypeError, KeyError):
-            return
+            logger.info("No rr_data found")
+            return None
+        logger.info("rr_data retrieved.")
         return ResearchReportData.model_validate_json(rr_data_json)
 
-    def save_rr_data(self, rr_data: ResearchReportData) -> None:
+    def save_rr_data(
+        self, rr_data: ResearchReportData, use_cached_metadata: bool = False
+    ) -> None:
         """
         Update the currently selected collection's metadata with the given ResearchReportData
         """
-        coll_metadata = self.fetch_collection_metadata() or {}
+        coll_metadata = self.get_collection_metadata(use_cached_metadata) or {}
         coll_metadata["rr_data"] = rr_data.model_dump_json()
-        self.vectorstore.save_collection_metadata(coll_metadata)
+        self.save_collection_metadata(coll_metadata)
 
     def get_collection_permissions(
-        self, coll_name: str | None = None
+        self, coll_name: str | None = None, use_cached_metadata: bool = False
     ) -> CollectionPermissions:
         """
         Get the collection user settings from the currently selected collection's
         metadata, or from the given collection name if provided
         """
         try:
-            collection_permissions_json = self.fetch_collection_metadata(coll_name)[
-                COLLECTION_USERS_METADATA_KEY
-            ]
-            ic(collection_permissions_json)
+            if use_cached_metadata and coll_name is None:
+                coll_metadata = self.get_cached_collection_metadata()
+            else:
+                coll_metadata = self.fetch_collection_metadata(coll_name)
+            collection_permissions_json = coll_metadata[COLLECTION_USERS_METADATA_KEY]
+            logger.info(f"Permissions for {coll_name}:\n{collection_permissions_json}")
         except (TypeError, KeyError):
             return CollectionPermissions()
         return CollectionPermissions.model_validate_json(collection_permissions_json)
 
     def save_collection_permissions(
-        self, collection_permissions: CollectionPermissions
+        self,
+        collection_permissions: CollectionPermissions,
+        use_cached_metadata: bool = False,
     ) -> None:
         """
         Update the currently selected collection's metadata with the given CollectionUsers
         """
-        coll_metadata = self.fetch_collection_metadata() or {}
+        coll_metadata = self.get_collection_metadata(use_cached_metadata) or {}
         json_str = collection_permissions.model_dump_json()
         coll_metadata[COLLECTION_USERS_METADATA_KEY] = json_str
-        self.vectorstore.save_collection_metadata(coll_metadata)
+        self.save_collection_metadata(coll_metadata)
 
     def get_collection_settings_for_user(
-        self, user_id: str | None, coll_name: str | None = None
+        self,
+        user_id: str | None,
+        coll_name: str | None = None,
+        use_cached_metadata: bool = False,
     ) -> CollectionUserSettings:
         """
         Get the collection user settings for the given user from the currently selected collection's
         metadata, or from the specified collection
         """
-        return self.get_collection_permissions(coll_name).get_user_settings(user_id)
+        return self.get_collection_permissions(
+            coll_name, use_cached_metadata=use_cached_metadata
+        ).get_user_settings(user_id)
 
     def save_collection_settings_for_user(
-        self, user_id: str | None, settings: CollectionUserSettings
+        self,
+        user_id: str | None,
+        settings: CollectionUserSettings,
+        use_cached_metadata: bool = False,
     ) -> None:
         """
         Update the currently selected collection's metadata with the given CollectionUserSettings
         """
-        collection_permissions = self.get_collection_permissions()
+        collection_permissions = self.get_collection_permissions(
+            use_cached_metadata=use_cached_metadata
+        )
         collection_permissions.set_user_settings(user_id, settings)
-        self.save_collection_permissions(collection_permissions)
+        self.save_collection_permissions(
+            collection_permissions,
+            use_cached_metadata=True,  # since we just fetched it
+        )
 
     def get_access_code_settings(
-        self, access_code: str, coll_name: str | None = None
+        self,
+        access_code: str,
+        coll_name: str | None = None,
+        use_cached_metadata: bool = False,
     ) -> AccessCodeSettings:
         """
         Get the access code settings from the currently selected collection's metadata,
         or from the specified collection
         """
-        return self.get_collection_permissions(coll_name).get_access_code_settings(
-            access_code
-        )
+        return self.get_collection_permissions(
+            coll_name, use_cached_metadata=use_cached_metadata
+        ).get_access_code_settings(access_code)
 
     def save_access_code_settings(
-        self, access_code: str, access_code_settings: AccessCodeSettings
+        self,
+        access_code: str,
+        access_code_settings: AccessCodeSettings,
+        use_cached_metadata: bool = False,
     ) -> None:
         """
         Update the currently selected collection's metadata with the given AccessCodeSettings
         """
-        collection_permissions = self.get_collection_permissions()
+        collection_permissions = self.get_collection_permissions(
+            use_cached_metadata=use_cached_metadata
+        )
         collection_permissions.set_access_code_settings(
             access_code, access_code_settings
         )
-        self.save_collection_permissions(collection_permissions)
+        self.save_collection_permissions(
+            collection_permissions,
+            use_cached_metadata=True,  # since we just fetched it
+        )
 
     def get_cached_access_role(self, coll_name: str | None = None) -> AccessRole:
         """
@@ -311,9 +372,6 @@ class ChatState:
         """
         Get the cached access code for the current or provided collection.
         """
-        # ic(self.user_id, coll_name, self._access_code_by_coll_by_user_id)
-        # ic(tmp:=self._access_code_by_coll_by_user_id.get(self.user_id, {}))
-        # ic(tmp.get(coll_name or self.collection_name))
         return self._access_code_by_coll_by_user_id.get(self.user_id, {}).get(
             coll_name or self.collection_name
         )

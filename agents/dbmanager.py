@@ -125,7 +125,6 @@ def get_access_role(
     cached_access_role = chat_state.get_cached_access_role(coll_name_full)
 
     # If access code is cached, use it if no new access code is provided
-    print("ac", access_code)
     if access_code is None:
         access_code = chat_state.get_cached_access_code(coll_name_full)
         print(
@@ -141,8 +140,6 @@ def get_access_role(
 
     # If can't be authorized with the simple checks above, check the collection's metadata
     collection_permissions = chat_state.get_collection_permissions(coll_name_full)
-    ic(collection_permissions)
-    ic(cached_access_role)
 
     user_settings = collection_permissions.get_user_settings(chat_state.user_id)
     code_settings = collection_permissions.get_access_code_settings(access_code)

@@ -16,8 +16,11 @@ from utils.prepare import (
     CHROMA_SERVER_HTTP_PORT,
     USE_CHROMA_VIA_HTTP,
     VECTORDB_DIR,
+    get_logger,
 )
 from utils.type_utils import DDGError
+
+logger = get_logger()
 
 
 class CollectionDoesNotExist(DDGError):
@@ -94,17 +97,17 @@ class ChromaDDG(Chroma):
         """The underlying chromadb client."""
         return self._client
 
-    def get_cached_ollection_metadata(self) -> dict[str, Any] | None:
+    def get_cached_collection_metadata(self) -> dict[str, Any] | None:
         """Get locally cached metadata for the underlying chromadb collection."""
         return self._collection.metadata
 
     def fetch_collection_metadata(self) -> dict[str, Any]:
         """Fetch metadata for the underlying chromadb collection."""
-        # We have to get the collection again to ensure we have the latest metadata
-        print(f"Fetching metadata for collection {self.name}")
+        logger.info(f"Fetching metadata for collection {self.name}")
         self._collection = self._client.get_collection(
             self.name, embedding_function=self._collection._embedding_function
         )
+        logger.info(f"Fetched metadata for collection {self.name}")
         return self._collection.metadata
 
     def save_collection_metadata(self, metadata: dict[str, Any]) -> None:
@@ -179,7 +182,7 @@ def exists_collection(
     try:
         client.get_collection(collection_name)
         return True
-    except ValueError as e:
+    except Exception as e: # Exception: {ValueError: "Collection 'test' does not exist"}
         if "does not exist" in str(e):
             return False  # collection does not exist
         raise e
@@ -225,9 +228,8 @@ def get_vectorstore_using_openai_api_key(
     """
     Load a ChromaDDG vectorstore from a given collection name and OpenAI API key.
     """
-    client = ensure_chroma_client(client)
     return ChromaDDG(
-        client=client,
+        client=ensure_chroma_client(client),
         collection_name=collection_name,
         create_if_not_exists=create_if_not_exists,
         embedding_function=get_openai_embeddings(openai_api_key),
