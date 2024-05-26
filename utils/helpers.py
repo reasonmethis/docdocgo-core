@@ -65,7 +65,7 @@ GREETING_MESSAGE = """\
 🦉**Hi, I'm DocDocGo!** I can chat with you like ChatGPT, and also can:
 - research a topic on the web for as long as you want and generate a report
 - chat using all sources fetched during research as a knowledge base
-- similarly chat using documents you provide as a knowledge base
+- chat using documents you provide as a knowledge base
 
 """
 
@@ -101,8 +101,8 @@ HELP_MESSAGE = """\
     - Documents are organized into **collections**
     - The chat box shows which collection is currently used for my answers
 - **Research a topic** on the web and generate a report
-    - I can keep researching more and more sources and improving my report iteratively.
-    - I **save sources** in a new doc collection, so you can ask me questions about them.
+    - I can keep researching more and more sources and improving my report iteratively
+    - I **save sources** in a new doc collection, so you can ask me questions about them
 - **Summarize** a web page and ingest it into a collection
 
 ### How to use me
@@ -178,6 +178,7 @@ You can use the following commands to manage your collections:
 Additional shorthands:
 
 - `/db use 3`: switch to collection #3 in the list
+- `/db list 42+`: list collections starting from #42
 - `/db list bla*`: list collections whose names start with "bla"
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection

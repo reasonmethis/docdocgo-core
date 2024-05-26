@@ -331,6 +331,7 @@ You can use the following commands to manage your collections:
 Additional shorthands:
 
 - `/db use 3`: switch to collection #3 in the list
+- `/db list 42+`: list collections starting from #42
 - `/db list bla*`: list collections whose names start with "bla"
 - `/db delete 3, 42, 12`: delete collections #3, #42, and #12 (be careful!)
 - `/db delete --current` (or just `-c`): delete the current collection
