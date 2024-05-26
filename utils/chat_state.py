@@ -85,7 +85,7 @@ class ChatState:
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
         uploaded_docs: list[Document] | None = None,
-        agent_data: AgentDataDict | None = None,  # currently not used (agent
+        session_data: AgentDataDict | None = None,  # currently not used (agent
         # data is stored in collection metadata)
     ) -> None:
         self.operation_mode = operation_mode
@@ -106,7 +106,7 @@ class ChatState:
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
-        self.agent_data = agent_data or {}
+        self.session_data = session_data or {}
 
     @property
     def collection_name(self) -> str:
@@ -140,7 +140,8 @@ class ChatState:
         """
         Get the accessible collections for the current user.
         """
-        collections = self.db_client.list_collections()
+        collections = self.db_client.list_collections()  # TODO: here and elsewhere,
+        # introduce limit and offset for pagination when there are many collections
         cached_accessible_coll_names = {
             coll_name
             for coll_name in self._access_role_by_user_id_by_coll.keys()
@@ -152,18 +153,20 @@ class ChatState:
             prefix = PRIVATE_COLLECTION_PREFIX + short_user_id
 
             cached_accessible_coll_names.add(DEFAULT_COLLECTION_NAME)  # for efficiency
-            return [
+            filtered_collections = [
                 c
                 for c in collections
                 if c.name.startswith(prefix) or c.name in cached_accessible_coll_names
             ]
         else:
-            return [
+            filtered_collections = [
                 c
                 for c in collections
                 if not c.name.startswith(PRIVATE_COLLECTION_PREFIX)
                 or c.name in cached_accessible_coll_names
             ]
+
+        return filtered_collections
 
     def fetch_collection_metadata(self, coll_name: str | None = None) -> Props | None:
         """

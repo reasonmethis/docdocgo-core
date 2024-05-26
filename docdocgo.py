@@ -21,7 +21,6 @@ from utils.helpers import (
     HELP_MESSAGE,
     INTRO_ASCII_ART,
     MAIN_BOT_PREFIX,
-    print_no_newline,
 )
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
@@ -86,9 +85,10 @@ def get_bot_response(chat_state: ChatState):
 
         # Temporarily switch to the default vectorstore to get help
         saved_vectorstore = chat_state.vectorstore
-        if default_vectorstore is None:  # can happen due to Streamlit's code reloading
+        if default_vectorstore is None:
+            # Can happen in API mode or due to Streamlit's code reloading
             default_vectorstore = chat_state.get_new_vectorstore(
-                DEFAULT_COLLECTION_NAME
+                DEFAULT_COLLECTION_NAME, create_if_not_exists=False
             )
         chat_state.vectorstore = default_vectorstore
         chat_chain = get_docs_chat_chain(chat_state)
@@ -224,7 +224,7 @@ def do_intro_tasks(
     global default_vectorstore
 
     print(INTRO_ASCII_ART + "\n\n")
-    print_no_newline("Loading the vector database of your documents... ")
+    logger.info("Performing the initial load of the vector database")
 
     # Load and save default vector store
     try:
@@ -232,7 +232,7 @@ def do_intro_tasks(
             DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
         )
     except Exception as e:
-        print(
+        logger.error(
             f"Failed to load the vector database. Please check the settings. Error: {e}"
         )
         raise ValueError(
@@ -251,7 +251,7 @@ def do_intro_tasks(
                 f"Failed to load the {repr(collection_name)} collection. Error: {e}\n"
             )
 
-    print("Done!")
+    logger.info("Successfully loaded the vector database")
     return vectorstore
 
 
@@ -293,7 +293,7 @@ if __name__ == "__main__":
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
                     openai_api_key=DEFAULT_OPENAI_API_KEY,
-                    user_id=None, # would be set to None by default but just to be explicit
+                    user_id=None,  # would be set to None by default but just to be explicit
                 )
             )
         except Exception as e:

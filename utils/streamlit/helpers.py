@@ -7,6 +7,32 @@ from pydantic import BaseModel
 
 from utils.type_utils import ChatMode
 
+WELCOME_TEMPLATE_COLL_IN_URL = """\
+Welcome! You are now using the `{}` collection. \
+When chatting, I will use its content as my knowledge base. \
+To get help using me, just type `/help <your question>`.\
+"""
+
+NO_AUTH_TEMPLATE_COLL_IN_URL = """\
+Apologies, the current URL doesn't provide access to the \
+requested collection `{}`. This can happen if the \
+access code is invalid or if the collection doesn't exist.
+                            
+I have switched to my default collection.
+
+To get help using me, just type `/help <your question>`.\
+"""
+
+WELCOME_MSG_NEW_CREDENTIALS = """\
+Welcome! The user credentials have changed but you are still \
+authorised for the current collection.\
+"""
+
+NO_AUTH_MSG_NEW_CREDENTIALS = """\
+Welcome! The user credentials have changed, \
+so I've switched to the default collection.\
+"""
+
 POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL = """\
 Your documents have been uploaded to a new collection: `{coll_name}`. \
 You can now use this collection in your queries. If you are done uploading, \
@@ -76,6 +102,32 @@ status_config = {
 STAND_BY_FOR_INGESTION_MESSAGE = (
     "\n\n--- \n\n> **PLEASE STAND BY WHILE CONTENT IS INGESTED...**"
 )
+
+
+def get_init_msg(is_initial_load, is_authorised, coll_name_in_url, init_coll_name):
+    if not is_initial_load:  # key changed without reloading the page
+        if is_authorised:
+            return WELCOME_MSG_NEW_CREDENTIALS
+        else:
+            return NO_AUTH_MSG_NEW_CREDENTIALS
+    elif coll_name_in_url:  # page (re)load with coll in URL
+        if is_authorised:
+            return WELCOME_TEMPLATE_COLL_IN_URL.format(init_coll_name)
+        else:
+            return NO_AUTH_TEMPLATE_COLL_IN_URL.format(init_coll_name)
+    else:  # page (re)load without coll in URL
+        return None  # just to be explicit
+
+
+def update_url(params: dict[str, str]):
+    st.query_params.clear()  # NOTE: should be a way to set them in one go
+    st.query_params.update(params)
+
+
+def update_url_if_scheduled():
+    if st.session_state.update_query_params is not None:
+        update_url(st.session_state.update_query_params)
+        st.session_state.update_query_params = None
 
 
 def escape_dollars(text: str) -> str:

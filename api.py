@@ -74,7 +74,7 @@ class ChatRequestData(BaseModel):
     agentic_flow_state_str: str | None = None  # JSON string that frontend passes back
     bot_settings: BotSettings | None = None
 
-    def parse_agentic_state(self):
+    def parse_curr_state(self):
         agentic_state: dict = json.loads(self.agentic_flow_state_str or "{}")
 
         if (tmp := agentic_state.get("scheduled_queries")) is None:
@@ -143,7 +143,7 @@ async def handle_chat_or_ingest_request(
             BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
             and data.openai_api_key
             and data.openai_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
-            and DEFAULT_OPENAI_API_KEY # only do this if the default key is configured
+            and DEFAULT_OPENAI_API_KEY  # only do this if the default key is configured
         ):
             data.openai_api_key = DEFAULT_OPENAI_API_KEY
         # Same story if no key is sent but BYPASS_SETTINGS_RESTRICTIONS is set
@@ -163,7 +163,7 @@ async def handle_chat_or_ingest_request(
         collection_name = data.collection_name
         access_codes_cache: dict[str, str] | None = data.access_codes_cache
 
-        scheduled_queries, agent_data = data.parse_agentic_state()
+        scheduled_queries, session_data = data.parse_curr_state()
 
         # Validate the user's API key
         if api_key != os.getenv("DOCDOCGO_API_KEY"):
@@ -237,7 +237,7 @@ async def handle_chat_or_ingest_request(
             user_id=user_id,
             parsed_query=parsed_query,
             scheduled_queries=scheduled_queries,
-            agent_data=agent_data,
+            session_data=session_data,
             access_code_by_coll_by_user_id=access_code_by_coll_by_user_id,
             uploaded_docs=docs,
             bot_settings=data.bot_settings,
@@ -299,7 +299,7 @@ async def handle_chat_or_ingest_request(
         ),
         instructions=instructions,
         agentic_flow_state_str=ChatResponseData.encode_agentic_state(
-            chat_state.scheduled_queries, chat_state.agent_data
+            chat_state.scheduled_queries, chat_state.session_data
         ),
     )
 

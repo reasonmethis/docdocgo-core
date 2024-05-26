@@ -332,12 +332,6 @@ def clamp(value, min_value, max_value):
     """Clamp value between min_value and max_value"""
     return max(min_value, min(value, max_value))
 
-
-def utc_timestamp_int() -> int:
-    """Returns the current UTC timestamp as an integer (seconds since epoch)"""
-    return int(datetime.now(UTC).timestamp())
-
-
 def format_nonstreaming_answer(answer):
     return {"answer": answer, "needs_print": True}
 
@@ -353,14 +347,16 @@ def format_invalid_input_answer(answer, status_body):
 
 DEFAULT_TIMESTAMP_FORMAT = None # iso
 RESEARCH_TIMESTAMP_FORMAT = "%A, %B %d, %Y, %I:%M %p"
+DB_CREATED_AT_TIMESTAMP_FORMAT = "%Y-%m-%d %I:%M %p UTC"
 
 def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
     if format is None:
-        return datetime.now().isoformat()
-    return datetime.now().strftime(format)
+        return datetime.now(tz=UTC).isoformat()
+    return datetime.now(tz=UTC).strftime(format)
     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
 
 def parse_timestamp(timestamp: str, format: str | None = DEFAULT_TIMESTAMP_FORMAT):
     if format is None:
         return datetime.fromisoformat(timestamp)
     return datetime.strptime(timestamp, format)
+

@@ -5,8 +5,8 @@ from langchain.schema import Document
 
 from agentblocks.collectionhelper import ingest_into_collection
 from agents.dbmanager import (
-    construct_full_collection_name,
     get_access_role,
+    get_full_collection_name,
     get_user_facing_collection_name,
 )
 from components.llm import get_prompt_llm_chain
@@ -116,7 +116,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
         # We will need to create a new collection
         is_new_collection = True
         coll_name_as_shown = INGESTED_DOCS_INIT_PREFIX + uuid.uuid4().hex[:8]
-        coll_name_full = construct_full_collection_name(
+        coll_name_full = get_full_collection_name(
             chat_state.user_id, coll_name_as_shown
         )
 
@@ -161,7 +161,7 @@ def get_ingester_summarizer_response(chat_state: ChatState):
             res = {"answer": summarize(docs, chat_state)}
 
     # Ingest into the collection
-    coll_metadata = {} if is_new_collection else chat_state.fetch_collection_metadata() 
+    coll_metadata = {} if is_new_collection else chat_state.fetch_collection_metadata()
     vectorstore = ingest_into_collection(
         collection_name=coll_name_full,
         docs=docs,

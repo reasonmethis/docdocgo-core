@@ -37,11 +37,13 @@ from utils.streamlit.helpers import (
     STAND_BY_FOR_INGESTION_MESSAGE,
     DownloaderData,
     fix_markdown,
+    get_init_msg,
     just_chat_status_config,
     show_downloader,
     show_sources,
     show_uploader,
     status_config,
+    update_url_if_scheduled,
     write_slowly,
 )
 from utils.streamlit.ingest import ingest_docs
@@ -73,10 +75,7 @@ if "chat_state" not in st.session_state:
 chat_state: ChatState = st.session_state.chat_state
 
 # Update the query params if scheduled on previous run
-if st.session_state.update_query_params is not None:
-    st.query_params.clear()  # NOTE: should be a way to set them in one go
-    st.query_params.update(st.session_state.update_query_params)
-    st.session_state.update_query_params = None
+update_url_if_scheduled()
 
 ####### Sidebar #######
 with st.sidebar:
@@ -137,78 +136,49 @@ with st.sidebar:
 
         chat_state.is_community_key = is_community_key  # in case it changed
 
-        # If user key field changed, reset user/vectorstore as needed
+        # If init load or user key field changed, reset user/vectorstore as needed
         if supplied_openai_api_key != st.session_state.prev_supplied_openai_api_key:
             is_initial_load = st.session_state.prev_supplied_openai_api_key is None
             st.session_state.prev_supplied_openai_api_key = supplied_openai_api_key
             chat_state.openai_api_key = openai_api_key_to_use
 
             # Determine which collection to use and whether user has access to it
-            init_coll_name = (
-                st.session_state.init_collection_name or chat_state.collection_name
-            )
+            coll_name_in_url = st.session_state.init_collection_name
+            init_coll_name = coll_name_in_url or chat_state.collection_name
             access_role = get_access_role(
                 chat_state, init_coll_name, st.session_state.access_code
             )
             is_authorised = access_role.value > AccessRole.NONE.value
-
-            # Different logic depending on whether collection is supplied in URL or not
-            if st.session_state.init_collection_name:
-                if is_authorised:
-                    chat_state.chat_history_all.append(
-                        (
-                            None,
-                            f"Welcome! You are now using the `{init_coll_name}` collection. "
-                            "When chatting, I will use its content as my knowledge base. "
-                            "To get help using me, just type `/help <your question>`.",
-                        )
-                    )
+            if is_authorised:
+                if tmp := chat_state.get_new_vectorstore(
+                    init_coll_name, create_if_not_exists=False
+                ):
+                    chat_state.vectorstore = tmp
                 else:
-                    chat_state.chat_history_all.append(
-                        (
-                            None,
-                            "Apologies, the current URL doesn't provide access to the "
-                            f"requested collection `{init_coll_name}`. This can happen if the "
-                            "access code is invalid or if the collection doesn't exist.\n\n"
-                            "I have switched to my default collection.\n\n"
-                            "To get help using me, just type `/help <your question>`.",
-                        )
-                    )
-                    init_coll_name = DEFAULT_COLLECTION_NAME
-            elif not is_initial_load:
-                # If no collection is supplied in the URL, use current or default collection
-                should_add_msg_and_load_collection = True
-                if is_authorised:
-                    chat_state.chat_history_all.append(
-                        (
-                            None,
-                            "Welcome! The user credentials have changed but you are still "
-                            "authorised for the current collection.",
-                        )
-                    )
-                else:
-                    chat_state.chat_history_all.append(
-                        (
-                            None,
-                            "Welcome! The user credentials have changed, "
-                            "so I've switched to the default collection.",
-                        )
-                    )
-                    init_coll_name = DEFAULT_COLLECTION_NAME
+                    # Due to optimizations collection may not exist despite is_authorised
+                    is_authorised = False
+            if not is_authorised:
+                chat_state.vectorstore = chat_state.get_new_vectorstore(
+                    DEFAULT_COLLECTION_NAME, create_if_not_exists=False
+                )
+                # Since we switched collections, we need to update the URL
+                st.session_state.update_query_params = {}  # schedule update
+                logger.info(
+                    f"update_query_params: {st.session_state.update_query_params}"
+                )
 
-            # In either of the above cases, load the collection. The only case when we don't
-            # need to (re-)load is if it's the initial run and there's no collection in the URL.
-            if st.session_state.init_collection_name or not is_initial_load:
-                # Switch to the new collection (or just reload the current one)
-                chat_state.vectorstore = chat_state.get_new_vectorstore(init_coll_name)
+            init_msg = get_init_msg(
+                is_initial_load, is_authorised, coll_name_in_url, init_coll_name
+            )
 
-                # Since we added a message, we must inc sources_history's length
+            if init_msg:
+                chat_state.chat_history_all.append((None, init_msg))
                 chat_state.sources_history.append(None)
 
     # Settings
     with st.expander("Settings", expanded=False):
         if is_community_key:
-            model_options = [MODEL_NAME]  # only show 3.5 if community key
+            model_options = [MODEL_NAME]  # show only 3.5 if community key
             index = 0
         else:
             model_options = ALLOWED_MODELS  # guaranteed to include MODEL_NAME
@@ -312,7 +282,10 @@ if full_query:
 else:
     parsed_query = chat_state.scheduled_queries.pop()
     if not parsed_query:
-        st.stop()  # nothing to do
+        if st.session_state.update_query_params is not None:  # NOTE: hacky
+            st.rerun()
+        else:
+            st.stop()  # nothing to do
     full_query = "AUTO-INSTRUCTION: Run scheduled query."
     try:
         num_iterations_left = parsed_query.research_params.num_iterations_left
@@ -467,17 +440,21 @@ if "vectorstore" in response:
 
 # Update the collection name in the address bar if collection has changed
 if coll_name_full != chat_state.vectorstore.name:
-    st.session_state.update_query_params = {"collection": chat_state.vectorstore.name}
+    st.session_state.update_query_params = (
+        {"collection": chat_state.vectorstore.name}
+        if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME
+        else {}
+    )
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
     st.session_state.llm_api_key_ok_status = True
     st.rerun()
 
-# If there are scheduled queries, rerun to run the next one
-if chat_state.scheduled_queries:
+# If user switched to a different collection, rerun to display new collection name
+if st.session_state.update_query_params is not None:
     st.rerun()
 
-# If user switched to a different collection, rerun to display new collection name
-if coll_name_full != chat_state.vectorstore.name:
+# If there are scheduled queries, rerun to run the next one
+if chat_state.scheduled_queries:
     st.rerun()

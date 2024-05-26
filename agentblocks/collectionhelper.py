@@ -2,7 +2,7 @@ import uuid
 
 from langchain_core.documents import Document
 
-from agents.dbmanager import construct_full_collection_name
+from agents.dbmanager import get_full_collection_name
 from components.chroma_ddg import ChromaDDG, exists_collection
 from utils.chat_state import ChatState
 from utils.docgrab import ingest_into_chroma
@@ -49,7 +49,7 @@ def construct_new_collection_name(query: str, chat_state: ChatState) -> str:
         pass
 
     # Construct full collection name (preliminary)
-    new_coll_name = construct_full_collection_name(chat_state.user_id, new_coll_name)
+    new_coll_name = get_full_collection_name(chat_state.user_id, new_coll_name)
 
     new_coll_name_final = new_coll_name
 
@@ -114,7 +114,7 @@ def ingest_into_collection(
                 raise e  # i == 1 means tried normal name and random name, give up
 
             # Create a random valid collection name and try again
-            collection_name = construct_full_collection_name(
+            collection_name = get_full_collection_name(
                 chat_state.user_id, "collection-" + uuid.uuid4().hex[:8]
             )
             logger.warning(f"Ingesting into new collection named {collection_name}")
