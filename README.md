@@ -1,10 +1,13 @@
 # DocDocGo
 
+DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Table of Contents
 
 - [Introduction](#introduction)
 - [(Very) Quickstart](#very-quickstart)
-- [Features](#features)
 - [Installation](#installation)
 - [Running DocDocGo](#running-docdocgo)
 - [Using DocDocGo](#using-docdocgo)
@@ -15,14 +18,36 @@
 - [Sharing your collection with others](#sharing-your-collection-with-others)
 - [Querying based on substrings](#querying-based-on-substrings)
 - [FAQ](#faq)
+- [DocDocGo Carbon](#docdocgo-carbon)
 - [Contributing](#contributing)
   [License](#license)
 
-> If you are a developer, you may want to check out the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md) for more detailed information on how to work with DocDocGo from a developer's perspective. Among other things, it explains [how to work with the DocDocGo FastAPI server](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server) and has an [FAQ](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#faq) for miscellaneous questions.
-
 ## Introduction
 
-DocDocGo is a chatbot that can ingest the content of websites and your local documents and use them in its responses. In other words, it is like ChatGPT with custom knowledge bases built from your documents or from sources it gathers online on your behalf. It comes in two versions: DocDocGo Carbon (commercial, sold to Carbon Inc.) and DocDocGo Core (this repository).
+DocDocGo is a research assistant and a RAG chatbot in one. It addresses the common problem of spending too much time manually searching through multiple sources to find the information you need.
+
+In its **heatseek mode**, it will happily sift through dozens or hundreds of websites to find the answer to a specific narrow question. If the kind of information you are looking for is not easily found on the first page of Google search results, ask DocDocGo to find it for you while you enjoy a cup of coffee.
+
+In its **infinite research mode**, DocDocGo will similarly find more and more sources on the topic you give it, but this time it will ingest them into a knowledge base (called _collection_) and generate a report that _combines insights_ from all sources. You can then chat with the collection, asking any follow-up questions and getting answers based on all ingested information.
+
+You can do lots more with DocDocGo:
+
+- ingest your own documents into a new or existing collection and chat with them
+- share your collection with others, giving them viewer, editor, or owner access
+- manually set the Google search queries to use when conducting research
+- explicitly specify the report format you want to use
+- summarize and ingest a given URL into a new or existing collection
+- query your collection based simultaneously on semantics and on substrings in the documents
+- export your conversation to a text file
+- get direct quotes from the documents in your collection relevant to your query
+- manage your collections, e.g. rename, delete, or switch between them
+- access it via a convenient Streamlit UI or its FastAPI server
+
+On top of that, DocDocGo is **"self-aware"** - it can answer questions about its own capabilities and provide help with using all of its features. Because of this, the only command you need to remember is `/help` - for example, you can ask it something like this:
+
+```markdown
+/help Is there a way to create a shareable link to a collection and set the access level to read-only?
+```
 
 ## (Very) Quickstart
 
@@ -34,29 +59,11 @@ You will see more detailed setup instructions below, but here they are in a nuts
 
 That's it, happy chatting!
 
-## Features
-
-- Comes with a Streamlit UI, but can also be run in console mode or as a FastAPI app (with or without Docker)
-- Provides [multiple response modes](#using-docdocgo) ("chat", "detailed report", "quotes", "quick web research", "infinite web research", "URL or local docs ingestion", "URL summarization")
-- Allows to [query](#querying-based-on-substrings) simultaneously based on semantics and on substrings in documents
-- Employs an advanced RAG algorithm based on known and custom-developed techniques to optimize the quality of responses
-- Can answer questions about its own capabilities and provide help with using it
-- Allows to create and switch between multiple document collections
-- Automatically ingests content retrieved during web research into a new document collection
-- Provides links to source documents or websites
-
-For reference, DocDocGo Carbon (not available here) has these features:
-
-- It is integrated with a Google Chat App
-- Interacts with the client company's Confluence documentation
-- Offers the ability to provide feedback on the quality of its responses
-- Has a database for conversations and feedback and allows to resume the conversation
-
 ## Installation
 
 If you simply wish to use the bot, you don't need to install it. It is available at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app). If you would like to run the bot on your local machine, you can follow the instructions below.
 
-**For developers:** There's a lot more information about working with DocDocGo from a developer's perspective in the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md). A likely even better way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
+If you want to build with DocDocGo, you will likely want to check out the [Developer Guide](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md) for more detailed information on how to work with DocDocGo from a developer's perspective. Among other things, it explains [how to work with the DocDocGo FastAPI server](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#using-the-fastapi-server) and has an [FAQ](https://github.com/reasonmethis/docdocgo-core/blob/main/README-FOR-DEVELOPERS.md#faq) for miscellaneous questions. A likely even better way to get your development-related questions answered is to ask DocDocGo itself! Simply switch to the `developer-docs` collection by typing `/db use developer-docs` and then ask your question.
 
 ### 1. Clone this repository and cd into it
 
@@ -258,13 +265,13 @@ That's why we have the `/research deeper` command. Instead of using new sources 
 
 The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/re deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
 
-Here's the simplest workflow for research:
+Here's a simple workflow for research:
 
 1. Start with `/re <your query>` to generate a report based on the initial sources.
 2. Decide on the next step:  
   a. If you are happy with the report, you can stop here.  
   b. If the report is completely off, you can go back to step 1 and try a new query.  
-  c. If some adjustments are needed use `/res set-...`, then `/re startover` (see below).
+  c. If some adjustments are needed, use one of the `/re set-...` commands, then `/re startover` (see below).
   d. Otherwise, continue to step 3.
 3. Use `/re deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
@@ -417,6 +424,15 @@ You still have access to the public collections, you can switch to any public co
 #### Q: I got a shareable link to a collection but using it reloads the Streamlit app, after which it ends up in its default state of using the community key. How can I use the link with my own OpenAI API key?
 
 A: Simply enter your key in the OpenAI API key field after the app has reloaded. The access code will still be valid.
+
+## DocDocGo Carbon
+
+DocDocGo Carbon (not available here) is the original incarnation of DocDocGo and is licensed to [Carbon Inc.](https://www.carbon3d.com/). It has the following features:
+
+- It is integrated with a Google Chat App
+- Interacts with the client company's Confluence documentation
+- Offers the ability to provide feedback on the quality of its responses
+- Has a database for conversations and feedback and allows to resume the conversation
 
 ## Contributing
 
