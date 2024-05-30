@@ -14,10 +14,10 @@ from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
 from utils.helpers import (
     DELIMITER,
-    EXAMPLE_QUERIES,
     GREETING_MESSAGE,
-    GREETING_MESSAGE_PREFIX_DEFAULT,
-    GREETING_MESSAGE_PREFIX_OTHER,
+    GREETING_MESSAGE_SUFFIX_DEFAULT,
+    GREETING_MESSAGE_SUFFIX_OTHER,
+    WALKTHROUGH_TEXT,
 )
 from utils.ingest import extract_text, format_ingest_failure
 from utils.output import format_exception
@@ -66,13 +66,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Run just once
-if "chat_state" not in st.session_state:
+ss = st.session_state
+if "chat_state" not in ss:
+    # Run just once
     prepare_app()
     # Need to reference is_env_loaded to avoid unused import being removed
     is_env_loaded = is_env_loaded  # more info at the end of docdocgo.py
 
-chat_state: ChatState = st.session_state.chat_state
+chat_state: ChatState = ss.chat_state
 
 # Update the query params if scheduled on previous run
 update_url_if_scheduled()
@@ -81,9 +82,7 @@ update_url_if_scheduled()
 with st.sidebar:
     st.header("DocDocGo")
 
-    with st.expander(
-        "OpenAI API Key", expanded=not st.session_state.llm_api_key_ok_status
-    ):
+    with st.expander("OpenAI API Key", expanded=not ss.llm_api_key_ok_status):
         supplied_openai_api_key = st.text_input(
             "OpenAI API Key",
             label_visibility="collapsed",
@@ -92,23 +91,23 @@ with st.sidebar:
         )
 
         if not supplied_openai_api_key:
-            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            openai_api_key_to_use: str = ss.default_openai_api_key
             is_community_key = not BYPASS_SETTINGS_RESTRICTIONS
 
         elif supplied_openai_api_key in ("public", "community"):
             # TODO: document this
             # This allows the user to use community key mode (and see public collections
             # even if BYPASS_SETTINGS_RESTRICTIONS is set
-            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            openai_api_key_to_use: str = ss.default_openai_api_key
             is_community_key = True
 
         elif supplied_openai_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
-            openai_api_key_to_use: str = st.session_state.default_openai_api_key
+            openai_api_key_to_use: str = ss.default_openai_api_key
             is_community_key = False
 
             # Collapse key field (not super important, but nice)
-            if not st.session_state.llm_api_key_ok_status:
-                st.session_state.llm_api_key_ok_status = True  # collapse key field
+            if not ss.llm_api_key_ok_status:
+                ss.llm_api_key_ok_status = True  # collapse key field
                 st.rerun()  # otherwise won't collapse until next interaction
 
         else:
@@ -137,17 +136,15 @@ with st.sidebar:
         chat_state.is_community_key = is_community_key  # in case it changed
 
         # If init load or user key field changed, reset user/vectorstore as needed
-        if supplied_openai_api_key != st.session_state.prev_supplied_openai_api_key:
-            is_initial_load = st.session_state.prev_supplied_openai_api_key is None
-            st.session_state.prev_supplied_openai_api_key = supplied_openai_api_key
+        if supplied_openai_api_key != ss.prev_supplied_openai_api_key:
+            is_initial_load = ss.prev_supplied_openai_api_key is None
+            ss.prev_supplied_openai_api_key = supplied_openai_api_key
             chat_state.openai_api_key = openai_api_key_to_use
 
             # Determine which collection to use and whether user has access to it
-            coll_name_in_url = st.session_state.init_collection_name
+            coll_name_in_url = ss.init_collection_name
             init_coll_name = coll_name_in_url or chat_state.collection_name
-            access_role = get_access_role(
-                chat_state, init_coll_name, st.session_state.access_code
-            )
+            access_role = get_access_role(chat_state, init_coll_name, ss.access_code)
             is_authorised = access_role.value > AccessRole.NONE.value
             if is_authorised:
                 if tmp := chat_state.get_new_vectorstore(
@@ -162,10 +159,8 @@ with st.sidebar:
                     DEFAULT_COLLECTION_NAME, create_if_not_exists=False
                 )
                 # Since we switched collections, we need to update the URL
-                st.session_state.update_query_params = {}  # schedule update
-                logger.info(
-                    f"update_query_params: {st.session_state.update_query_params}"
-                )
+                ss.update_query_params = {}  # schedule update
+                logger.info(f"update_query_params: {ss.update_query_params}")
 
             init_msg = get_init_msg(
                 is_initial_load, is_authorised, coll_name_in_url, init_coll_name
@@ -212,19 +207,28 @@ if tmp := os.getenv("STREAMLIT_WARNING_NOTIFICATION"):
     st.warning(tmp)
 
 if chat_state.collection_name == DEFAULT_COLLECTION_NAME:
-    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_PREFIX_DEFAULT)
+    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_SUFFIX_DEFAULT)
 else:
-    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_PREFIX_OTHER)
+    st.markdown(GREETING_MESSAGE + GREETING_MESSAGE_SUFFIX_OTHER)
 
 with st.expander("See a quick walkthrough"):
-    st.markdown(EXAMPLE_QUERIES)
+    st.markdown(WALKTHROUGH_TEXT)
 # NOTE: weirdly, if the following two lines are switched, a strange bug occurs
 # with a ghostly but still clickable "Upload" button (or the Tip) appearing within the newest
 # user message container, only as long as the AI response is being typed out
 with st.expander("Want to upload your own documents?"):
-    if st.session_state.idx_file_upload == -1:
+    if ss.idx_file_upload == -1:
         files, allow_all_ext = show_uploader(border=False)
     st.markdown(":grey[**Tip:** During chat, just say `/upload` to upload more docs!]")
+
+# Show sample queries
+clicked_sample_query = None
+for _ in range(6):
+    st.write("")
+for i, (btn_col, sample_query) in enumerate(zip(st.columns(3), ss.sample_queries)):
+    with btn_col:
+        if st.button(sample_query, key=f"query{i}"):
+            clicked_sample_query = sample_query
 
 # Show previous exchanges and sources
 is_downloaded = False
@@ -233,17 +237,17 @@ for i, (msg_pair, sources) in enumerate(
 ):
     full_query, answer = msg_pair
     if full_query is not None:
-        with st.chat_message("user", avatar=st.session_state.user_avatar):
+        with st.chat_message("user", avatar=ss.user_avatar):
             st.markdown(fix_markdown(full_query))
     if answer is not None or sources is not None:
-        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
+        with st.chat_message("assistant", avatar=ss.bot_avatar):
             if answer is not None:
                 st.empty()  # to "replace" status & fix ghost double text issue
                 st.markdown(fix_markdown(answer))
             show_sources(sources)
-    if i == st.session_state.idx_file_upload:
+    if i == ss.idx_file_upload:
         files, allow_all_ext = show_uploader()  # there can be only one
-    if i == st.session_state.idx_file_download:
+    if i == ss.idx_file_download:
         is_downloaded = show_downloader()  # there can be only one
 
 
@@ -254,7 +258,7 @@ if files:
 
     # Display failed files, if any
     if failed_files or unsupported_ext_files:
-        with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
+        with st.chat_message("assistant", avatar=ss.bot_avatar):
             tmp = format_ingest_failure(failed_files, unsupported_ext_files)
             if unsupported_ext_files:
                 tmp += (
@@ -275,6 +279,8 @@ if not full_query:
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
+    elif clicked_sample_query:
+        full_query = clicked_sample_query
 
 # Parse the query or get the next scheduled query, if any
 if full_query:
@@ -282,7 +288,7 @@ if full_query:
 else:
     parsed_query = chat_state.scheduled_queries.pop()
     if not parsed_query:
-        if st.session_state.update_query_params is not None:  # NOTE: hacky
+        if ss.update_query_params is not None:  # NOTE: hacky
             st.rerun()
         else:
             st.stop()  # nothing to do
@@ -302,12 +308,12 @@ is_ingest_via_file_uploader = (
 
 # Display the user message (or the auto-instruction)
 if full_query:
-    with st.chat_message("user", avatar=st.session_state.user_avatar):
+    with st.chat_message("user", avatar=ss.user_avatar):
         # NOTE: should use a different avatar for auto-instructions
         st.markdown(fix_markdown(full_query))
 
 # Get and display response from the bot
-with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
+with st.chat_message("assistant", avatar=ss.bot_avatar):
     # Prepare status container and display initial status
     # TODO: statuses need to be updated to correspond with reality
     try:
@@ -334,12 +340,9 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
-        if (
-            not st.session_state.llm_api_key_ok_status
-            and chat_mode in chat_modes_needing_llm
-        ):
+        if not ss.llm_api_key_ok_status and chat_mode in chat_modes_needing_llm:
             # Set a temp value to trigger a rerun to collapse the API key field
-            st.session_state.llm_api_key_ok_status = "RERUN_PLEASE"
+            ss.llm_api_key_ok_status = "RERUN_PLEASE"
 
         # Display non-streaming responses slowly (in particular avoids chat prompt flicker)
         if chat_mode not in chat_modes_needing_llm or "needs_print" in response:
@@ -387,7 +390,7 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
         if err_type == "OPENAI_API_AUTH":
             if is_community_key:
-                answer = f"Apologies, the community OpenAI API key ({st.session_state.default_openai_api_key[:4]}...{DEFAULT_OPENAI_API_KEY[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+                answer = f"Apologies, the community OpenAI API key ({ss.default_openai_api_key[:4]}...{DEFAULT_OPENAI_API_KEY[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             elif openai_api_key_to_use:
                 answer = f"Apologies, the OpenAI API key you entered ({openai_api_key_to_use[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
             else:
@@ -422,13 +425,13 @@ with st.chat_message("assistant", avatar=st.session_state.bot_avatar):
 
 # Display the file uploader if needed
 if is_ingest_via_file_uploader:
-    st.session_state.idx_file_upload = len(chat_state.chat_history_all) - 1
+    ss.idx_file_upload = len(chat_state.chat_history_all) - 1
     files, allow_all_ext = show_uploader(is_teleporting=True)
 
 # Display the file downloader if needed
 for instruction in response.get("instructions", []):
     if instruction.type == INSTRUCT_EXPORT_CHAT_HISTORY:
-        st.session_state.idx_file_download = len(chat_state.chat_history_all) - 1
+        ss.idx_file_download = len(chat_state.chat_history_all) - 1
         is_downloaded = show_downloader(
             DownloaderData(data=instruction.data, file_name="chat-history.md"),
             is_teleporting=True,
@@ -440,19 +443,19 @@ if "vectorstore" in response:
 
 # Update the collection name in the address bar if collection has changed
 if coll_name_full != chat_state.vectorstore.name:
-    st.session_state.update_query_params = (
+    ss.update_query_params = (
         {"collection": chat_state.vectorstore.name}
         if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME
         else {}
     )
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
-if st.session_state.llm_api_key_ok_status == "RERUN_PLEASE":
-    st.session_state.llm_api_key_ok_status = True
+if ss.llm_api_key_ok_status == "RERUN_PLEASE":
+    ss.llm_api_key_ok_status = True
     st.rerun()
 
 # If user switched to a different collection, rerun to display new collection name
-if st.session_state.update_query_params is not None:
+if ss.update_query_params is not None:
     st.rerun()
 
 # If there are scheduled queries, rerun to run the next one

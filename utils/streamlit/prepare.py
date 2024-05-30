@@ -13,7 +13,9 @@ from utils.type_utils import OperationMode
 def prepare_app():
     if os.getenv("STREAMLIT_SCHEDULED_MAINTENANCE"):
         st.markdown("Welcome to DocDocGo! 🦉")
-        st.markdown("Scheduled maintenance is currently in progress. Please check back later.")
+        st.markdown(
+            "Scheduled maintenance is currently in progress. Please check back later."
+        )
         st.stop()
 
     # Flag for whether or not the OpenAI API key has succeeded at least once
@@ -57,3 +59,9 @@ def prepare_app():
 
     st.session_state.user_avatar = os.getenv("USER_AVATAR") or None
     st.session_state.bot_avatar = os.getenv("BOT_AVATAR") or None
+
+    SAMPLE_QUERIES = os.getenv(
+        "SAMPLE_QUERIES",
+        "/research heatseek Code for row of buttons Streamlit, /research What are the biggest AI news this month?, /help How does infinite research work?",
+    )
+    st.session_state.sample_queries = [q.strip() for q in SAMPLE_QUERIES.split(",")]

@@ -62,17 +62,52 @@ command_ids = {
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
 GREETING_MESSAGE = """\
-🦉**Hi, I'm DocDocGo!** I can chat with you like ChatGPT, and also can:
-- research a topic on the web for as long as you want and generate a report
-- chat using all sources fetched during research as a knowledge base
-- chat using documents you provide as a knowledge base
+🦉**Hi, I'm DocDocGo!** With my signature _infinite research_, I can save you time when finding the information you need takes more than a quick Google search. I can comb through hundreds of sites, find which ones have relevant information, and:
+
+- give you the aswer from each relevant source (_heatseek_ research mode)
+- write a report using all sources, put them in a knowledge base for follow-up chat (_classic_ research)
+"""
+
+"""I have two research modes: 
+
+- **Heatseek mode**: I keep looking for sites with the exact information you need
+- **Classic mode**: I keep ingesting sites relevant to your query into a knowledge base to use when chatting
+
+In heatseek mode, I give you candidate answers as I find them. In report mode, you get a report that combines insights from the ingested sources and a knowledge base for follow-up questions. 
 
 """
 
-GREETING_MESSAGE_PREFIX_DEFAULT = "How? Just ask me! (or type `/help`)"
-GREETING_MESSAGE_PREFIX_OTHER = "How? Just ask me by typing `/help <your question>`."
+GREETING_MESSAGE = """\
+🦉**Hi, I'm DocDocGo!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
 
-EXAMPLE_QUERIES = """\
+- look for sources containing something specific you need (_heatseek_ research mode), or
+- write a report using all sources and put them in a knowledge base for follow-up chat (_classic_ research)
+
+"""
+
+_older_draft2 = """\
+🦉**Hi, I'm DocDocGo!** I can help when you need information that can't be found with a quick Google search. I can comb through hundreds of sites and:
+
+- give you the answer from each relevant source (_heatseek_ research mode)
+- write a report using all sources, put them in a knowledge base for follow-up questions (_classic_ research)
+
+"""
+
+_older_draft = """I have two research modes: 
+
+- **Heatseek mode**: I keep looking for sites with the exact information you need
+- **Classic mode**: I keep ingesting sites relevant to your query into a knowledge base to use when chatting
+
+In heatseek mode, I give you candidate answers as I find them. In report mode, you get a report that combines insights from the ingested sources and a knowledge base for follow-up questions. 
+
+"""
+
+GREETING_MESSAGE_SUFFIX_DEFAULT = "I have lots of cool commands, but the only one to remember is: `/help <any question on using me>`"
+# GREETING_MESSAGE_SUFFIX_DEFAULT = "I'm also _self-aware_ - I know how to use me, `/help <your question>`"
+GREETING_MESSAGE_SUFFIX_OTHER = GREETING_MESSAGE_SUFFIX_DEFAULT
+# "How? Just ask me by typing `/help <your question>`."
+
+WALKTHROUGH_TEXT = """\
 To showcase some of my talents, feel free to try the following queries in sequence:
 - `/summarize https://blog.rwkv.com/p/eagle-7b-soaring-past-transformers`
 - `Explain the main point like I'm in high school`
@@ -119,8 +154,8 @@ Now let's go over my features and commands. The general pattern for queries is t
 
 Here's what each prefix does. Most important ones:
 
-- `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
-- `/research heatseek <your query>`: perform "heatseek" research - find websites that contain the answer
+- `/research <your query>`: do "classic" research - ingest websites into a collection, write a report
+- `/research heatseek <your query>`: do "heatseek" research - find websites that contain the answer
 - `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
@@ -148,7 +183,7 @@ Example queries (you can try them out in sequence):
 
 - `/help What in the world is infinite research?`
 - `/research What are this month's most important AI news?`
-- `/research` (to see research options, including the "infinite" research)
+- `/research` (to see research options)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
 - `/docs Which news you found relate to OpenAI`
@@ -291,6 +326,7 @@ Basic usage:
 - `/re heatseek 6` - perform 6 more iterations (each iteration looks at 2-5 websites)
 """
 
+
 def print_no_newline(*args, **kwargs):
     """
     Print without adding a newline at the end
@@ -333,6 +369,7 @@ def clamp(value, min_value, max_value):
     """Clamp value between min_value and max_value"""
     return max(min_value, min(value, max_value))
 
+
 def format_nonstreaming_answer(answer):
     return {"answer": answer, "needs_print": True}
 
@@ -346,9 +383,10 @@ def format_invalid_input_answer(answer, status_body):
     }
 
 
-DEFAULT_TIMESTAMP_FORMAT = None # iso
+DEFAULT_TIMESTAMP_FORMAT = None  # iso
 RESEARCH_TIMESTAMP_FORMAT = "%A, %B %d, %Y, %I:%M %p"
 DB_CREATED_AT_TIMESTAMP_FORMAT = "%Y-%m-%d %I:%M %p UTC"
+
 
 def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
     if format is None:
@@ -356,8 +394,8 @@ def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
     return datetime.now(tz=UTC).strftime(format)
     # "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
 
+
 def parse_timestamp(timestamp: str, format: str | None = DEFAULT_TIMESTAMP_FORMAT):
     if format is None:
         return datetime.fromisoformat(timestamp)
     return datetime.strptime(timestamp, format)
-
