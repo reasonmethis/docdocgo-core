@@ -28,7 +28,7 @@ DocDocGo is a research assistant and a RAG chatbot in one. It addresses the comm
 
 In its **heatseek mode**, it will happily sift through dozens or hundreds of websites to find the answer to a specific narrow question. If the kind of information you are looking for is not easily found on the first page of Google search results, ask DocDocGo to find it for you while you enjoy a cup of coffee.
 
-In its **infinite research mode**, DocDocGo will similarly find more and more sources on the topic you give it, but this time it will ingest them into a knowledge base (called _collection_) and generate a report that _combines insights_ from all sources. You can then chat with the collection, asking any follow-up questions and getting answers based on all ingested information.
+In its **classic research mode**, DocDocGo will similarly find more and more sources on the topic you give it, but this time it will ingest them into a knowledge base (called _collection_) and generate a report that _combines insights_ from all sources. You can then chat with the collection, asking any follow-up questions and getting answers based on all ingested information.
 
 You can do lots more with DocDocGo:
 
@@ -138,8 +138,8 @@ The general pattern for queries is to enter one of the prefixes below followed b
 
 Here's what each prefix does. Most important ones:
 
-- `/research <your query>`: perform "infinite" Internet research, ingesting websites into a collection
-- `/research heatseek <your query>`: perform "heatseek" research - find websites that contain the answer
+- `/research <your query>`: do "classic" research - ingest websites into a collection, write a report
+- `/research heatseek <your query>`: do "heatseek" research - find websites that contain the answer
 - `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
@@ -168,7 +168,7 @@ Example queries:
 
 - `/help What in the world is infinite research?`
 - `/research What are this month's most important AI news?`
-- `/research` (to see research options, including the "infinite" research)
+- `/research` (to see research options)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
 - `/docs Which news you found relate to OpenAI`
@@ -179,22 +179,22 @@ We'll delve into the most important commands in more detail in the sections belo
 
 ## Research Commands
 
-There are now two modes of research: "heatseek" (for finding just that perfect website) and "regular" (for compiling information from multiple websites). Let's first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
+There are now two modes of research: "heatseek" (for finding just that perfect website) and "classic" (for compiling information from multiple websites). Let's first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
 
 >_KB_ stands for _knowledge base_, also known as a _collection_.
 
 ### Overview
 
-Here are the most important commands you can use for Internet research:
+Here are the most important commands you can use for DocDocGo's signature "infinite" research:
 
-**1. "Heatseek" mode:** look for websites that contain the answer to your query (no KB created)
+**1. Heatseek mode:** look for websites that contain the answer to your query (no KB created)
 
 - `/research heatseek 6 <your query>`: perform 6 rounds of "heatseek" research
 - `/re hs 5`: perform 5 more rounds (can use shorthands for commands)
 
 This is a newer, more lightweight mode that is highly useful when you need to find that "gem" of a website that contains some specific information and Google is just giving you too much noise.
 
-**2. Regular mode:** use content from multiple websites to write a detailed answer, create a KB
+**2. Classic mode:** use content from multiple websites to write a detailed answer, create a KB
 
 - `/research <your query>`: start new research, generate report, create KB from fetched sites
 - `/research deeper`: expand report and KB to cover 2x more sites as current report
@@ -245,7 +245,7 @@ If you would like to do more rounds after the initial command finishes, you can 
 
 and it will perform the specified number of additional rounds. Note that you can always use the shorthand `hs` instead of `heatseek`, just as you can use `re` instead of `research`.
 
-Now let's go over the subcommands for the regular research mode.
+Now let's go over the subcommands for the classic research mode.
 
 ### The `iterate` subcommand
 
@@ -261,11 +261,11 @@ That's why we have the `/research deeper` command. Instead of using new sources 
 
 > As always, all fetched content will be added to the collection for any follow-up chat.
 
-### The recommended workflow for "infinite" research
+### The recommended workflow for classic research
 
 The "infinite" research capability of DocDocGo comes from the ability to automatically perform multiple repetitions of the `deeper` command (and other research commands). Simply run `/re deeper N`, where `N` is a number, to automatically run the `deeper` command `N` times, each time doubling the number of sources. Setting `N` to 5, for example, will result in a report that is based on 32x more sources than the initial report (around 200). This will take a while, of course, and you can abort at any time by reloading the app.
 
-Here's a simple workflow for research:
+Here's a basic workflow for research:
 
 1. Start with `/re <your query>` to generate a report based on the initial sources.
 2. Decide on the next step:  
@@ -278,11 +278,15 @@ Here's a simple workflow for research:
 
 ### The `more` and `combine` subcommands
 
+> Note: The `more` and `combine` subcommands are not part of the basic research workflow. They are meant for advanced users who need more control over the research process.
+
 What are these `more` and `combine` operations? `/re more` allows you to fetch more content from the web and generate a _separate_ report, without affecting the original report. This is useful if you want to see what else is out there, but don't want to risk messing up the original report.
 
 Such separate reports are called _base reports_. If you'd like to combine the most important information from two base reports into one report, you can use the `/re combine` command. It will automatically find the two highest-level reports (at the same level) that haven't been combined yet and combine them. "Level" here roughly corresponds to the number of sources that went into the report. More precisely, base reports have level 0. When two reports are combined, the level of the new report is 1 higher than the level of the two reports that were combined.
 
 ### The `auto` subcommand
+
+> Note: The `auto` subcommand is not part of the basic research workflow. It is meant for advanced users who need more control over the research process.
 
 The `/research auto` command is a combination of the `/re more` and `/re combine` commands. It automatically selects one or the other. If there are reports to combine, it will use the `/re combine` command. Otherwise, it will use the `/re more` command to fetch more content from the web and generate a new base report.
 
@@ -290,9 +294,9 @@ You can request multiple iterations of this command. For example, `/re auto 42` 
 
 You can add a number to the end of the `/re more` and `/re combine` commands as well to repeat them multiple times.
 
-### The relationship between the `auto` and `deeper` commands
+### Understanding the `deeper` command and its relation to `auto`
 
-Both of these commands can be used to perform "infinite" research, but the `deeper` command is more user-friendly because most values for the number of `auto` iterations will result in a final output that may cause confusion.
+Both `deeper` and `auto` can be used to perform "infinite" research, but the `deeper` command is more user-friendly because most values for the number of `auto` iterations will result in a final output that may cause confusion.
 
 For example, after performing the initial research, running `/re auto 2` will perform one iteration of `more` and one iteration of `combine`. This will result in a report that is based on 2x more sources than the original report. Running `/re auto 3`, however, will perform the two iterations above, plus an additional `more` step. As a result, there will be 3 base reports and 1 combined report, and the final output will be the 3rd base report. While you can still view the combined report by scrolling up or by running `/re view`, this state of affairs is likely to be confusing.
 
