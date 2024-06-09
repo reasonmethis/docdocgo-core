@@ -59,8 +59,9 @@ from utils.type_utils import (
 logger = get_logger()
 
 # Page config
-page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
-st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
+# page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
+st.logo(logo:="media/logo2.png")
+st.set_page_config(page_title="DocDocGo", page_icon=logo)
 st.markdown(
     "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
