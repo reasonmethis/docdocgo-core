@@ -61,11 +61,12 @@ logger = get_logger()
 # Page config
 page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
 st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
-st.markdown( # TODO: use lighter color if dark theme
-    "<style>code {color: #176549; overflow-wrap: break-word;}</style> ", 
+st.markdown(  # TODO: use lighter color if dark theme
+    "<style>code {color: #005F26; overflow-wrap: break-word; font-weight: bold;}</style> ",
     # "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
-)  # 176549 (7.01:1) 1E865F (4.63 on dk, 4.53 on lt) (text color for dark theme: e6e6e6)
+)  # 005F26 (7.88:1 on lt, 7.02 on F0F2F6) 
+# text color for dark theme: e6e6e6
 
 ss = st.session_state
 if "chat_state" not in ss:
