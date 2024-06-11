@@ -59,8 +59,9 @@ from utils.type_utils import (
 logger = get_logger()
 
 # Page config
-page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
-st.set_page_config(page_title="DocDocGo", page_icon=page_icon)
+# page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
+st.logo(logo:="media/minimal7.png")
+st.set_page_config(page_title="DocDocGo", page_icon=logo)
 st.markdown(  # TODO: use lighter color if dark theme
     "<style>code {color: #005F26; overflow-wrap: break-word; font-weight: bold;}</style> ",
     # "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
