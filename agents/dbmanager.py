@@ -404,7 +404,7 @@ def get_available_collections_str(
 def get_db_not_found_str(name: str, access_role: str = "owner") -> str:
     return (
         f"Collection `{name}` doesn't exist or you don't have {access_role} access to it. "
-        f"Use `/db list` to see available collections or `/db` to see more options."
+        "Use `/db list` to see available collections or `/db` to see more options."
     ).replace("  ", " ")
 
 
