@@ -226,7 +226,7 @@ with st.expander("Want to upload your own documents?"):
 
 # Show sample queries
 clicked_sample_query = None
-for _ in range(6):
+for _ in range(5):
     st.write("")
 for i, (btn_col, sample_query) in enumerate(zip(st.columns(3), ss.sample_queries)):
     with btn_col:
