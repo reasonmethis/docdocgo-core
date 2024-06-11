@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
+VERSION = "v0.2.0"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
 DELIMITER20 = "-" * 20
@@ -11,7 +12,7 @@ DELIMITER20 = "-" * 20
 INTRO_ASCII_ART = """\
  ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
  [OvO]   [OvO]   [OvO]                                                 [OvO]   [OvO]   [OvO]
- /)__)   /)__)   /)__)               WELCOME TO DOC DOC GO             /)__)   /)__)   /)__)
+ /)__)   /)__)   /)__)               WELCOME TO DOCDOCGO               /)__)   /)__)   /)__)
 --"--"----"--"----"--"--------------------------------------------------"--"----"--"----"--"--"""
 
 MAIN_BOT_PREFIX = "DocDocGo: "
@@ -78,7 +79,7 @@ In heatseek mode, I give you candidate answers as I find them. In report mode, y
 """
 
 GREETING_MESSAGE = """\
-🤖**Hi, I'm DocDocGo!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
+👋**Hi, I'm DocDoc:green[Go]!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
 
 - look for sources containing something specific you need (_heatseek_ research mode), or
 - write a report using all sources and put them in a knowledge base for follow-up chat (_classic_ research)

@@ -17,6 +17,7 @@ from utils.helpers import (
     GREETING_MESSAGE,
     GREETING_MESSAGE_SUFFIX_DEFAULT,
     GREETING_MESSAGE_SUFFIX_OTHER,
+    VERSION,
     WALKTHROUGH_TEXT,
 )
 from utils.ingest import extract_text, format_ingest_failure
@@ -60,13 +61,13 @@ logger = get_logger()
 
 # Page config
 # page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
-st.logo(logo:="media/minimal7.png")
+st.logo(logo := "media/minimal7.png")
 st.set_page_config(page_title="DocDocGo", page_icon=logo)
 st.markdown(  # TODO: use lighter color if dark theme
     "<style>code {color: #005F26; overflow-wrap: break-word; font-weight: bold;}</style> ",
     # "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
-)  # 005F26 (7.88:1 on lt, 7.02 on F0F2F6) 
+)  # 005F26 (7.88:1 on lt, 7.02 on F0F2F6)
 # text color for dark theme: e6e6e6
 
 ss = st.session_state
@@ -83,7 +84,7 @@ update_url_if_scheduled()
 
 ####### Sidebar #######
 with st.sidebar:
-    st.header("DocDocGo")
+    st.header("DocDocGo " + VERSION)
 
     with st.expander("OpenAI API Key", expanded=not ss.llm_api_key_ok_status):
         supplied_openai_api_key = st.text_input(

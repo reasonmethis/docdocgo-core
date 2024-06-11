@@ -2,7 +2,9 @@
 
 DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![version](https://img.shields.io/badge/version-v1.0.0-blue.svg)
 
 ## Table of Contents
 
