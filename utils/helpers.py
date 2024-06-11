@@ -78,7 +78,7 @@ In heatseek mode, I give you candidate answers as I find them. In report mode, y
 """
 
 GREETING_MESSAGE = """\
-🦉**Hi, I'm DocDocGo!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
+🤖**Hi, I'm DocDocGo!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
 
 - look for sources containing something specific you need (_heatseek_ research mode), or
 - write a report using all sources and put them in a knowledge base for follow-up chat (_classic_ research)
