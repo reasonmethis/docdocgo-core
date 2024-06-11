@@ -329,7 +329,7 @@ def get_time_str(blah_at: str) -> str:
     return (
         parse_timestamp(blah_at).strftime(DB_CREATED_AT_TIMESTAMP_FORMAT)
         if blah_at
-        else "before May 25, 2024"
+        else "before 25-May-2024"
     )
 
 
@@ -364,9 +364,10 @@ def get_available_collections_str(
 
         dt = get_time_str((collection.metadata or {}).get("updated_at"))
         coll_name_as_shown = get_user_facing_collection_name(user_id, collection.name)
-        entries.append(f"**{i+1}.** `{coll_name_as_shown}` - last updated {dt}")
+        entries.append(f"| {i+1} | `{coll_name_as_shown[:40]}` | {dt} |")
 
-    collections_str = "\n".join(entries)
+    collections_str = "| # | Collection Name | Last Updated (UTC) |\n|---|---|---|\n"
+    collections_str += "\n".join(entries)
     num_colls = len(collections)
     if not entries:
         return (

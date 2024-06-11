@@ -385,7 +385,7 @@ def format_invalid_input_answer(answer, status_body):
 
 DEFAULT_TIMESTAMP_FORMAT = None  # iso
 RESEARCH_TIMESTAMP_FORMAT = "%A, %B %d, %Y, %I:%M %p"
-DB_CREATED_AT_TIMESTAMP_FORMAT = "%Y-%m-%d %I:%M %p UTC"
+DB_CREATED_AT_TIMESTAMP_FORMAT = "%d-%b-%Y %I:%M %p" # "%B %d, %Y, %I:%M%p UTC"
 
 
 def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
