@@ -4,7 +4,7 @@ DocDocGo is growing up! Let's celebrate by describing the new features.
 
 **1. DDG finally has a logo that's not just the 🦉 character!**
 
-Its [design](https://github.com/reasonmethis/docdocgo-core/blob/7239a9ad9ac4756fced7d8931d1a4b1bba118a8a/media/minimal13.svg) continues the noble tradition of trying too hard to be clever, starting with the name "DocDocGo" :grin:
+Its [design](https://github.com/reasonmethis/docdocgo-core/blob/9724fe27cd1a5812861feb018c2b45bed55af968/media/ddg-logo.png) continues the noble tradition of trying too hard to be clever, starting with the name "DocDocGo" :grin:
 
 @StreamlitTeam continues to ship - the new `st.logo` feature arrived just in time!
 

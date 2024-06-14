@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
-VERSION = "v0.2.1"
+VERSION = "v0.2.2"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
 DELIMITER20 = "-" * 20
