@@ -4,7 +4,7 @@ DocDocGo is growing up! Let's celebrate by describing the new features.
 
 **1. DDG finally has a logo that's not just the 🦉 character!**
 
-Its [design](https://github.com/reasonmethis/docdocgo-core/blob/7239a9ad9ac4756fced7d8931d1a4b1bba118a8a/media/minimal7.svg) continues the noble tradition of trying too hard to be clever, starting with the name "DocDocGo" :grin:
+Its [design](https://github.com/reasonmethis/docdocgo-core/blob/7239a9ad9ac4756fced7d8931d1a4b1bba118a8a/media/minimal13.svg) continues the noble tradition of trying too hard to be clever, starting with the name "DocDocGo" :grin:
 
 @StreamlitTeam continues to ship - the new `st.logo` feature arrived just in time!
 
@@ -24,7 +24,7 @@ DDG will remind you of the availablej commands when you use `/db` or `/db list`.
 
 **3. Default modes**
 
-Tired of typing `/reseach` or `/research heatseek`? Let your fingers rest by selecting a default mode in the Streamlit sidebar. 
+Tired of typing `/reseach` or `/research heatseek`? Let your fingers rest by selecting a default mode in the Streamlit sidebar.
 
 You can still override it when you need to - just type the desired command as usual, for example: `/help What's the difference between regular research and heatseek?`.
 

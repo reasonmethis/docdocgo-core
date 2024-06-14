@@ -63,7 +63,7 @@ logger = get_logger()
 
 # Page config
 # page_icon = "🦉"  # random.choice("🤖🦉🦜🦆🐦")
-st.logo(logo := "media/minimal7.png")
+st.logo(logo := "media/ddg-logo.png")
 st.set_page_config(page_title="DocDocGo", page_icon=logo)
 st.markdown(  # TODO: use lighter color if dark theme
     "<style>code {color: #005F26; overflow-wrap: break-word;  font-weight: 600; }</style> ",
