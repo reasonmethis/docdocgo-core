@@ -226,7 +226,7 @@ with st.expander("See a quick walkthrough"):
 # NOTE: weirdly, if the following two lines are switched, a strange bug occurs
 # with a ghostly but still clickable "Upload" button (or the Tip) appearing within the newest
 # user message container, only as long as the AI response is being typed out
-with st.expander("Want to upload your own documents?"):
+with st.expander("Want to chat with your own documents?"):
     if ss.idx_file_upload == -1:
         files, allow_all_ext = show_uploader(border=False)
     st.markdown(":grey[**Tip:** During chat, just say `/upload` to upload more docs!]")
