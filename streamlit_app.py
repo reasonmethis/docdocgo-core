@@ -40,6 +40,8 @@ from utils.streamlit.helpers import (
     fix_markdown,
     get_init_msg,
     just_chat_status_config,
+    mode_option_to_prefix,
+    mode_options,
     show_downloader,
     show_sources,
     show_uploader,
@@ -49,7 +51,7 @@ from utils.streamlit.helpers import (
 )
 from utils.streamlit.ingest import ingest_docs
 from utils.streamlit.prepare import prepare_app
-from utils.strings import limit_number_of_characters
+from utils.strings import limit_num_characters
 from utils.type_utils import (
     INSTRUCT_EXPORT_CHAT_HISTORY,
     AccessRole,
@@ -64,7 +66,7 @@ logger = get_logger()
 st.logo(logo := "media/minimal7.png")
 st.set_page_config(page_title="DocDocGo", page_icon=logo)
 st.markdown(  # TODO: use lighter color if dark theme
-    "<style>code {color: #005F26; overflow-wrap: break-word; font-weight: bold;}</style> ",
+    "<style>code {color: #005F26; overflow-wrap: break-word;  font-weight: 600; }</style> ",
     # "<style>code {color: #8ACB88; overflow-wrap: break-word;}</style> ",
     unsafe_allow_html=True,
 )  # 005F26 (7.88:1 on lt, 7.02 on F0F2F6)
@@ -174,6 +176,10 @@ with st.sidebar:
                 chat_state.chat_history_all.append((None, init_msg))
                 chat_state.sources_history.append(None)
 
+    # Default mode
+    default_mode = st.selectbox("Default mode", mode_options, index=0)
+    cmd_prefix = mode_option_to_prefix[default_mode]
+
     # Settings
     with st.expander("Settings", expanded=False):
         if is_community_key:
@@ -278,8 +284,14 @@ if files:
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
-full_query = st.chat_input(f"{limit_number_of_characters(coll_name_as_shown, 35)}/")
-if not full_query:
+chat_input_text = f"[{default_mode}] " if cmd_prefix else ""
+chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 40) + "/"
+full_query = st.chat_input(chat_input_text)
+if full_query:
+    # Prepend the command prefix for the user-selected default mode, if needed
+    if cmd_prefix and not full_query.startswith("/"):
+        full_query = cmd_prefix + full_query
+else:
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT

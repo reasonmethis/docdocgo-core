@@ -2,7 +2,7 @@
 
 DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
 
-![version](https://img.shields.io/badge/version-v0.2.0-blue.svg)
+![version](https://img.shields.io/badge/version-v0.2.1-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)
 
@@ -183,7 +183,7 @@ We'll delve into the most important commands in more detail in the sections belo
 
 There are now two modes of research: "heatseek" (for finding just that perfect website) and "classic" (for compiling information from multiple websites). Let's first provide a "cheatsheet" of all of the research options, and then go over them individually and provide more detailed information.
 
->_KB_ stands for _knowledge base_, also known as a _collection_.
+> _KB_ stands for _knowledge base_, also known as a _collection_.
 
 ### Overview
 
@@ -271,10 +271,10 @@ Here's a basic workflow for research:
 
 1. Start with `/re <your query>` to generate a report based on the initial sources.
 2. Decide on the next step:  
-  a. If you are happy with the report, you can stop here.  
-  b. If the report is completely off, you can go back to step 1 and try a new query.  
-  c. If some adjustments are needed, use one of the `/re set-...` commands, then `/re startover` (see below).
-  d. Otherwise, continue to step 3.
+   a. If you are happy with the report, you can stop here.  
+   b. If the report is completely off, you can go back to step 1 and try a new query.  
+   c. If some adjustments are needed, use one of the `/re set-...` commands, then `/re startover` (see below).
+   d. Otherwise, continue to step 3.
 3. Use `/re deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
 

@@ -70,7 +70,7 @@ def limit_number_of_words(text: str, max_words: int) -> tuple[str, int]:
     return text, num_words
 
 
-def limit_number_of_characters(text: str, max_characters: int) -> str:
+def limit_num_characters(text: str, max_characters: int) -> str:
     """
     Limit the number of characters in a string to a given number. If the string
     is longer than the given number of characters, truncate it and append an
@@ -115,6 +115,7 @@ def extract_json(text: str) -> JSONish:
     assert first < last, "No closing bracket found"
 
     return json.loads(text[first : last + 1])
+
 
 def has_which_substring(text: str, substrings: Iterable[str]) -> str | None:
     """

@@ -50,6 +50,22 @@ If you are done uploading, you can rename it:
 ```
 """
 
+mode_option_to_prefix = {
+    "/docs [ORIGINAL]": "", # TODO: this presupposes that DEFAULT_MODE is /docs
+    "/research": "/re ",
+    "/research heatseek":"/re hs ",
+    "/summarize": "/su ",
+    "/ingest": "/in ",
+    "/db": "/db ",
+    "/export": "/ex ",
+    "/share": "/sh ",
+    "/web": "/we ",
+    "/details": "/de ",
+    "/quotes": "/qu ",
+    "/chat": "/ch ",    
+}
+mode_options = list(mode_option_to_prefix.keys())
+
 chat_with_docs_status_config = {
     "thinking.header": "One sec...",
     "thinking.body": "Retrieving sources and composing reply...",

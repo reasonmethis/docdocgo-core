@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
-VERSION = "v0.2.0"
+VERSION = "v0.2.1"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
 DELIMITER20 = "-" * 20
@@ -119,7 +119,7 @@ To showcase some of my talents, feel free to try the following queries in sequen
 - `/help How can I do "infinite" research? Tell me like you are prof. Dumbledore`
 - `/db` (to manage your _collections_, i.e. the knowledge bases we've created)
 - `/ingest` (to upload your own documents and create a new collection)
-- `/research heatseek Find me a quote by Obama about Jill Biden`
+- `/research heatseek Find a code snippet for a row of buttons in Streamlit`
 
 After performing the "deeper" command above, you will end up with a report that uses \
 information from 2x as many sources as the original report. If you wanted to quadruple \
@@ -386,7 +386,7 @@ def format_invalid_input_answer(answer, status_body):
 
 DEFAULT_TIMESTAMP_FORMAT = None  # iso
 RESEARCH_TIMESTAMP_FORMAT = "%A, %B %d, %Y, %I:%M %p"
-DB_CREATED_AT_TIMESTAMP_FORMAT = "%d-%b-%Y %I:%M %p" # "%B %d, %Y, %I:%M%p UTC"
+DB_CREATED_AT_TIMESTAMP_FORMAT = "%d-%b-%Y %I:%M %p"  # "%B %d, %Y, %I:%M%p UTC"
 
 
 def get_timestamp(format: str | None = DEFAULT_TIMESTAMP_FORMAT):
