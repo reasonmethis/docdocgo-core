@@ -285,7 +285,7 @@ if files:
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
 chat_input_text = f"[{default_mode}] " if cmd_prefix else ""
-chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 40) + "/"
+chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
 if full_query:
     # Prepend the command prefix for the user-selected default mode, if needed
