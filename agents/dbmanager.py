@@ -356,14 +356,14 @@ def get_available_collections_str(
     start_idx_str = f" starting from number {idx_start + 1}" if idx_start else ""
 
     for i, collection in enumerate(collections[idx_start:], start=idx_start):
-        if filter_str and not filter_func(collection.name):
+        coll_name_as_shown = get_user_facing_collection_name(user_id, collection.name)
+        if filter_str and not filter_func(coll_name_as_shown):
             continue
         if len(entries) >= COLLECTION_GROUP_SIZE:
             are_there_more = True  # there are more matching collections than we'll show
             break  # break without adding the current collection
 
         dt = get_time_str((collection.metadata or {}).get("updated_at"))
-        coll_name_as_shown = get_user_facing_collection_name(user_id, collection.name)
         entries.append(f"| {i+1} | `{coll_name_as_shown[:40]}` | {dt} |")
 
     collections_str = "| # | Collection Name | Last Updated (UTC) |\n|---|---|---|\n"
