@@ -48,7 +48,7 @@ CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
 # The following variable is only used if USE_CHROMA_VIA_HTTP is False
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125") # rename to DEFAULT_MODEL?
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")  # rename to DEFAULT_MODEL?
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))  # it's actually more like max
 # size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
@@ -63,7 +63,7 @@ EMBEDDINGS_DIMENSIONS = int(os.getenv("EMBEDDINGS_DIMENSIONS", 3072))
 
 LLM_REQUEST_TIMEOUT = float(os.getenv("LLM_REQUEST_TIMEOUT", 9))
 
-DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/docs")
+DEFAULT_MODE = os.getenv("DEFAULT_MODE", "/kb")
 
 INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG = bool(
     os.getenv("INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG")

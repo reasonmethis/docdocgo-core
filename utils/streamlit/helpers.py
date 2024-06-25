@@ -51,18 +51,54 @@ If you are done uploading, you can rename it:
 """
 
 mode_option_to_prefix = {
-    "/docs [ORIGINAL]": "", # TODO: this presupposes that DEFAULT_MODE is /docs
-    "/research": "/re ",
-    "/research heatseek":"/re hs ",
-    "/summarize": "/su ",
-    "/ingest": "/in ",
-    "/db": "/db ",
-    "/export": "/ex ",
-    "/share": "/sh ",
-    "/web": "/we ",
-    "/details": "/de ",
-    "/quotes": "/qu ",
-    "/chat": "/ch ",    
+    "/kb (main mode)": (
+        "",  # TODO: this presupposes that DEFAULT_MODE is /kb
+        "Chat using the current collection as a knowledge base.",
+    ),
+    "/research": (
+        "/re ",
+        "Research a topic on the web.",
+    ),
+    "/research heatseek": (
+        "/re hs ",
+        "Find sites that have specific information you need.",
+    ),
+    "/summarize": (
+        "/su ",
+        "Summarize the content of a URL and ingest into a collection.",
+    ),
+    "/ingest": (
+        "/in ",
+        "Ingest content from a URL into a collection.",
+    ),
+    "/db": (
+        "/db ",
+        "Manage your collections.",
+    ),
+    "/export": (
+        "/ex ",
+        "Export your current chat history.",
+    ),
+    "/share": (
+        "/sh ",
+        "Create a shareable link to the current collection.",
+    ),
+    "/web": (
+        "/we ",
+        "Do a quick web research without ingesting the content.",
+    ),
+    "/details": (
+        "/de ",
+        "Provide details on everything retrieved from the collection in response to your query.",
+    ),
+    "/quotes": (
+        "/qu ",
+        "Provide quotes from the collection in relevant to your query.",
+    ),
+    "/chat": (
+        "/ch ",
+        "Regular chat, without retrieving information from the current collection.",
+    ),
 }
 mode_options = list(mode_option_to_prefix.keys())
 

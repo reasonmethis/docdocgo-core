@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
-VERSION = "v0.2.3"
+VERSION = "v0.2.4"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
 DELIMITER20 = "-" * 20
@@ -35,7 +35,7 @@ INGESTED_DOCS_INIT_PREFIX = "ingested-content-rename-me-"
 command_ids = {
     "/chat": ChatMode.JUST_CHAT_COMMAND_ID,
     "/ch": ChatMode.JUST_CHAT_COMMAND_ID,
-    "/docs": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
+    "/kb": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
     "/do": ChatMode.CHAT_WITH_DOCS_COMMAND_ID,
     "/details": ChatMode.DETAILS_COMMAND_ID,
     "/de": ChatMode.DETAILS_COMMAND_ID,
@@ -151,13 +151,13 @@ what you want to do, and I'll guide you through it. For example:
 /help How can I have you do web research for me?
 ```
 
-Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional - if you just enter a message the default `/docs` prefix is used.
+Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional - messages with no prefix by default get treated as regular chat using the current collection as a knowledge base.
 
 Here's what each prefix does. Most important ones:
 
+- `/kb <your query>`: chat using the current collection as a knowledge base
 - `/research <your query>`: do "classic" research - ingest websites into a collection, write a report
 - `/research heatseek <your query>`: do "heatseek" research - find websites that contain the answer
-- `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
 - `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
@@ -177,6 +177,7 @@ Ingesting into the current vs a new collection:
 
 - `/ingest new <with or without URL>`: ingest into a new collection
 - `/ingest add <with or without URL>`: ingest and add to the current collection
+- `/summarize <new/add> <URL>`: same rules in regards to `new`/`add`
 
 The default behavior (if `new`/`add` is not specified) is to (a) normally ingest into a new collection, which is given a special name (`ingested-content-...`); (b) if the current collection has this kind of name, add to it. That way, you can use `/ingest` several times in a row and all the documents will be added to the same collection.
 
@@ -187,7 +188,7 @@ Example queries (you can try them out in sequence):
 - `/research` (to see research options)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
-- `/docs Which news you found relate to OpenAI`
+- `/kb Which news you found relate to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
 - `/re heatseek 3 I need example code for how to update React state in shadcn Slider component`
 

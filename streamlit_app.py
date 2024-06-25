@@ -88,6 +88,17 @@ update_url_if_scheduled()
 with st.sidebar:
     st.header("DocDocGo " + VERSION)
 
+    # Default mode
+    with st.expander("Command Mode", expanded=False):
+        ss.default_mode = st.selectbox(
+            "Command used if none provided",
+            mode_options,
+            index=0,
+            # label_visibility="collapsed",
+        )
+        cmd_prefix, cmd_prefix_explainer = mode_option_to_prefix[ss.default_mode]
+        st.caption(cmd_prefix_explainer)
+
     with st.expander("OpenAI API Key", expanded=not ss.llm_api_key_ok_status):
         supplied_openai_api_key = st.text_input(
             "OpenAI API Key",
@@ -124,15 +135,17 @@ with st.sidebar:
         # In case there's no community key available, set is_community_key to False
         if not openai_api_key_to_use:
             is_community_key = False
-            st.caption("To use this app, you'll need an OpenAI API key.")
+            st.caption("To use this app, you'll need an OpenAI API key. "
             "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
+            )
             chat_state.user_id = None
         elif is_community_key:
             st.caption(
                 "Using the default OpenAI API key (some settings are restricted, "
-                "your collections are public)."
+                "your collections are public). "
+                "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
             )
-            "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
+            
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
@@ -175,10 +188,6 @@ with st.sidebar:
             if init_msg:
                 chat_state.chat_history_all.append((None, init_msg))
                 chat_state.sources_history.append(None)
-
-    # Default mode
-    default_mode = st.selectbox("Default mode", mode_options, index=0)
-    cmd_prefix = mode_option_to_prefix[default_mode]
 
     # Settings
     with st.expander("Settings", expanded=False):
@@ -284,7 +293,7 @@ if files:
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
-chat_input_text = f"[{default_mode}] " if cmd_prefix else ""
+chat_input_text = f"[{ss.default_mode}] " if cmd_prefix else ""
 chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
 if full_query:

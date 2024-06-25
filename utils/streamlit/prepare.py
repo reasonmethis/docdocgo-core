@@ -8,6 +8,7 @@ from utils.chat_state import ChatState
 from utils.prepare import DEFAULT_OPENAI_API_KEY, DUMMY_OPENAI_API_KEY_PLACEHOLDER
 from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.type_utils import OperationMode
+from utils.streamlit.helpers import mode_options
 
 
 def prepare_app():
@@ -65,3 +66,4 @@ def prepare_app():
         "/research heatseek Code for row of buttons Streamlit, /research What are the biggest AI news this month?, /help How does infinite research work?",
     )
     st.session_state.sample_queries = [q.strip() for q in SAMPLE_QUERIES.split(",")]
+    st.session_state.default_mode = mode_options[0]

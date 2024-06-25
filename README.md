@@ -2,7 +2,7 @@
 
 DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
 
-![version](https://img.shields.io/badge/version-v0.2.3-blue.svg)
+![version](https://img.shields.io/badge/version-v0.2.4-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)
 
@@ -136,13 +136,13 @@ The details of using the API are described in the [Developer Guide](https://gith
 
 ## Using DocDocGo
 
-The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate different capabilities of DocDocGo. A prefix is optional - if you just enter a message the `/docs` prefix is used.
+Now let's go over my features and commands. The general pattern for queries is to enter one of the prefixes below followed by your message. Different prefixes activate my different capabilities. A prefix is optional - messages with no prefix by default get treated as regular chat using the current collection as a knowledge base.
 
 Here's what each prefix does. Most important ones:
 
+- `/kb <your query>`: chat using the current collection as a knowledge base
 - `/research <your query>`: do "classic" research - ingest websites into a collection, write a report
 - `/research heatseek <your query>`: do "heatseek" research - find websites that contain the answer
-- `/docs <your query>`: chat about your currently selected doc collection (or a general topic)
 - `/ingest`: upload your documents and ingest them into a collection
 - `/ingest https://some.url.com`: retrieve a URL and ingest into a collection
 - `/summarize https://some.url.com`: retrieve a URL, summarize and ingest into a collection
@@ -162,7 +162,7 @@ Ingesting into the current vs a new collection:
 
 - `/ingest new <with or without URL>`: ingest into a new collection
 - `/ingest add <with or without URL>`: ingest and add to the current collection
-- `/summarize ... URL`: same rules in regards to `new`/`add`
+- `/summarize <new/add> <URL>`: same rules in regards to `new`/`add`
 
 The default behavior (if `new`/`add` is not specified) is to (a) normally ingest into a new collection, which is given a special name (`ingested-content-...`); (b) if the current collection has this kind of name, add to it. That way, you can use `/ingest` several times in a row and all the documents will be added to the same collection.
 
@@ -173,7 +173,7 @@ Example queries:
 - `/research` (to see research options)
 - `/research deeper` (to expand the research to cover more sources)
 - `/re deeper` (same - first two letters of a command are enough)
-- `/docs Which news you found relate to OpenAI`
+- `/kb Which news you found relate to OpenAI`
 - `/chat Reformat your previous answer as a list of short bullet points`
 - `/re heatseek 3 I need example code for how to update React state in shadcn Slider component`
 
@@ -261,7 +261,7 @@ The above approach sounds neat, but it doesn't always work in practice, especial
 
 That's why we have the `/research deeper` command. Instead of using new sources to try to directly improve the report, it uses a combination of `more` and `combine` operations to generate _separate_ reports from additional sources and then combine them with the existing report(s) in a way that doesn't unfairly prioritize the new sources. Each run of the `/re deeper` command will double the number of sources in the report.
 
-> As always, all fetched content will be added to the collection for any follow-up chat.
+> As always, all fetched content will be added to the collection for follow-up chat.
 
 ### The recommended workflow for classic research
 
@@ -273,10 +273,12 @@ Here's a basic workflow for research:
 2. Decide on the next step:  
    a. If you are happy with the report, you can stop here.  
    b. If the report is completely off, you can go back to step 1 and try a new query.  
-   c. If some adjustments are needed, use one of the `/re set-...` commands, then `/re startover` (see below).
+   c. If some adjustments are needed, use one of the `/re set-...` commands (see below), then `/re startover`.
    d. Otherwise, continue to step 3.
 3. Use `/re deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
+
+> For most use cases, this workflow will more than suffice, and you don't need to use the `iterate`, `auto`,  `more` or `combine` subcommands. The `deeper` subcommand (with the occasional`/re set-...` commands for adjustments) is the most user-friendly way to perform "infinite" research. 
 
 ### The `more` and `combine` subcommands
 

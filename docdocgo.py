@@ -46,7 +46,7 @@ def get_bot_response(chat_state: ChatState):
     chat_mode_val = (
         chat_state.chat_mode.value
     )  # use value due to Streamlit code reloading
-    if chat_mode_val == ChatMode.CHAT_WITH_DOCS_COMMAND_ID.value:  # /docs command
+    if chat_mode_val == ChatMode.CHAT_WITH_DOCS_COMMAND_ID.value:  # /kb command
         chat_chain = get_docs_chat_chain(chat_state)
     elif chat_mode_val == ChatMode.DETAILS_COMMAND_ID.value:  # /details command
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
