@@ -60,7 +60,7 @@ class ChromaDDG(Chroma):
 
         self._embedding_function = embedding_function
         self.override_relevance_score_fn = relevance_score_fn
-        logger.info(f"{create_if_not_exists=}, {collection_name=}")
+        logger.info(f"ChromaDDG init: {create_if_not_exists=}, {collection_name=}")
 
         if not create_if_not_exists and collection_metadata is not None:
             # We must check if the collection exists in this case because when metadata
@@ -84,6 +84,10 @@ class ChromaDDG(Chroma):
                 logger.info(f"Failed to get collection {collection_name}: {str(e)}")
                 raise CollectionDoesNotExist() if "does not exist" in str(e) else e
 
+    def __bool__(self) -> bool:
+        """Always return True to avoid ambiguity of what False could mean."""
+        return True
+    
     @property
     def name(self) -> str:
         """Name of the underlying chromadb collection."""

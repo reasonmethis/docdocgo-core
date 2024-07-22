@@ -117,6 +117,7 @@ def get_access_role(
     # all we need is the user's access role to be viewer and that's already stored in
     # chat_state.
     coll_name_full = coll_name_full or chat_state.collection_name
+    logger.info(f"Checking access role for {coll_name_full}")
 
     # The default collection is always accessible in read-only mode
     if coll_name_full == DEFAULT_COLLECTION_NAME:

@@ -396,14 +396,16 @@ class ChatState:
         the value of create_if_not_exists (default: True).
         """
         try:
-            return get_vectorstore_using_openai_api_key(
+            res = get_vectorstore_using_openai_api_key(
                 collection_name,
                 openai_api_key=self.openai_api_key,
                 client=self.vectorstore.client,
                 create_if_not_exists=create_if_not_exists,
             )
         except CollectionDoesNotExist:
-            return None
+            res = None
+        logger.info(f"Returning new vectorstore for {collection_name}: {res}")
+        return res
 
     def get_prompt_llm_chain(self, prompt, *, to_user: bool):
         return get_prompt_llm_chain(
