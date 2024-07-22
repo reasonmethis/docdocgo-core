@@ -1,4 +1,5 @@
 docdocgo*.pem
+chroma-cloud*
 .tmp*
 credentials/
 chroma-cloud-backup/
