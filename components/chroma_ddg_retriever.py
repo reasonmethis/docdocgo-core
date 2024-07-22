@@ -1,18 +1,15 @@
 from typing import Any, ClassVar
 
 from chromadb.api.types import Where, WhereDocument
-from langchain.callbacks.manager import (
-    AsyncCallbackManagerForRetrieverRun,
-    CallbackManagerForRetrieverRun,
-)
-from langchain.schema.language_model import BaseLanguageModel
-from langchain.vectorstores.base import VectorStoreRetriever
 from langchain_core.documents import Document
 from pydantic import Field
 
 from utils.helpers import DELIMITER, lin_interpolate
 from utils.lang_utils import expand_chunks
 from utils.prepare import CONTEXT_LENGTH, EMBEDDINGS_MODEL_NAME
+from langchain_core.callbacks import AsyncCallbackManagerForRetrieverRun, CallbackManagerForRetrieverRun
+from langchain_core.language_models import BaseLanguageModel
+from langchain_core.vectorstores import VectorStoreRetriever
 
 
 class ChromaDDGRetriever(VectorStoreRetriever):

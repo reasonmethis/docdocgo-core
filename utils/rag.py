@@ -1,4 +1,4 @@
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 rag_text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=400,

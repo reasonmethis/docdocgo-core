@@ -2,7 +2,7 @@
 
 DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
 
-![version](https://img.shields.io/badge/version-v0.2.4-blue.svg)
+![version](https://img.shields.io/badge/version-v0.2.5-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)
 
@@ -278,7 +278,7 @@ Here's a basic workflow for research:
 3. Use `/re deeper N` to perform `N` iterations of the `deeper` command. Don't set `N` too high, since every such iteration **doubles** the number of sources in the report.
 4. Ask any follow-up questions you have.
 
-> For most use cases, this workflow will more than suffice, and you don't need to use the `iterate`, `auto`,  `more` or `combine` subcommands. The `deeper` subcommand (with the occasional`/re set-...` commands for adjustments) is the most user-friendly way to perform "infinite" research. 
+> For most use cases, this workflow will more than suffice, and you don't need to use the `iterate`, `auto`, `more` or `combine` subcommands. The `deeper` subcommand (with the occasional`/re set-...` commands for adjustments) is the most user-friendly way to perform "infinite" research.
 
 ### The `more` and `combine` subcommands
 

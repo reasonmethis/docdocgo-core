@@ -1,12 +1,4 @@
 from bisect import bisect_right
-
-from langchain.schema.language_model import BaseLanguageModel
-from langchain.schema.messages import (
-    AIMessage,
-    BaseMessage,
-    HumanMessage,
-    get_buffer_string,
-)
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
@@ -16,6 +8,8 @@ from utils.output import ConditionalLogger
 from utils.prepare import get_logger
 from utils.rag import rag_text_splitter
 from utils.type_utils import PairwiseChatHistory
+from langchain_core.language_models import BaseLanguageModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, get_buffer_string
 
 logger = get_logger()
 

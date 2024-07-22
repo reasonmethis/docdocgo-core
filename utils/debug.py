@@ -1,6 +1,6 @@
-from langchain.prompts.prompt import PromptTemplate
 
 from utils.prepare import get_logger
+from langchain_core.prompts import PromptTemplate
 
 logger = get_logger()
 

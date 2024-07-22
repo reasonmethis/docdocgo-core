@@ -1,13 +1,5 @@
 from typing import Any
 from uuid import UUID
-
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.chat_models.base import BaseChatModel
-from langchain.prompts import PromptTemplate
-from langchain.prompts.chat import ChatPromptValue
-
-# from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from langchain.schema import StrOutputParser
 from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from streamlit.delta_generator import DeltaGenerator
@@ -21,6 +13,11 @@ from utils.prepare import (
 )
 from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.language_models import BaseChatModel
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompt_values import ChatPromptValue
+from langchain_core.prompts import PromptTemplate
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):

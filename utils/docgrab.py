@@ -4,13 +4,13 @@ from typing import Iterable
 
 from chromadb import ClientAPI
 from dotenv import load_dotenv
-from langchain.schema import Document
 from langchain_community.document_loaders import GitbookLoader
 
 from components.chroma_ddg import ChromaDDG
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.prepare import EMBEDDINGS_DIMENSIONS, get_logger
 from utils.rag import rag_text_splitter
+from langchain_core.documents import Document
 
 load_dotenv(override=True)
 logger = get_logger()

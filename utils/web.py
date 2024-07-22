@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from langchain_community.document_loaders import AsyncChromiumLoader, AsyncHtmlLoader
 from langchain_community.document_transformers import BeautifulSoupTransformer
-from langchain.schema import Document
 from langchain_community.document_loaders.async_html import default_header_template
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
@@ -20,6 +19,7 @@ from utils.helpers import print_no_newline
 from utils.ingest import get_text_from_pdf
 from utils.output import format_exception
 from utils.strings import remove_consecutive_blank_lines
+from langchain_core.documents import Document
 
 MAX_PLAYWRIGHT_INSTANCES = 5
 # TODO: 1 causes afetch_urls_in_parallel_playwright to hang (semaphore?)

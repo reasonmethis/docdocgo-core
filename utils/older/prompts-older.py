@@ -1,4 +1,4 @@
-from langchain.prompts.prompt import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 condense_question_template = """Given the following chat history (between Human and you, the Assistant) add context to the last Query from Human so that it can be understood without needing to read the whole conversation: include necessary details from the conversation to make Query completely standalone:
 1. First put the original Query as is or very slightly modified (e.g. replacing "she" with who this refers to) 

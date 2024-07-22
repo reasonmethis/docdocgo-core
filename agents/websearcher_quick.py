@@ -1,7 +1,5 @@
 from datetime import datetime
 
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
-
 from agentblocks.websearch import get_links_from_search_results
 from components.llm import get_prompt_llm_chain
 from utils.async_utils import gather_tasks_sync, make_sync
@@ -14,6 +12,7 @@ from utils.web import (
     get_text_from_html,
     remove_failed_fetches,
 )
+from langchain_community.utilities import GoogleSerperAPIWrapper
 
 
 def get_related_websearch_queries(message: str):

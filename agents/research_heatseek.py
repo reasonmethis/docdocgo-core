@@ -1,6 +1,4 @@
 import json
-
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
 from pydantic import BaseModel, Field
 
 from agentblocks.collectionhelper import (
@@ -19,6 +17,7 @@ from utils.helpers import DELIMITER40, format_nonstreaming_answer, get_timestamp
 from utils.prepare import CONTEXT_LENGTH, get_logger
 from utils.strings import has_which_substring
 from utils.type_utils import JSONishDict, Props
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 logger = get_logger()
 

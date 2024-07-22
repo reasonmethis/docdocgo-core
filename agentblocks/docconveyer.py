@@ -8,14 +8,13 @@ import uuid
 # error: str | None = None
 # is_ingested: bool = False
 from typing import TypeVar
-
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 
 from utils.lang_utils import ROUGH_UPPER_LIMIT_AVG_CHARS_PER_TOKEN, get_num_tokens
 from utils.prepare import get_logger
 from utils.type_utils import Doc
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logger = get_logger()
 

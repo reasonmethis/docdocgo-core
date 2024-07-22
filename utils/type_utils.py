@@ -1,12 +1,11 @@
 from enum import Enum
 from typing import Any
-
-from langchain.callbacks.base import BaseCallbackHandler
 from langchain_core.documents.base import Document
 from langchain_core.runnables import RunnableSerializable
 from pydantic import BaseModel, Field
 
 from utils.prepare import MODEL_NAME, TEMPERATURE
+from langchain_core.callbacks import BaseCallbackHandler
 
 JSONish = str | int | float | dict[str, "JSONish"] | list["JSONish"]
 JSONishDict = dict[str, JSONish]

@@ -1,7 +1,6 @@
 import uuid
 
 from icecream import ic
-from langchain.schema import Document
 
 from agentblocks.collectionhelper import ingest_into_collection
 from agents.dbmanager import (
@@ -23,6 +22,7 @@ from utils.prompts import SUMMARIZER_PROMPT
 from utils.query_parsing import IngestCommand
 from utils.type_utils import INSTRUCT_SHOW_UPLOADER, AccessRole, ChatMode, Instruction
 from utils.web import LinkData, get_batch_url_fetcher
+from langchain_core.documents import Document
 
 DEFAULT_MAX_TOKENS_FINAL_CONTEXT = int(CONTEXT_LENGTH * 0.7)
 

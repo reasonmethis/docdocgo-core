@@ -4,10 +4,10 @@ import re
 import docx2txt
 from bs4 import BeautifulSoup
 from icecream import ic
-from langchain.schema import Document
 from pypdf import PdfReader
 from starlette.datastructures import UploadFile  # err if "from fastapi"
 from streamlit.runtime.uploaded_file_manager import UploadedFile
+from langchain_core.documents import Document
 
 allowed_extensions = [
     "",

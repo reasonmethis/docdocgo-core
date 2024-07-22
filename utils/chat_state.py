@@ -2,7 +2,6 @@ import json
 from typing import Callable
 
 from chromadb import Collection
-from langchain.schema import Document
 from pydantic import BaseModel, Field
 
 from agents.researcher_data import ResearchReportData
@@ -33,6 +32,7 @@ from utils.type_utils import (
     PairwiseChatHistory,
     Props,
 )
+from langchain_core.documents import Document
 
 logger = get_logger()
 

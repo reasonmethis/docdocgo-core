@@ -4,7 +4,6 @@ from datetime import datetime
 from enum import Enum
 
 from icecream import ic
-from langchain.schema import Document
 
 from agentblocks.collectionhelper import (
     construct_new_collection_name,
@@ -44,6 +43,7 @@ from utils.prompts import (
 from utils.query_parsing import ParsedQuery, ResearchCommand
 from utils.strings import extract_json
 from utils.type_utils import AccessRole, ChatMode, OperationMode, Props
+from langchain_core.documents import Document
 
 logger = get_logger()
 

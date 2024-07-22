@@ -1,6 +1,6 @@
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 
 from utils.type_utils import BotSettings
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 
 REPORT_ASSESSMENT_INSTRUCTION = """\
 "REPORT ASSESSMENT: X%", where X is your estimate of how well the query was answered on a scale from 0% to 100%. 

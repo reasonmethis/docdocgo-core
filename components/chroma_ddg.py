@@ -4,8 +4,6 @@ from typing import Any, Callable, Optional
 from chromadb import ClientAPI, Collection, HttpClient, PersistentClient
 from chromadb.api.types import Where  # , WhereDocument
 from chromadb.config import Settings
-from langchain.schema import Document
-from langchain.vectorstores.chroma import Chroma
 from langchain_community.vectorstores.chroma import _results_to_docs_and_scores
 from langchain_core.embeddings import Embeddings
 
@@ -19,6 +17,8 @@ from utils.prepare import (
     get_logger,
 )
 from utils.type_utils import DDGError
+from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document
 
 logger = get_logger()
 
@@ -200,7 +200,7 @@ def initialize_client(use_chroma_via_http: bool = USE_CHROMA_VIA_HTTP) -> Client
             port=CHROMA_SERVER_HTTP_PORT,  # ...if the env vars are different from defaults
             settings=Settings(
                 chroma_client_auth_provider="chromadb.auth.token_authn.TokenAuthClientProvider",
-                chroma_client_auth_token_transport_header="X_CHROMA_TOKEN",
+                chroma_auth_token_transport_header="X-Chroma-Token",
                 chroma_client_auth_credentials=CHROMA_SERVER_AUTHN_CREDENTIALS,
                 anonymized_telemetry=False,
             ),

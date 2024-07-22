@@ -1,7 +1,6 @@
 import uuid
 
 import streamlit as st
-from langchain.schema import Document
 
 from agentblocks.collectionhelper import ingest_into_collection
 from agents.dbmanager import (
@@ -16,6 +15,7 @@ from utils.streamlit.helpers import (
     POST_INGEST_MESSAGE_TEMPLATE_EXISTING_COLL,
     POST_INGEST_MESSAGE_TEMPLATE_NEW_COLL,
 )
+from langchain_core.documents import Document
 
 
 def ingest_docs(docs: list[Document], chat_state: ChatState):

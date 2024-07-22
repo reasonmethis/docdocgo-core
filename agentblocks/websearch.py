@@ -1,6 +1,4 @@
 from typing import Any
-
-from langchain.utilities.google_serper import GoogleSerperAPIWrapper
 from pydantic import BaseModel
 
 from agentblocks.core import enforce_pydantic_json
@@ -9,6 +7,7 @@ from utils.async_utils import gather_tasks_sync
 from utils.chat_state import ChatState
 from utils.prepare import get_logger
 from utils.type_utils import DDGError
+from langchain_community.utilities import GoogleSerperAPIWrapper
 
 logger = get_logger()
 

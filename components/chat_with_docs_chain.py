@@ -4,22 +4,19 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 from typing import Any, Callable
-
-from langchain.callbacks.manager import (
-    AsyncCallbackManagerForChainRun,
-    CallbackManagerForChainRun,
-)
 from langchain.chains.base import Chain
 from langchain.chains.llm import LLMChain
-from langchain.schema import BaseRetriever, Document
-from langchain.schema.language_model import BaseLanguageModel
-from langchain.schema.messages import BaseMessage
 
 from components.llm import get_llm_from_prompt_llm_chain
 from utils import lang_utils
 from utils.helpers import DELIMITER
 from utils.prepare import CONTEXT_LENGTH
 from utils.type_utils import CallbacksOrNone, JSONish, PairwiseChatHistory
+from langchain_core.callbacks import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
+from langchain_core.documents import Document
+from langchain_core.language_models import BaseLanguageModel
+from langchain_core.messages import BaseMessage
+from langchain_core.retrievers import BaseRetriever
 
 
 class ChatWithDocsChain(Chain):
