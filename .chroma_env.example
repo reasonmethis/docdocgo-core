@@ -1,8 +1,9 @@
 # You need to use this only if you want to run Chroma in a Docker container
-# Choose your own secret key, but make sure it matches CHROMA_SERVER_AUTH_CREDENTIALS in .env
-CHROMA_SERVER_AUTH_CREDENTIALS="choose your own secret key"
+# Choose your own secret key, but make sure it matches CHROMA_SERVER_AUTHN_CREDENTIALS in .env
+# NOTE: Do not enclose values in quotes (contrary to the example in the chromadb docs)
+CHROMA_SERVER_AUTHN_CREDENTIALS=choose-your-own-secret-key
 
 # You don't need to change these
-CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER="chromadb.auth.token.TokenConfigServerAuthCredentialsProvider"
-CHROMA_SERVER_AUTH_PROVIDER="chromadb.auth.token.TokenAuthServerProvider"
-CHROMA_SERVER_AUTH_TOKEN_TRANSPORT_HEADER="X_CHROMA_TOKEN"
+CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=X-Chroma-Token
+ANONYMIZED_TELEMETRY=False

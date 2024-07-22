@@ -11,7 +11,7 @@ from langchain_core.embeddings import Embeddings
 
 from components.openai_embeddings_ddg import get_openai_embeddings
 from utils.prepare import (
-    CHROMA_SERVER_AUTH_CREDENTIALS,
+    CHROMA_SERVER_AUTHN_CREDENTIALS,
     CHROMA_SERVER_HOST,
     CHROMA_SERVER_HTTP_PORT,
     USE_CHROMA_VIA_HTTP,
@@ -199,9 +199,9 @@ def initialize_client(use_chroma_via_http: bool = USE_CHROMA_VIA_HTTP) -> Client
             host=CHROMA_SERVER_HOST,  # must provide host and port explicitly...
             port=CHROMA_SERVER_HTTP_PORT,  # ...if the env vars are different from defaults
             settings=Settings(
-                chroma_client_auth_provider="chromadb.auth.token.TokenAuthClientProvider",
+                chroma_client_auth_provider="chromadb.auth.token_authn.TokenAuthClientProvider",
                 chroma_client_auth_token_transport_header="X_CHROMA_TOKEN",
-                chroma_client_auth_credentials=CHROMA_SERVER_AUTH_CREDENTIALS,
+                chroma_client_auth_credentials=CHROMA_SERVER_AUTHN_CREDENTIALS,
                 anonymized_telemetry=False,
             ),
         )

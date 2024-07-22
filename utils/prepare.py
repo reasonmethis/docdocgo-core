@@ -43,12 +43,12 @@ if USE_CHROMA_VIA_HTTP := bool(os.getenv("USE_CHROMA_VIA_HTTP")):
 # The following three variables are only used if USE_CHROMA_VIA_HTTP is True
 CHROMA_SERVER_HOST = os.getenv("CHROMA_SERVER_HOST", "localhost")
 CHROMA_SERVER_HTTP_PORT = os.getenv("CHROMA_SERVER_HTTP_PORT", "8000")
-CHROMA_SERVER_AUTH_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTH_CREDENTIALS", "")
+CHROMA_SERVER_AUTHN_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTHN_CREDENTIALS", "")
 
 # The following variable is only used if USE_CHROMA_VIA_HTTP is False
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo-0125")  # rename to DEFAULT_MODEL?
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")  # rename to DEFAULT_MODEL?
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))  # it's actually more like max
 # size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
