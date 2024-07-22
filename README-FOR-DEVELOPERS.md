@@ -8,9 +8,21 @@ Here we provide information useful for developers who want to build on top of Do
 
 - [Installation](#installation)
 - [Using the FastAPI server](#using-the-fastapi-server)
+    - [The `/chat` endpoint](#the-chat-endpoint)
+    - [The `/ingest` endpoint](#the-ingest-endpoint)
 - [Ingesting Documents in Console Mode](#ingesting-documents-in-console-mode)
 - [Running the FastAPI server in Docker](#running-the-fastapi-server-in-docker)
-- [FAQ](#faq)
+- [API on AWS](#api-on-aws)
+  - [Pushing to ECR](#pushing-to-ecr)
+- [Running Chroma in Docker](#running-chroma-in-docker)
+  - [Running Chroma in Docker locally](#running-chroma-in-docker-locally)
+  - [Running Chroma in Docker on AWS EC2](#running-chroma-in-docker-on-aws-ec2)
+  - [Running Chroma in Docker on Google Cloud](#running-chroma-in-docker-on-google-cloud)
+- [Useful commands](#useful-commands)
+  - [Copying files to AWS EC2](#copying-files-to-aws-ec2)
+  - [Copying files to Google VM](#copying-files-to-google-vm)
+  - [Copying files from Google VM](#copying-files-from-google-vm)
+- [Cleaning the Chroma DB](#cleaning-the-chroma-db)- [FAQ](#faq)
 
 ## Installation
 
@@ -61,7 +73,7 @@ At first, you can simply fill in your [OpenAI API key](https://platform.openai.c
 
 ## Running DocDocGo
 
-The easiest way to interact with the bot is to run its Streamlit UI:
+The easiest way to interact with the bot locally is to run its Streamlit UI:
 
 ```bash
 streamlit run streamlit_app.py
@@ -81,7 +93,7 @@ uvicorn api:app --reload
 
 or by running `api.py` directly.
 
-The details of using the API are described in the [Using the FastAPI Server](#using-the-fastapi-server) section. The API was used in the commercial version of DocDocGo to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
+The details of using the API are described in the [Using the FastAPI Server](#using-the-fastapi-server) section. The API was used in DocDocGo Carbon (original, commercial version of DocDocGo licensed to Carbon Inc.) to interact with the accompanying Google Chat App. It can be similarly used to integrate DocDocGo into any other chat application, such as a Telegram or Slack bot.
 
 ## Using the FastAPI server
 
@@ -241,6 +253,121 @@ Run the Docker container and expose port 8000:
 ```bash
 docker run --name docdocgo -p 8000:80 docdocgo-fastapi:latest
 ```
+
+## API on AWS
+
+### Testing the API locally
+
+To test it without Docker, you can run the following commands:
+
+```bash
+python api.py
+```
+
+Then, you can test the API using the [frontend repo](https://github.com/reasonmethis/docdocgo-nextjs-basic)
+
+To test it with Docker, first build the image:
+
+```bash
+docker build -t docdocgo-fastapi .
+```
+
+Then, run the image:
+
+```bash
+docker run -d -p 80:80 docdocgo-fastapi
+```
+
+Then use the frontend repo to run the Next.js app and test the API. Further instructions can be found in the frontend repo's [README](https://github.com/reasonmethis/docdocgo-nextjs-basic/blob/main/README.md).
+
+### Pushing to ECR
+
+Build the image. To use a version of `.env` different from the current one, you can use this approach (for the Windows cmd shell):
+
+```bash
+copy /Y .env .env.backup && copy /Y .env.apprunner .env && docker build -t docdocgo-fastapi . && copy /Y .env.backup .env
+```
+
+Then, log in to the ECR repository.
+
+```bash
+aws ecr get-login-password | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
+```
+
+Then, tag the image:
+
+```bash
+docker tag docdocgo-fastapi:latest <aws_account_id>.dkr.ecr.<region>.amazonaws.com/docdocgo-fastapi:latest
+```
+
+Finally, push the image:
+
+```bash
+docker push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/docdocgo-fastapi:latest
+```
+
+## Running Chroma in Docker
+
+### Running Chroma in Docker locally
+
+```bash
+docker run --env-file /path/to/.chroma_env -p 80:8000 -v /path/to/chroma/:/chroma/chroma chromadb/chroma:0.5.4
+```
+
+Or:
+
+```bash
+docker run -p 80:8000 -e CHROMA_SERVER_AUTHN_PROVIDER="chromadb.auth.token_authn.TokenAuthenticationServerProvider" -e CHROMA_SERVER_AUTHN_CREDENTIALS="<credentials>" -e CHROMA_AUTH_TOKEN_TRANSPORT_HEADER="X-Chroma-Token" -e ANONYMIZED_TELEMETRY="False" -v /path/to/chroma/:/chroma/chroma chromadb/chroma:0.5.4
+```
+
+### Running Chroma in Docker on AWS EC2
+
+We assume that the uvicorn server inside the container runs on port 8000 and we want the service to be available on port 80 of the EC2 instance.
+
+```bash
+sudo docker run -d --restart unless-stopped -p 80:8000 -e CHROMA_SERVER_AUTHN_PROVIDER="chromadb.auth.token_authn.TokenAuthenticationServerProvider" -e CHROMA_SERVER_AUTHN_CREDENTIALS="<credentials>" -e CHROMA_AUTH_TOKEN_TRANSPORT_HEADER="X-Chroma-Token" -e ANONYMIZED_TELEMETRY="False" -v /home/ec2-user/chroma/:/chroma/chroma chromadb/chroma:0.5.4
+```
+
+### Running Chroma in Docker on Google Cloud
+
+```bash
+sudo docker run -d -p 80:8000 -e CHROMA_SERVER_AUTHN_PROVIDER="chromadb.auth.token_authn.TokenAuthenticationServerProvider" -e CHROMA_SERVER_AUTHN_CREDENTIALS="<credentials>" -e CHROMA_AUTH_TOKEN_TRANSPORT_HEADER="X-Chroma-Token" -e ANONYMIZED_TELEMETRY="False" -v /home/user/chroma/:/chroma/chroma chromadb/chroma:0.5.4
+```
+
+## Copying files to and from VMs
+
+These commands can be used to copy the Chroma directory, which contains all of the database data.
+
+### Copying files to AWS EC2
+
+```bash
+scp -r -i "path/to/key.pem" "/path/to/local/dir" ec2-user@<ec2-instance-url>:/home/ec2-user/<destination-dir>
+```
+
+### Copying files to Google VM
+
+```bash
+gcloud compute scp --recurse "/path/to/local/dir" <instance-name>:/home/user
+```
+
+### Copying files from Google VM
+
+```bash
+gcloud compute scp --recurse <instance-name>:/home/user/<remote-dir> "/path/to/local/dir" --zone <zone> --project <project-name>
+```
+
+## Cleaning the Chroma DB
+
+1. If the chroma directory to be cleaned is on a cloud VM, optionally copy it to the local machine to avoid insufficient space issues.
+
+2. Back up the file, then run the following chromadb-ops commands:
+
+```bash
+chops commit-wal path/to/chroma
+chops clean-wal path/to/chroma
+```
+
+3. If needed, copy the cleaned chroma directory back to the remote machine.
 
 ## FAQ
 
