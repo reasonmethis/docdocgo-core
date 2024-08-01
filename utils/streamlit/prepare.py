@@ -59,7 +59,7 @@ def prepare_app():
     st.session_state.downloader_form_key = "downloader"
 
     st.session_state.user_avatar = os.getenv("USER_AVATAR") or None
-    st.session_state.bot_avatar = os.getenv("BOT_AVATAR") or None # TODO: document this
+    st.session_state.bot_avatar = os.getenv("BOT_AVATAR") or None  # TODO: document this
 
     SAMPLE_QUERIES = os.getenv(
         "SAMPLE_QUERIES",
