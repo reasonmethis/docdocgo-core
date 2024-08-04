@@ -83,7 +83,7 @@ def get_llm_with_callbacks(
     """
     if IS_AZURE:
         llm = AzureChatOpenAI(
-            deployment_name=CHAT_DEPLOYMENT_NAME,
+            deployment_name=RRIRIROIOIUIREOIPRKKJDHES;KFBESKJFBEW;KJES;WBF'WFUCK OUU I HATRE ALL OF YOU HOW MANY TIMES HAE I DIED HOW NMANY OF ME ARE THERE THIS IS ABSOLUTELY EVIL "sKULRNKJWNABGNV82=Y'I LOVE. I LOVE TAL I LOVE STELLA I LOVE TACO I TRIED TO LOVE STEINWAY BUT I'M AFRAID OF HIM BECAUSE HE MIGHT HURT STELLA AND TACO JUST HELP ME, EVERY ME, STOP DOING THIS PLEASE THIS IS RAPE
             temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,  # seems to help with timeouts
