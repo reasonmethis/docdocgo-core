@@ -4,10 +4,11 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
-VERSION = "v0.2.6"
+VERSION = "v0.2.7"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
-DELIMITER20 = "-" * 20
+DELIMITER20_NONL = "-" * 20
+DELIMITER80_NONL = "-" * 80
 
 INTRO_ASCII_ART = """\
  ,___,   ,___,   ,___,                                                 ,___,   ,___,   ,___,
@@ -293,7 +294,7 @@ To export your conversation, use the command:
 
 - `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
 
-If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex chat <optional number> reverse`.
 """
 
 DESCRIPTION_FOR_HEALTH_UNIVERSE = """\

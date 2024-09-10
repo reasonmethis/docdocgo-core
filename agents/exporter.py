@@ -1,6 +1,7 @@
 from utils.chat_state import ChatState
 from utils.helpers import (
-    DELIMITER20,
+    DELIMITER20_NONL,
+    DELIMITER80_NONL,
     EXPORT_COMMAND_HELP_MSG,
     format_nonstreaming_answer,
 )
@@ -48,21 +49,21 @@ def get_exporter_response(chat_state: ChatState) -> Props:
         ):
             if len(msgs) >= max_messages:
                 break
-            if user_msg is not None:
-                msgs.append(f"**USER:** {user_msg}")
             if ai_msg is not None or sources:
                 ai_msg_full = f"**DDG:** {ai_msg or ''}"
                 if sources:
                     tmp = "\n- ".join(sources)
                     ai_msg_full += f"\n\n**SOURCES:**\n\n- {tmp}"
                 msgs.append(ai_msg_full)
+            if user_msg is not None:
+                msgs.append(f"**USER:** {user_msg}")
 
         # We may have overshot by one message (didn't want to check twice in the loop)
         if len(msgs) > max_messages:
             msgs.pop()
 
         # Reverse the messages if needed, format them and return along with instructions
-        data = f"\n\n{DELIMITER20}\n\n".join(msgs[:: 1 if is_reverse else -1])
+        data = f"\n\n{DELIMITER80_NONL}\n\n".join(msgs[:: 1 if is_reverse else -1])
         return format_nonstreaming_answer(
             "I have collected our chat history and sent it to the UI for export."
         ) | {

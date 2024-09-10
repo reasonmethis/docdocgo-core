@@ -1,8 +1,10 @@
 # DocDocGo
 
-DocDocGo is a multifunctional chatbot that saves you time when you have to sift through lots of websites or documents to find the information you need.
+DocDocGo is a multifunctional chatbot that can do targeted deep research, create shareable knowledge bases, and more! In short, it saves you time when you have to sift through lots of websites or documents to find what you need.
 
-![version](https://img.shields.io/badge/version-v0.2.6-blue.svg)
+You can use DDG for free at [https://docdocgo.streamlit.app](https://docdocgo.streamlit.app) or run it on your local machine.
+
+![version](https://img.shields.io/badge/version-v0.2.7-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://docdocgo.streamlit.app)
 
@@ -379,7 +381,7 @@ To export your conversation, use the command:
 
 - `/ex chat <optional number of past messages>` (or `/export` instead of `/ex`)
 
-If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex <optional number> reverse`.
+If the number of past messages is not specified, the entire conversation will be exported. If you want to export the messages in reverse order, use `/ex chat <optional number> reverse`.
 
 ## Sharing your collection with others
 
