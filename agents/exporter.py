@@ -1,6 +1,5 @@
 from utils.chat_state import ChatState
 from utils.helpers import (
-    DELIMITER20_NONL,
     DELIMITER80_NONL,
     EXPORT_COMMAND_HELP_MSG,
     format_nonstreaming_answer,

@@ -37,6 +37,7 @@
 16. Include tips for next possible commands in the response
 17. Add /re feedback command to automatically change query, report type, search queries 
 18. Automatically infer command from user query
+19. Ability to ingest current chat history into a collection
 
 ## Evaluations
 
