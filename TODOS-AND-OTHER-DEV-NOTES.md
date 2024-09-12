@@ -1,22 +1,5 @@
 # Dev Notes
 
-## get_relevant_documents on a retriever
-
-- calls _get_relevant_documents
-- for vectorstores, that calls self.vectorstore.similarity_search_with_relevance_scores(query, **self.search_kwargs)
-- _similarity_search_with_relevance_scores
-- similarity_search_with_score
-- for chroma, that calls self.__query_collection(query_embeddings=[query_embedding], n_results=k, where=filter)
-  - besides k and filter, no other search_kwargs are passed (specifically where_document),
-    even though it accepts arbitrary kwargs
-- self._collection.query(
-            query_texts=query_texts,
-            query_embeddings=query_embeddings,
-            n_results=n_results,
-            where=where,
-            **kwargs,
-        )
-
 ## Assorted TODOs
 
 1. DONE chromadb.api.models.Collection has feature to filter by included text and metadatas (I think)
@@ -56,3 +39,23 @@
 2. I increased the MIN_EXTRACTED_SIZE setting from 250 to 1500 in trafilatura to extract more content
     - for example, in the following link, with the default setting it only extracted a cookie banner:
         - "https://www.artificialintelligence-news.com/"
+
+
+## Other Notes
+
+### get_relevant_documents on a retriever
+
+- calls _get_relevant_documents
+- for vectorstores, that calls self.vectorstore.similarity_search_with_relevance_scores(query, **self.search_kwargs)
+- _similarity_search_with_relevance_scores
+- similarity_search_with_score
+- for chroma, that calls self.__query_collection(query_embeddings=[query_embedding], n_results=k, where=filter)
+  - besides k and filter, no other search_kwargs are passed (specifically where_document),
+    even though it accepts arbitrary kwargs
+- self._collection.query(
+            query_texts=query_texts,
+            query_embeddings=query_embeddings,
+            n_results=n_results,
+            where=where,
+            **kwargs,
+        )
