@@ -29,23 +29,23 @@ class ChromaDDGRetriever(VectorStoreRetriever):
     llm_for_token_counting: BaseLanguageModel | None
 
     verbose: bool = False  # print similarity scores and other info
-    k_overshot = 20  # number of docs to return initially (prune later)
-    score_threshold_overshot = (
+    k_overshot: int = 20  # number of docs to return initially (prune later)
+    score_threshold_overshot: float = (
         -12345.0
     )  # score threshold to use initially (prune later)
 
-    k_min = 2  # min number of docs to return after pruning
-    score_threshold_min = (
+    k_min: int = 2  # min number of docs to return after pruning
+    score_threshold_min: float = (
         0.61 if EMBEDDINGS_MODEL_NAME == "text-embeddings-ada-002" else -0.1
     )  # use k_min if score of k_min'th doc is <= this
 
-    k_max = 10  # max number of docs to return after pruning
-    score_threshold_max = (
+    k_max: int = 10  # max number of docs to return after pruning
+    score_threshold_max: float = (
         0.76 if EMBEDDINGS_MODEL_NAME == "text-embeddings-ada-002" else 0.2
     )  # use k_max if score of k_max'th doc is >= this
 
-    max_total_tokens = int(CONTEXT_LENGTH * 0.5)  # consistent with ChatWithDocsChain
-    max_average_tokens_per_chunk = int(max_total_tokens / k_max)
+    max_total_tokens: int = int(CONTEXT_LENGTH * 0.5)  # consistent with ChatWithDocsChain
+    max_average_tokens_per_chunk: int = int(max_total_tokens / k_max)
 
     # get_relevant_documents() must return only docs, but we'll save scores here
     similarities: list = Field(default_factory=list)
