@@ -1,0 +1,180 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Create a stack that runs Chroma hosted on a single instance for DocDocGo",
+    "Parameters": {
+        "InstanceType": {
+            "Description": "EC2 instance type",
+            "Type": "String",
+            "Default": "t2.small"
+        },
+        "ChromaVersion": {
+            "Description": "Chroma version to install",
+            "Type": "String",
+            "Default": "1.0.13"
+        },
+        "ChromaServerAuthCredentials": {
+            "Description": "Chroma authentication credentials",
+            "Type": "String",
+            "Default": "${{ secrets.CHROMA_SERVER_AUTHN_CREDENTIALS }}"
+        },
+        "ChromaServerAuthProvider": {
+            "Description": "Chroma authentication provider",
+            "Type": "String",
+            "Default": "",
+            "AllowedValues": [
+                "",
+                "chromadb.auth.token_authn.TokenAuthenticationServerProvider",
+                "chromadb.auth.basic_authn.BasicAuthenticationServerProvider"
+            ]
+        },
+        "ChromaAuthTokenTransportHeader": {
+            "Description": "Chroma authentication custom token header",
+            "Type": "String",
+            "Default": ""
+        },
+        "ChromaOtelCollectionEndpoint": {
+            "Description": "Chroma OTEL endpoint",
+            "Type": "String",
+            "Default": ""
+        },
+        "ChromaOtelServiceName": {
+            "Description": "Chroma OTEL service name",
+            "Type": "String",
+            "Default": ""
+        },
+        "ChromaOtelCollectionHeaders": {
+            "Description": "Chroma OTEL headers",
+            "Type": "String",
+            "Default": "{}"
+        },
+        "ChromaOtelGranularity": {
+            "Description": "Chroma OTEL granularity",
+            "Type": "String",
+            "Default": ""
+        }
+    },
+    "Resources": {
+        "ChromaInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                        "Fn::FindInMap": [
+                            "Region2AMI",
+                            {
+                            "Ref": "AWS::Region"
+                            },
+                            "AMI"
+                        ]
+                    },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "amazon-linux-extras install docker -y\n",
+                                "usermod -a -G docker ec2-user\n",
+                                "curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose\n",
+                                "chmod +x /usr/local/bin/docker-compose\n",
+                                "ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose\n",
+                                "systemctl enable docker\n",
+                                "systemctl start docker\n",
+                                "\n",
+                                "mkdir -p /home/ec2-user/config\n",
+                                "curl -o /home/ec2-user/docker-compose.yml https://s3.amazonaws.com/public.trychroma.com/cloudformation/assets/docker-compose.yml\n",
+                                {
+                                    "Fn::Sub": "sed -i 's/CHROMA_VERSION/${ChromaVersion}/g' /home/ec2-user/docker-compose.yml\n"
+                                },
+                                "chown ec2-user:ec2-user /home/ec2-user/docker-compose.yml\n",
+                                "# Create .env file\n",
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_SERVER_AUTHN_CREDENTIALS=${ChromaServerAuthCredentials}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_SERVER_AUTHN_PROVIDER=${ChromaServerAuthProvider}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=${ChromaAuthTokenTransportHeader}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_OTEL_COLLECTION_ENDPOINT=${ChromaOtelCollectionEndpoint}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_OTEL_SERVICE_NAME=${ChromaOtelServiceName}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_OTEL_COLLECTION_HEADERS=${ChromaOtelCollectionHeaders}' >> /home/ec2-user/.env\n"
+                                },
+                                {
+                                    "Fn::Sub": "echo 'CHROMA_OTEL_GRANULARITY=${ChromaOtelGranularity}' >> /home/ec2-user/.env\n"
+                                },
+                                "chown ec2-user:ec2-user /home/ec2-user/.env\n",
+                                "cd /home/ec2-user\n",
+                                "sudo -u ec2-user docker-compose up -d\n"
+                            ]
+                        ]
+                    }
+                },
+                "SecurityGroupIds": [
+                    "sg-0f50bb1144b7f46ac"
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": {
+                            "Fn::FindInMap": [
+                                "Region2AMI",
+                                "us-west-2",
+                                "RootDeviceName"
+                            ]
+                        },
+                        "Ebs": {
+                            "VolumeSize": 24
+                        }
+                    }
+                ]
+            }
+        },
+        "ChromaInstanceSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Chroma Instance Security Group",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "8000",
+                        "ToPort": "8000",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "ServerIp": {
+            "Description": "IP address of the Chroma server",
+            "Value": {
+                "Fn::GetAtt": [
+                    "ChromaInstance",
+                    "PublicIp"
+                ]
+            }
+        }
+    },
+    "Mappings": {
+        "Region2AMI": {
+            "us-west-2": {
+                "AMI": "ami-0b71e9be6a79aec29",
+                "RootDeviceName": "/dev/xvda"
+            }
+        }
+    }
+}
