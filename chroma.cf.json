@@ -15,7 +15,7 @@
         "ChromaServerAuthCredentials": {
             "Description": "Chroma authentication credentials",
             "Type": "String",
-            "Default": "fgsqlonbJDseNsAKc"
+            "Default": "${{ secrets.CHROMA_SERVER_AUTHN_CREDENTIALS }}"
         },
         "ChromaServerAuthProvider": {
             "Description": "Chroma authentication provider",
