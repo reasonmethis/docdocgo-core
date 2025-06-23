@@ -223,7 +223,7 @@ Set the following values in the `.env` file:
 
 ```bash
 DOCS_TO_INGEST_DIR_OR_FILE="path/to/my-awesome-data"
-COLLECTON_NAME_FOR_INGESTED_DOCS5="my-awesome-collection"
+COLLECTON_NAME_FOR_INGESTED_DOCS="my-awesome-collection"
 ```
 
 ### 2. Run the ingestion script
