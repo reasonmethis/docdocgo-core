@@ -30,7 +30,7 @@ def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
 
 
 # Set up the environment variables
-DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY", "")
+DEFAULT_OPENROUTER_API_KEY = os.getenv("DEFAULT_OPENROUTER_API_KEY", "")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
@@ -81,7 +81,7 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 INITIAL_TEST_QUERY_STREAMLIT = os.getenv("INITIAL_QUERY_STREAMLIT")
 
 # Check that the necessary environment variables are set
-DUMMY_OPENAI_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
+DUMMY_OPENROUTER_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
 
 if IS_AZURE and not (
     EMBEDDINGS_DEPLOYMENT_NAME
@@ -93,17 +93,17 @@ if IS_AZURE and not (
         "You have set some but not all environment variables necessary to utilize the "
         "Azure OpenAI API endpoint. Please refer to .env.example for details."
     )
-elif not IS_AZURE and not DEFAULT_OPENAI_API_KEY:
+elif not IS_AZURE and not DEFAULT_OPENROUTER_API_KEY:
     # We don't exit because we could get the key from the Streamlit app
     print(
-        "WARNING: You have not set the DEFAULT_OPENAI_API_KEY environment variable. "
+        "WARNING: You have not set the DEFAULT_OPENROUTER_API_KEY environment variable. "
         "This is ok when running the Streamlit app, but not when running "
         "the command line app. For now, we will set it to a dummy non-empty value "
         "to avoid problems initializing the vectorstore etc. "
         "Please refer to .env.example for additional information."
     )
-    os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
-    DEFAULT_OPENAI_API_KEY = DUMMY_OPENAI_API_KEY_PLACEHOLDER
+    os.environ["DEFAULT_OPENROUTER_API_KEY"] = DUMMY_OPENROUTER_API_KEY_PLACEHOLDER
+    DEFAULT_OPENROUTER_API_KEY = DUMMY_OPENROUTER_API_KEY_PLACEHOLDER
     # TODO investigate the behavior when this happens
 
 if not os.getenv("SERPER_API_KEY") and not os.getenv("IGNORE_LACK_OF_SERPER_API_KEY"):

@@ -7,7 +7,7 @@ from chromadb.config import Settings
 from langchain_community.vectorstores.chroma import _results_to_docs_and_scores
 from langchain_core.embeddings import Embeddings
 
-from components.openai_embeddings_ddg import get_openai_embeddings
+from components.openrouter_embeddings_ddg import get_openrouter_embeddings
 from utils.prepare import (
     CHROMA_SERVER_AUTHN_CREDENTIALS,
     CHROMA_SERVER_HOST,
@@ -224,19 +224,19 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
     return client or initialize_client()
 
 
-def get_vectorstore_using_openai_api_key(
+def get_vectorstore_using_openrouter_api_key(
     collection_name: str,
     *,
-    openai_api_key: str,
+    openrouter_api_key: str,
     client: ClientAPI | None = None,
     create_if_not_exists: bool = False,
 ) -> ChromaDDG:
     """
-    Load a ChromaDDG vectorstore from a given collection name and OpenAI API key.
+    Load a ChromaDDG vectorstore from a given collection name and OpenRouter API key.
     """
     return ChromaDDG(
         client=ensure_chroma_client(client),
         collection_name=collection_name,
         create_if_not_exists=create_if_not_exists,
-        embedding_function=get_openai_embeddings(openai_api_key),
+        embedding_function=get_openrouter_embeddings(openrouter_api_key),
     )

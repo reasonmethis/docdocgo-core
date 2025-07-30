@@ -69,7 +69,7 @@ If this happens you will need to install the Microsoft C++ Build Tools. You can 
 
 ### 4. Copy the `.env.example` file to `.env` and fill in the values
 
-At first, you can simply fill in your [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are. Please see `.env.example` for additional details.
+At first, you can simply fill in your [OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up) and leave the other values as they are. Please see `.env.example` for additional details.
 
 ## Running DocDocGo
 
@@ -116,7 +116,7 @@ The message should be sent as a POST request with the body as a JSON object that
 class ChatRequestData(BaseModel):
     message: str
     api_key: str
-    openai_api_key: str | None = None
+    openrouter_api_key: str | None = None
     chat_history: list[JSONish] = []
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
@@ -146,7 +146,7 @@ The `collection_name` field is used to specify the collection that the bot shoul
 
 The `api_key` field is used to specify the API key for the FastAPI server. The server will only honor requests that include the correct API key, as specified by the `DOCDOCGO_API_KEY` environment variable in.
 
-The `openai_api_key` field is used to specify the OpenAI API key. If not specified, the default (community) key will be used, assuming the `DEFAULT_OPENAI_API_KEY` environment variable is set.
+The `openrouter_api_key` field is used to specify the OpenRouter API key. If not specified, the default (community) key will be used, assuming the `DEFAULT_OPENROUTER_API_KEY` environment variable is set.
 
 The `access_codes_cache` field is an object mapping collection names to access codes that the client has stored for them for the current user. The bot will use these access codes to determine grant the user access to collections that require it.
 
@@ -199,7 +199,7 @@ async def ingest(
     files: Annotated[list[UploadFile], File()],
     message: Annotated[str, Form()],
     api_key: Annotated[str, Form()],
-    openai_api_key: Annotated[str | None, Form()] = None,
+    openrouter_api_key: Annotated[str | None, Form()] = None,
     chat_history: Annotated[str | None, Form()] = None,  # JSON string
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
@@ -392,7 +392,7 @@ As an alternative way to handle the issue of the default collection, you can cre
 
 ### Q: What is the `BYPASS_SETTINGS_RESTRICTIONS` environment variable?
 
-A: Normally, when this variable is not defined (or is an empty string), the app will start in a "community key" mode, where you can only see and create public collections and there are restriction on allowed settings (e.g. you can't change the model in the UI). The key used as the community key is controlled by the `DEFAULT_OPENAI_API_KEY` environment variable. You can remove these restrictions and switch to using that same key as a private key by entering the admin password (the value of the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable) in rhe OpenAI API key field.
+A: Normally, when this variable is not defined (or is an empty string), the app will start in a "community key" mode, where you can only see and create public collections and there are restriction on allowed settings (e.g. you can't change the model in the UI). The key used as the community key is controlled by the `DEFAULT_OPENROUTER_API_KEY` environment variable. You can remove these restrictions and switch to using that same key as a private key by entering the admin password (the value of the `BYPASS_SETTINGS_RESTRICTIONS_PASSWORD` environment variable) in the OpenRouter API key field.
 
 However, when the `BYPASS_SETTINGS_RESTRICTIONS` variable is set to a non-empty string, the app will start in the "private key" mode right away, without you having to enter the admin password. This is useful if you use the app in a private setting and don't want to have to enter the admin password every time you start the app.
 

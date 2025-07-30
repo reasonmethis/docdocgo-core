@@ -10,7 +10,7 @@ from utils.docgrab import (
     ingest_into_chroma,
 )
 from utils.helpers import clear_directory, get_timestamp, is_directory_empty, print_no_newline
-from utils.prepare import DEFAULT_OPENAI_API_KEY
+from utils.prepare import DEFAULT_OPENROUTER_API_KEY
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         )
         os.environ["USE_CHROMA_VIA_HTTP"] = os.environ["CHROMA_API_IMPL"] = ""
 
-    print("\nATTENTION: This will incur some cost on your OpenAI account.")
+    print("\nATTENTION: This will incur some cost on your OpenRouter account.")
 
     if input("Press Enter to proceed. Any non-empty input will cancel the procedure: "):
         print("Ingestion cancelled. Exiting")
@@ -150,6 +150,6 @@ if __name__ == "__main__":
         collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
         chroma_client=chroma_client,
         save_dir=None if chroma_client else VECTORDB_DIR,
-        openai_api_key=DEFAULT_OPENAI_API_KEY,
+        openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
         collection_metadata={"created_at": timestamp, "updated_at": timestamp},
     )

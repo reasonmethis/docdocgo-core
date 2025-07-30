@@ -18,7 +18,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
-from components.chroma_ddg import get_vectorstore_using_openai_api_key
+from components.chroma_ddg import get_vectorstore_using_openrouter_api_key
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import AgentDataDict, ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
@@ -27,7 +27,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
-    DEFAULT_OPENAI_API_KEY,
+    DEFAULT_OPENROUTER_API_KEY,
     INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG,
     MAX_UPLOAD_BYTES,
     get_logger,
@@ -67,7 +67,7 @@ RoleBasedChatMessage = dict[str, str]  # {"role": "user" | "assistant", "content
 class ChatRequestData(BaseModel):
     message: str
     api_key: str
-    openai_api_key: str | None = None
+    openrouter_api_key: str | None = None
     chat_history: list[RoleBasedChatMessage] = []
     collection_name: str | None = None
     access_codes_cache: dict[str, str] | None = None  # coll name -> access_code
@@ -141,21 +141,21 @@ async def handle_chat_or_ingest_request(
         # If admin pwd is sent, treat it as if the default key was sent
         if (
             BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
-            and data.openai_api_key
-            and data.openai_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
-            and DEFAULT_OPENAI_API_KEY  # only do this if the default key is configured
+            and data.openrouter_api_key
+            and data.openrouter_api_key.strip() == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD
+            and DEFAULT_OPENROUTER_API_KEY  # only do this if the default key is configured
         ):
-            data.openai_api_key = DEFAULT_OPENAI_API_KEY
+            data.openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
         # Same story if no key is sent but BYPASS_SETTINGS_RESTRICTIONS is set
-        elif not data.openai_api_key and BYPASS_SETTINGS_RESTRICTIONS:
-            data.openai_api_key = DEFAULT_OPENAI_API_KEY
+        elif not data.openrouter_api_key and BYPASS_SETTINGS_RESTRICTIONS:
+            data.openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
 
         # If no key is specified, use the default key (but set is_community_key to True)
-        openai_api_key: str = data.openai_api_key or DEFAULT_OPENAI_API_KEY
-        is_community_key = not data.openai_api_key
+        openrouter_api_key: str = data.openrouter_api_key or DEFAULT_OPENROUTER_API_KEY
+        is_community_key = not data.openrouter_api_key
 
-        # User id is determined from the OpenAI API key (or None if community key)
-        user_id: str | None = get_short_user_id(data.openai_api_key)
+        # User id is determined from the OpenRouter API key (or None if community key)
+        user_id: str | None = get_short_user_id(data.openrouter_api_key)
         # TODO: use full api key as user id (but show only the short version)
 
         chat_history = convert_chat_history(data.chat_history)
@@ -177,7 +177,7 @@ async def handle_chat_or_ingest_request(
             if data.bot_settings != BotSettings():
                 return ChatResponseData(
                     content="Apologies, you can customize your model settings (e.g. model name, "
-                    "temperature) only when using your own OpenAI API key."
+                    "temperature) only when using your own OpenRouter API key."
                 )
 
         # Extract text from the files and convert to list of Document
@@ -214,8 +214,8 @@ async def handle_chat_or_ingest_request(
 
         # Initialize vectorstore and chat state
         try:
-            vectorstore = get_vectorstore_using_openai_api_key(
-                collection_name, openai_api_key=openai_api_key
+            vectorstore = get_vectorstore_using_openrouter_api_key(
+                collection_name, openrouter_api_key=openrouter_api_key
             )
         except Exception as e:
             return ChatResponseData(
@@ -233,7 +233,7 @@ async def handle_chat_or_ingest_request(
             vectorstore=vectorstore,
             is_community_key=is_community_key,
             chat_history=chat_history,
-            openai_api_key=openai_api_key,
+            openrouter_api_key=openrouter_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
             scheduled_queries=scheduled_queries,
@@ -328,7 +328,7 @@ async def ingest(
     files: Annotated[list[UploadFile], File()],
     message: Annotated[str, Form()],
     api_key: Annotated[str, Form()],
-    openai_api_key: Annotated[str | None, Form()] = None,
+    openrouter_api_key: Annotated[str | None, Form()] = None,
     chat_history: Annotated[str | None, Form()] = None,  # JSON string
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
@@ -370,7 +370,7 @@ async def ingest(
         data = ChatRequestData(
             message=decode_param(message),
             api_key=decode_param(api_key),
-            openai_api_key=decode_param(openai_api_key),
+            openrouter_api_key=decode_param(openrouter_api_key),
             chat_history=decode_param(chat_history),
             collection_name=decode_param(collection_name),
             access_codes_cache=decode_param(access_codes_cache),

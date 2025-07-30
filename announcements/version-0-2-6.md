@@ -6,7 +6,7 @@ Updates:
 
 **For users:** 
 
-1. The default model is now **GPT-4o mini** (thanks, OpenAI! :rocket:) instead of GPT-3.5, so expect a significant improvement in the quality of responses. If you use DocDocGo with you own OpenAI API key, you can also switch to GPT-4o, GPT-4, or the old friend GPT-3.5.
+1. The default model is now **Gemini 2.5 Flash**, so expect a significant improvement in the quality of responses. If you use DocDocGo with you own OpenRouter API key, you can also switch to any model available on OpenRouter.
 2. The database has been upgraded and cleaned up for better performance.
 
 **For developers:** 

@@ -8,7 +8,7 @@ from agents.researcher_data import ResearchReportData
 from components.chroma_ddg import (
     ChromaDDG,
     CollectionDoesNotExist,
-    get_vectorstore_using_openai_api_key,
+    get_vectorstore_using_openrouter_api_key,
 )
 from components.llm import get_prompt_llm_chain
 from utils.helpers import (
@@ -80,7 +80,7 @@ class ChatState:
         add_to_output: Callable | None = None,
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,  # NOTE: should switch to "" instead of None
-        openai_api_key: str | None = None,
+        openrouter_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
@@ -101,7 +101,7 @@ class ChatState:
         )
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
-        self.openai_api_key = openai_api_key
+        self.openrouter_api_key = openrouter_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
@@ -396,9 +396,9 @@ class ChatState:
         the value of create_if_not_exists (default: True).
         """
         try:
-            res = get_vectorstore_using_openai_api_key(
+            res = get_vectorstore_using_openrouter_api_key(
                 collection_name,
-                openai_api_key=self.openai_api_key,
+                openrouter_api_key=self.openrouter_api_key,
                 client=self.vectorstore.client,
                 create_if_not_exists=create_if_not_exists,
             )
@@ -411,7 +411,7 @@ class ChatState:
         return get_prompt_llm_chain(
             prompt,
             llm_settings=self.bot_settings,
-            api_key=self.openai_api_key,
+            api_key=self.openrouter_api_key,
             stream=to_user,
             callbacks=self.callbacks if to_user else None,
         )

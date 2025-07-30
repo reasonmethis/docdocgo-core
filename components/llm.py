@@ -1,5 +1,8 @@
 from typing import Any
 from uuid import UUID
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from streamlit.delta_generator import DeltaGenerator
@@ -91,8 +94,9 @@ def get_llm_with_callbacks(
         )
     else:
         llm = ChatOpenAI(
-            api_key=api_key or "",  # don't allow None, no implicit key from env
-            model=settings.llm_model_name,
+            openai_api_key=OPENROUTER_API_KEY,
+            openai_api_base=OPENROUTER_BASE_URL,
+            model_name=MODEL_NAME
             temperature=settings.temperature,
             request_timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,
