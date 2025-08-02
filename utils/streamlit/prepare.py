@@ -19,8 +19,9 @@ def prepare_app():
         )
         st.stop()
 
-    # Flag for whether or not the OpenRouter API key has succeeded at least once
+    # Flag for whether or not the OpenRouter and OpenAI API keys have succeeded at least once
     st.session_state.llm_api_key_ok_status = False
+    st.session_state.openrouter_api_key_ok_status = False
 
     print("query params:", st.query_params)
     st.session_state.update_query_params = None
@@ -48,7 +49,9 @@ def prepare_app():
         openai_api_key=OPENAI_API_KEY
     )
 
+    st.session_state.prev_supplied_openai_api_key = None
     st.session_state.prev_supplied_openrouter_api_key = None
+    st.session_state.default_openai_api_key = DEFAULT_OPENROUTER_API_KEY
     st.session_state.default_openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
     if st.session_state.default_openrouter_api_key == DUMMY_OPENROUTER_API_KEY_PLACEHOLDER:
         st.session_state.default_openrouter_api_key = ""

@@ -110,7 +110,7 @@ If this happens you will need to install the Microsoft C++ Build Tools. You can 
 
 ### 4. Copy the `.env.example` file to `.env` and fill in the values
 
-At first, you can simply fill in your [OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up) and leave the other values as they are. Please see `.env.example` for additional details.
+At first, you can simply fill in your [OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up) and [OpenAI API key](https://platform.openai.com/signup) and leave the other values as they are. Please see `.env.example` for additional details.
 
 ## Running DocDocGo
 
@@ -425,9 +425,9 @@ This section provides answers to frequently asked questions about using DocDocGo
 
 ### Accessing collections
 
-#### Q: I entered my own OpenRouter API key and now can't see collections I saw before. What happened?
+#### Q: I entered my own OpenAI API key and now can't see collections I saw before. What happened?
 
-A: Before you entered your own OpenRouter API key, you were using the community key and could see and create public collections (accessible to everyone). After entering your own key, collections you create are private to you, and running `/db list` will only show your own collections.
+A: Before you entered your own OpenAI API key, you were using the community key and could see and create public collections (accessible to everyone). After entering your own key, collections you create are private to you, and running `/db list` will only show your own collections.
 
 You still have access to the public collections, you can switch to any public collection by typing `/db use <collection name>`. If you want to see all available public collections again, you can switch back to the community key by changing the key to an empty string, then running `/db list` again.
 

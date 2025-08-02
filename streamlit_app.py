@@ -90,7 +90,7 @@ with st.sidebar:
     st.header("DocDocGo " + VERSION)
 
     # Default mode
-    with st.expander("Command Mode", expanded=False):
+    with st.expander("Command Mode", expanded=True):
         ss.default_mode = st.selectbox(
             "Command used if none provided",
             mode_options,
@@ -99,28 +99,29 @@ with st.sidebar:
         )
         cmd_prefix, cmd_prefix_explainer = mode_option_to_prefix[ss.default_mode]
         st.caption(cmd_prefix_explainer)
-
-    with st.expander("OpenRouter API Key", expanded=not ss.llm_api_key_ok_status):
-        supplied_openrouter_api_key = st.text_input(
-            "OpenRouter API Key",
+    
+    with st.expander("OpenAI API Key", expanded=False):
+        supplied_openai_api_key = st.text_input(
+            "OpenAI API Key",
             label_visibility="collapsed",
-            key="openrouter_api_key",
+            placeholder="",
+            key="openai_api_key",
             type="password",
         )
 
-        if not supplied_openrouter_api_key:
-            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
-            is_community_key = not BYPASS_SETTINGS_RESTRICTIONS
+        if not supplied_openai_api_key:
+            openai_api_key_to_use: str = ss.default_openai_api_key
+            is_community_key = True
 
-        elif supplied_openrouter_api_key in ("public", "community"):
+        elif supplied_openai_api_key in ("public", "community"):
             # TODO: document this
             # This allows the user to use community key mode (and see public collections
             # even if BYPASS_SETTINGS_RESTRICTIONS is set
-            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            openai_api_key_to_use: str = ss.default_openai_api_key
             is_community_key = True
 
-        elif supplied_openrouter_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
-            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+        elif supplied_openai_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
+            openai_api_key_to_use: str = ss.default_openai_api_key
             is_community_key = False
 
             # Collapse key field (not super important, but nice)
@@ -129,37 +130,37 @@ with st.sidebar:
                 st.rerun()  # otherwise won't collapse until next interaction
 
         else:
-            # Use the key entered by the user as the OpenRouter API key
-            openrouter_api_key_to_use: str = supplied_openrouter_api_key
+            # Use the key entered by the user as the OpenAI API key
+            openai_api_key_to_use: str = supplied_openai_api_key
             is_community_key = False
 
         # In case there's no community key available, set is_community_key to False
-        if not openrouter_api_key_to_use:
+        if not openai_api_key_to_use:
             is_community_key = False
-            st.caption("To use this app, you'll need an OpenRouter API key. "
-            "[Get an OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+            st.caption("To use this app, you'll need an OpenAI API key. "
+            "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
             )
             chat_state.user_id = None
         elif is_community_key:
             st.caption(
-                "Using the default OpenRouter API key (some settings are restricted, "
+                "Using the default OpenAI API key (some settings are restricted, "
                 "your collections are public). "
-                "[Get your OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+                "[Get your OpenAI API key](https://platform.openai.com/account/api-keys)"
             )
             
             chat_state.user_id = None
         else:
             # User is using their own key (or has unlocked the default key)
-            chat_state.user_id = get_short_user_id(openrouter_api_key_to_use)
+            chat_state.user_id = get_short_user_id(openai_api_key_to_use)
             # TODO: use full api key as user id (but show only the short version)
 
         chat_state.is_community_key = is_community_key  # in case it changed
 
         # If init load or user key field changed, reset user/vectorstore as needed
-        if supplied_openrouter_api_key != ss.prev_supplied_openrouter_api_key:
-            is_initial_load = ss.prev_supplied_openrouter_api_key is None
-            ss.prev_supplied_openrouter_api_key = supplied_openrouter_api_key
-            chat_state.openrouter_api_key = openrouter_api_key_to_use
+        if supplied_openai_api_key != ss.prev_supplied_openai_api_key:
+            is_initial_load = ss.prev_supplied_openai_api_key is None
+            ss.prev_supplied_openai_api_key = supplied_openai_api_key
+            chat_state.openai_api_key = openai_api_key_to_use
 
             # Determine which collection to use and whether user has access to it
             coll_name_in_url = ss.init_collection_name
@@ -190,18 +191,74 @@ with st.sidebar:
                 chat_state.chat_history_all.append((None, init_msg))
                 chat_state.sources_history.append(None)
 
+    with st.expander("OpenRouter API Key", expanded=False):
+        supplied_openrouter_api_key = st.text_input(
+            "OpenRouter API Key",
+            label_visibility="collapsed",
+            key="input_openrouter_api_key",
+            type="password",
+        )
+
+        if not supplied_openrouter_api_key:
+            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            is_or_community_key = True
+
+        elif supplied_openrouter_api_key in ("public", "community"):
+            # TODO: document this
+            # This allows the user to use community key mode (and see public collections
+            # even if BYPASS_SETTINGS_RESTRICTIONS is set
+            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            is_or_community_key = True
+
+        elif supplied_openrouter_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
+            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            is_or_community_key = False
+
+            # Collapse key field (not super important, but nice)
+            if not ss.openrouter_api_key_ok_status:
+                ss.openerouter_api_key_ok_status = True  # collapse key field
+                st.rerun()  # otherwise won't collapse until next interaction
+
+        else:
+            # Use the key entered by the user as the OpenRouter API key
+            openrouter_api_key_to_use: str = supplied_openrouter_api_key
+            is_or_community_key = False
+
+        # In case there's no community key available, set is_or_community_key to False
+        if not openrouter_api_key_to_use:
+            is_or_community_key = False
+            st.caption("To use this app, you'll need an OpenRouter API key. "
+            "[Get an OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+            )
+        elif is_or_community_key:
+            st.caption(
+                "Using the default OpenRouter API key (You may not select a custom model.). "
+                "[Get your OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+            )
+
+        chat_state.is_or_community_key = is_or_community_key  # in case it changed
+        chat_state.openrouter_api_key = openrouter_api_key_to_use # in case it changed
+
+
     # Settings
     with st.expander("Settings", expanded=False):
         if is_community_key:
-            model_options = [MODEL_NAME]  # show only 3.5 if community key
-            index = 0
+            chat_state.bot_settings.llm_model_name = st.text_input(
+                "OpenRouter Model",
+                label_visibility="collapsed",
+                key="openrouter_model",
+                type="default",
+                placeholder="google/gemini-2.5-flash",
+                disabled=True,
+            )
         else:
-            model_options = ALLOWED_MODELS  # guaranteed to include MODEL_NAME
-            index = model_options.index(chat_state.bot_settings.llm_model_name)
-        # TODO: adjust context length (for now assume 16k)
-        chat_state.bot_settings.llm_model_name = st.selectbox(
-            "Language model", model_options, disabled=is_community_key, index=index
-        )
+            chat_state.bot_settings.llm_model_name = st.text_input(
+                "OpenRouter Model",
+                label_visibility="collapsed",
+                key="openrouter_model",
+                type="default",
+            )
+        st.caption("OpenRouter Model (Enter in the form of provider/model, for example google/gemini-2.5-flash. If you are using the community OpenRouter API key you may not choose a custom model.)")
 
         # Temperature
         chat_state.bot_settings.temperature = st.slider(
