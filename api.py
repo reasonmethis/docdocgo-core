@@ -18,7 +18,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
-from components.chroma_ddg import get_vectorstore_using_openrouter_api_key
+from components.chroma_ddg import get_vectorstore_using_openai_api_key
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import AgentDataDict, ChatState, ScheduledQueries
 from utils.helpers import DELIMITER
@@ -27,6 +27,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
+    OPENAI_API_KEY,
     DEFAULT_OPENROUTER_API_KEY,
     INCLUDE_ERROR_IN_USER_FACING_ERROR_MSG,
     MAX_UPLOAD_BYTES,
@@ -67,6 +68,7 @@ RoleBasedChatMessage = dict[str, str]  # {"role": "user" | "assistant", "content
 class ChatRequestData(BaseModel):
     message: str
     api_key: str
+    openai_api_key: str | None = None
     openrouter_api_key: str | None = None
     chat_history: list[RoleBasedChatMessage] = []
     collection_name: str | None = None
@@ -214,8 +216,8 @@ async def handle_chat_or_ingest_request(
 
         # Initialize vectorstore and chat state
         try:
-            vectorstore = get_vectorstore_using_openrouter_api_key(
-                collection_name, openrouter_api_key=openrouter_api_key
+            vectorstore = get_vectorstore_using_openai_api_key(
+                collection_name, openai_api_key=openai_api_key
             )
         except Exception as e:
             return ChatResponseData(
@@ -233,6 +235,7 @@ async def handle_chat_or_ingest_request(
             vectorstore=vectorstore,
             is_community_key=is_community_key,
             chat_history=chat_history,
+            openai_api_key=openai_api_key,
             openrouter_api_key=openrouter_api_key,
             user_id=user_id,
             parsed_query=parsed_query,
@@ -328,7 +331,7 @@ async def ingest(
     files: Annotated[list[UploadFile], File()],
     message: Annotated[str, Form()],
     api_key: Annotated[str, Form()],
-    openrouter_api_key: Annotated[str | None, Form()] = None,
+    openai_api_key: Annotated[str | None, Form()] = None,
     chat_history: Annotated[str | None, Form()] = None,  # JSON string
     collection_name: Annotated[str | None, Form()] = None,
     access_codes_cache: Annotated[str | None, Form()] = None,  # JSON string
@@ -370,7 +373,7 @@ async def ingest(
         data = ChatRequestData(
             message=decode_param(message),
             api_key=decode_param(api_key),
-            openrouter_api_key=decode_param(openrouter_api_key),
+            openai_api_key=decode_param(openai_api_key),
             chat_history=decode_param(chat_history),
             collection_name=decode_param(collection_name),
             access_codes_cache=decode_param(access_codes_cache),
