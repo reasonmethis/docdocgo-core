@@ -99,7 +99,7 @@ def ingest_into_collection(
             vectorstore = ingest_into_chroma(
                 docs,
                 collection_name=collection_name,
-                openrouter_api_key=chat_state.openrouter_api_key,
+                openai_api_key=chat_state.openai_api_key,
                 chroma_client=chat_state.vectorstore.client,
                 collection_metadata=full_metadata,
             )

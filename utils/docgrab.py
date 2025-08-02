@@ -83,7 +83,7 @@ def ingest_into_chroma(
     docs: list[Document],
     *,
     collection_name: str,
-    openrouter_api_key: str,
+    openai_api_key: str,
     chroma_client: ClientAPI | None = None,
     save_dir: str | None = None,
     collection_metadata: dict[str, str] | None = None,
@@ -103,7 +103,7 @@ def ingest_into_chroma(
     # Handle special case of no docs - just create/update collection with given metadata
     if not docs:
         return ChromaDDG(
-            embedding_function=get_openai_embeddings(openrouter_api_key),
+            embedding_function=get_openai_embeddings(openai_api_key),
             client=chroma_client,
             persist_directory=save_dir,
             collection_name=collection_name,
@@ -119,7 +119,7 @@ def ingest_into_chroma(
     # Split into snippets, embed and add them
     vectorstore: ChromaDDG = ChromaDDG.from_documents(
         prepare_chunks(texts, metadatas, full_doc_ids),
-        embedding=get_openai_embeddings(openrouter_api_key),
+        embedding=get_openai_embeddings(openai_api_key),
         client=chroma_client,
         persist_directory=save_dir,
         collection_name=collection_name,

@@ -28,6 +28,7 @@ from utils.prepare import (
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
     DEFAULT_OPENROUTER_API_KEY,
+    OPENAI_API_KEY,
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
     TEMPERATURE,
@@ -108,7 +109,7 @@ with st.sidebar:
         )
 
         if not supplied_openrouter_api_key:
-            openrouter_api_key_to_use: str = ss.DEFAULT_OPENROUTER_API_KEY
+            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
             is_community_key = not BYPASS_SETTINGS_RESTRICTIONS
 
         elif supplied_openrouter_api_key in ("public", "community"):

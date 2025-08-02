@@ -33,7 +33,7 @@ def get_openai_embeddings(
 #     Custom version of OpenAIEmbeddings for DocDocGo. Unlike the original,
 #     an object of this class will pull the current values of env vars every time.
 #     This helps in situations where the user has changed env vars such as
-#     OPENROUTER_API_KEY, as is possible in the Streamlit app.
+#     DEFAULT_OPENROUTER_API_KEY, as is possible in the Streamlit app.
 
 #     This way is also more consistent with the behavior of e.g. ChatOpenAI, which
 #     always uses the current values of env vars when querying the OpenAI API.

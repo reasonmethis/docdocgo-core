@@ -31,9 +31,11 @@ def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
 
 # Set up the environment variables
 DEFAULT_OPENROUTER_API_KEY = os.getenv("DEFAULT_OPENROUTER_API_KEY", "")
+OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL")
 
 DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documentation")
 

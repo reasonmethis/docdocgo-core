@@ -10,7 +10,7 @@ from agents.ingester_summarizer import get_ingester_summarizer_response
 from agents.researcher import get_researcher_response, get_websearcher_response
 from agents.share_manager import handle_share_command
 from components.chat_with_docs_chain import ChatWithDocsChain
-from components.chroma_ddg import ChromaDDG, get_vectorstore_using_openrouter_api_key
+from components.chroma_ddg import ChromaDDG, get_vectorstore_using_openai_api_key
 from components.chroma_ddg_retriever import ChromaDDGRetriever
 from components.llm import get_llm, get_llm_from_prompt_llm_chain, get_prompt_llm_chain
 from utils.algo import remove_duplicates_keep_order
@@ -25,7 +25,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENROUTER_API_KEY, OPENROUTER_BASE_URL, get_logger
+from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENAI_API_KEY, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -218,7 +218,7 @@ def get_docs_chat_chain(
 
 
 def do_intro_tasks(
-    openrouter_api_key: str, collection_name: str | None = None
+    openai_api_key: str, collection_name: str | None = None
 ) -> ChromaDDG:
     global default_vectorstore
 
@@ -227,8 +227,8 @@ def do_intro_tasks(
 
     # Load and save default vector store
     try:
-        vectorstore = default_vectorstore = get_vectorstore_using_openrouter_api_key(
-            DEFAULT_COLLECTION_NAME, openrouter_api_key=openrouter_api_key
+        vectorstore = default_vectorstore = get_vectorstore_using_openai_api_key(
+            DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
         )
     except Exception as e:
         logger.error(
@@ -242,8 +242,8 @@ def do_intro_tasks(
     # NOTE/TODO: This is not used in the current version of the code
     if collection_name:
         try:
-            vectorstore = get_vectorstore_using_openrouter_api_key(
-                collection_name, openrouter_api_key=openrouter_api_key
+            vectorstore = get_vectorstore_using_openai_api_key(
+                collection_name, openai_api_key=openai_api_key
             )
         except Exception as e:
             print(
@@ -255,7 +255,7 @@ def do_intro_tasks(
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks(DEFAULT_OPENROUTER_API_KEY)
+    vectorstore = do_intro_tasks(OPENAI_API_KEY)
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -291,7 +291,7 @@ if __name__ == "__main__":
                     parsed_query=parsed_query,
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
-                    openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
+                    openai_api_key=OPENAI_API_KEY,
                     user_id=None,  # would be set to None by default but just to be explicit
                 )
             )
