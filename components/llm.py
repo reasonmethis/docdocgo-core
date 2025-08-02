@@ -1,7 +1,10 @@
 from typing import Any
 from uuid import UUID
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
@@ -10,6 +13,9 @@ from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
+    DEFAULT_OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL,
+    MODEL_NAME
 )
 from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone
@@ -83,18 +89,19 @@ def get_llm_with_callbacks(
     """
     if IS_AZURE:
         llm = AzureChatOpenAI(
-            deployment_name=CHAT_DEPLOYMENT_NAME,
+            azure_deployment=CHAT_DEPLOYMENT_NAME,
             temperature=settings.temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
+            timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,  # seems to help with timeouts
             callbacks=callbacks,
         )
     else:
         llm = ChatOpenAI(
-            api_key=api_key or "",  # don't allow None, no implicit key from env
-            model=settings.llm_model_name,
+            api_key=DEFAULT_OPENROUTER_API_KEY,
+            base_url=OPENROUTER_BASE_URL,
+            model=MODEL_NAME,
             temperature=settings.temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
+            timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,
             callbacks=callbacks,
             verbose=True,  # tmp

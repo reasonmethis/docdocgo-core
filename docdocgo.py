@@ -25,7 +25,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENAI_API_KEY, get_logger
+from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENAI_API_KEY, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -39,7 +39,6 @@ from utils.type_utils import ChatMode, OperationMode
 logger = get_logger()
 
 default_vectorstore = None  # can move to chat_state
-
 
 def get_bot_response(chat_state: ChatState):
     global default_vectorstore
@@ -62,7 +61,7 @@ def get_bot_response(chat_state: ChatState):
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
             llm_settings=chat_state.bot_settings,
-            api_key=chat_state.openai_api_key,
+            api_key=chat_state.openrouter_api_key,
             callbacks=chat_state.callbacks,
             stream=True,
         )
@@ -163,7 +162,7 @@ def get_docs_chat_chain(
     # Initialize chain for query generation from chat history
     llm_for_q_generation = get_llm(
         settings=chat_state.bot_settings.model_copy(update={"temperature": 0}),
-        api_key=chat_state.openai_api_key,
+        api_key=chat_state.openrouter_api_key,
     )
     query_generator_chain = LLMChain(
         llm=llm_for_q_generation,
@@ -197,7 +196,7 @@ def get_docs_chat_chain(
     qa_from_docs_chain = get_prompt_llm_chain(
         prompt_qa,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
+        api_key=chat_state.openrouter_api_key,
         callbacks=chat_state.callbacks,
         print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
         stream=True,
@@ -256,7 +255,7 @@ def do_intro_tasks(
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks(DEFAULT_OPENAI_API_KEY)
+    vectorstore = do_intro_tasks(OPENAI_API_KEY)
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -292,7 +291,7 @@ if __name__ == "__main__":
                     parsed_query=parsed_query,
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
-                    openai_api_key=DEFAULT_OPENAI_API_KEY,
+                    openai_api_key=OPENAI_API_KEY,
                     user_id=None,  # would be set to None by default but just to be explicit
                 )
             )

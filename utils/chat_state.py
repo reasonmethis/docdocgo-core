@@ -72,6 +72,7 @@ class ChatState:
         operation_mode: OperationMode,
         vectorstore: ChromaDDG,
         is_community_key: bool = False,
+        is_or_community_key: bool = False,
         parsed_query: ParsedQuery | None = None,
         chat_history: PairwiseChatHistory | None = None,
         chat_and_command_history: PairwiseChatHistory | None = None,
@@ -81,6 +82,7 @@ class ChatState:
         bot_settings: BotSettings | None = None,
         user_id: str | None = None,  # NOTE: should switch to "" instead of None
         openai_api_key: str | None = None,
+        openrouter_api_key: str | None = None,
         scheduled_queries: ScheduledQueries | None = None,
         access_role_by_user_id_by_coll: dict[str, dict[str, AccessRole]] | None = None,
         access_code_by_coll_by_user_id: dict[str, dict[str, str]] | None = None,
@@ -90,6 +92,7 @@ class ChatState:
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
+        self.is_or_community_key = is_or_community_key
         self.parsed_query = parsed_query or ParsedQuery()
         self.chat_history = chat_history or []  # tuple of (user_message, bot_response)
         self.chat_history_all = chat_and_command_history or []
@@ -102,6 +105,7 @@ class ChatState:
         self.bot_settings = bot_settings or BotSettings()
         self.user_id = user_id
         self.openai_api_key = openai_api_key
+        self.openrouter_api_key = openrouter_api_key
         self.scheduled_queries = scheduled_queries or ScheduledQueries()
         self._access_role_by_user_id_by_coll = access_role_by_user_id_by_coll or {}
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
@@ -411,7 +415,7 @@ class ChatState:
         return get_prompt_llm_chain(
             prompt,
             llm_settings=self.bot_settings,
-            api_key=self.openai_api_key,
+            api_key=self.openrouter_api_key,
             stream=to_user,
             callbacks=self.callbacks if to_user else None,
         )

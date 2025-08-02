@@ -10,7 +10,7 @@ from utils.docgrab import (
     ingest_into_chroma,
 )
 from utils.helpers import clear_directory, get_timestamp, is_directory_empty, print_no_newline
-from utils.prepare import DEFAULT_OPENAI_API_KEY
+from utils.prepare import OPENAI_API_KEY
 
 is_env_loaded = is_env_loaded  # see explanation at the end of docdocgo.py
 
@@ -150,6 +150,6 @@ if __name__ == "__main__":
         collection_name=COLLECTON_NAME_FOR_INGESTED_DOCS,
         chroma_client=chroma_client,
         save_dir=None if chroma_client else VECTORDB_DIR,
-        openai_api_key=DEFAULT_OPENAI_API_KEY,
+        openai_api_key=OPENAI_API_KEY,
         collection_metadata={"created_at": timestamp, "updated_at": timestamp},
     )

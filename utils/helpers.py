@@ -126,8 +126,8 @@ After performing the "deeper" command above, you will end up with a report that 
 information from 2x as many sources as the original report. If you wanted to quadruple \
 the number of sources, you could use `/research deeper 2` instead. 
 
-:grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance. \
-You'll need your own OpenAI API key for that. Using your own key also relaxes the restriction \
+:grey[**Tip:** Swiching to a different model (in the sidebar) may improve my performance. \
+You'll need your own OpenRouter API key for that. Using your own key also relaxes the restriction \
 on the maximum number of automatic research iterations.]
 """
 
