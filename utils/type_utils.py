@@ -82,7 +82,7 @@ class DDGError(Exception):
 
 
 class BotSettings(BaseModel):
-    llm_model_name: str = MODEL_NAME
+    model: str = MODEL_NAME
     temperature: float = TEMPERATURE
 
 

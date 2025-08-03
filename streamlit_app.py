@@ -195,7 +195,7 @@ with st.sidebar:
         supplied_openrouter_api_key = st.text_input(
             "OpenRouter API Key",
             label_visibility="collapsed",
-            key="input_openrouter_api_key",
+            key="openrouter_api_key",
             type="password",
         )
 
@@ -242,22 +242,25 @@ with st.sidebar:
 
     # Settings
     with st.expander("Settings", expanded=False):
-        if is_community_key:
-            chat_state.bot_settings.llm_model_name = st.text_input(
+        if is_or_community_key:
+            chat_state.bot_settings.model = st.text_input(
                 "OpenRouter Model",
                 label_visibility="collapsed",
-                key="openrouter_model",
+                key="model",
                 type="default",
                 placeholder="google/gemini-2.5-flash",
                 disabled=True,
             )
         else:
-            chat_state.bot_settings.llm_model_name = st.text_input(
+            chat_state.bot_settings.model = st.text_input(
                 "OpenRouter Model",
                 label_visibility="collapsed",
-                key="openrouter_model",
+                key="model",
                 type="default",
+                placeholder="google/gemini-2.5-flash",
+                disabled=False,
             )
+
         st.caption("OpenRouter Model (Enter in the form of provider/model, for example google/gemini-2.5-flash. If you are using the community OpenRouter API key you may not choose a custom model.)")
 
         # Temperature

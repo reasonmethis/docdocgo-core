@@ -99,7 +99,7 @@ def get_llm_with_callbacks(
         llm = ChatOpenAI(
             api_key=DEFAULT_OPENROUTER_API_KEY,
             base_url=OPENROUTER_BASE_URL,
-            model=MODEL_NAME,
+            model=settings.model,
             temperature=settings.temperature,
             timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,
