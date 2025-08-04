@@ -14,8 +14,7 @@ from utils.prepare import (
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
     DEFAULT_OPENROUTER_API_KEY,
-    OPENROUTER_BASE_URL,
-    MODEL_NAME
+    OPENROUTER_BASE_URL
 )
 from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone
