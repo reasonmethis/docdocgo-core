@@ -41,7 +41,7 @@ def summarize(docs: list[Document], chat_state: ChatState) -> str:
         SUMMARIZER_PROMPT,
         llm_settings=chat_state.bot_settings,
         chat_state=chat_state,
-        embeddings_needed=True,
+        embeddings_needed=False,
         callbacks=chat_state.callbacks,
     )
 

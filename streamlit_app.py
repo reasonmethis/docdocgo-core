@@ -217,7 +217,7 @@ with st.sidebar:
 
             # Collapse key field (not super important, but nice)
             if not ss.openrouter_api_key_ok_status:
-                ss.openerouter_api_key_ok_status = True  # collapse key field
+                ss.openrouter_api_key_ok_status = True  # collapse key field
                 st.rerun()  # otherwise won't collapse until next interaction
 
         else:
@@ -356,17 +356,28 @@ if files:
     if docs:
         ingest_docs(docs, chat_state)
 
-# Check if the user has entered a query
+# Get and display collection name
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
-
+# Get text input by user
 chat_input_text: str = f"[{ss.default_mode}] " if cmd_prefix else ""
 chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
 if full_query:
-    # Send query to LLM to select appropriate command, then continue with the command
-    llm_raw_command = get_raw_command(chat_state)
-    #full_query = str(llm_raw_command)
+    # Send query to LLM to select appropriate command, then display the response and continue with the command
+    with st.chat_message("assistant", avatar=ss.bot_avatar):
+        try:
+            llm_raw_command: dict[str, str] = get_raw_command(full_query, chat_state)
+            response = llm_raw_command['answer']
+            st.markdown(fix_markdown(response))
+            # Check if this is the first time we got a response from the LLM
+            if not ss.llm_api_key_ok_status and not ss.openrouter_api_key_ok_status:
+                # Set a temp value to trigger a rerun to collapse the API key fields
+                ss.llm_api_key_ok_status = "RERUN_PLEASE"
+                ss.openrouter_api_key_ok_status = "RERUN_PLEASE"
+        except KeyError:
+            status = None    
+    full_query = llm_raw_command['command']
     print(full_query)
 else:
     # If no message from the user, check if we should run an initial test query
@@ -420,47 +431,44 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
     # Prepare container and callback handler for showing streaming response
     message_placeholder = st.empty()
 
-    cb = CallbackHandlerDDGStreamlit(
-        message_placeholder,
-        end_str=STAND_BY_FOR_INGESTION_MESSAGE
-        if parsed_query.is_ingestion_needed()
-        else "",
-    )
-    chat_state.callbacks[1] = cb
-    chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
-    try:
-        response = get_bot_response(chat_state)
-        answer = response["answer"]
-        print(answer)
+    # Commenting Callback handling logic for now as it is not working
+    # cb = CallbackHandlerDDGStreamlit(
+    #     message_placeholder,
+    #     end_str=STAND_BY_FOR_INGESTION_MESSAGE
+    #     if parsed_query.is_ingestion_needed()
+    #     else "",
+    # )
 
-        # Check if this is the first time we got a response from the LLM
-        if not ss.llm_api_key_ok_status and chat_mode in chat_modes_needing_llm:
-            # Set a temp value to trigger a rerun to collapse the API key field
-            ss.llm_api_key_ok_status = "RERUN_PLEASE"
+    # chat_state.callbacks[1] = cb
+    # chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
+
+    try:
+        llm_response: dict[str, str] | None = get_bot_response(chat_state)
+        answer = llm_response['answer']
 
         # Display non-streaming responses slowly (in particular avoids chat prompt flicker)
-        if chat_mode not in chat_modes_needing_llm or "needs_print" in response:
+        if chat_mode not in chat_modes_needing_llm or "needs_print" in llm_response:
             write_slowly(message_placeholder, answer)
 
         # Display sources if present
-        sources = get_source_links(response) or None  # Cheaper to store None than []
-        show_sources(sources, cb)
+        sources = get_source_links(llm_response) or None  # Cheaper to store None than []
+        show_sources(sources)
 
         # Display the "complete" status - custom or default
         if status:
             default_status = status_config.get(chat_mode, just_chat_status_config)
             status.update(
-                label=response.get("status.header", default_status["complete.header"]),
+                label=llm_response.get("status.header", default_status["complete.header"]),
                 state="complete",
             )
-            status.write(response.get("status.body", default_status["complete.body"]))
+            status.write(llm_response.get("status.body", default_status["complete.body"]))
 
         # Add the response to the chat history
         if full_query:
             chat_state.chat_history.append((full_query, answer))
 
         # If the response contains instructions to auto-run a query, record it
-        if new_parsed_query := response.get("new_parsed_query"):
+        if new_parsed_query := llm_response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
         print(traceback.format_exc())
@@ -499,8 +507,8 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
                 "via the project's GitHub repository or through LinkedIn at "
                 "https://www.linkedin.com/in/dmitriyvasilyuk/."
             )
-        elif cb.buffer:
-            answer = f"{cb.buffer}\n\n{answer}"
+        # elif cb.buffer:
+        #    answer = f"{cb.buffer}\n\n{answer}"
 
         # Assign sources
         sources = None
@@ -524,7 +532,7 @@ if is_ingest_via_file_uploader:
     files, allow_all_ext = show_uploader(is_teleporting=True)
 
 # Display the file downloader if needed
-for instruction in response.get("instructions", []):
+for instruction in llm_response.get("instructions", []):
     if instruction.type == INSTRUCT_EXPORT_CHAT_HISTORY:
         ss.idx_file_download = len(chat_state.chat_history_all) - 1
         is_downloaded = show_downloader(
@@ -533,8 +541,8 @@ for instruction in response.get("instructions", []):
         )
 
 # Update vectorstore if needed
-if "vectorstore" in response:
-    chat_state.vectorstore = response["vectorstore"]
+if "vectorstore" in llm_response:
+    chat_state.vectorstore = llm_response["vectorstore"]
 
 # Update the collection name in the address bar if collection has changed
 if coll_name_full != chat_state.vectorstore.name:
@@ -545,6 +553,11 @@ if coll_name_full != chat_state.vectorstore.name:
     )
 
 # If this was the first LLM response, rerun to collapse the OpenRouter API key field
+if ss.openrouter_api_key_ok_status == "RERUN_PLEASE":
+    ss.openrouter_api_key_ok_status = True
+    st.rerun()
+
+# If this was the first LLM response, rerun to collapse the OpenAI API key field
 if ss.llm_api_key_ok_status == "RERUN_PLEASE":
     ss.llm_api_key_ok_status = True
     st.rerun()

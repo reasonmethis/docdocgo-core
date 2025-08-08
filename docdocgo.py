@@ -47,22 +47,16 @@ def get_bot_response(chat_state: ChatState):
         chat_state.chat_mode.value
     )  # use value due to Streamlit code reloading
     if chat_mode_val == ChatMode.CHAT_WITH_DOCS_COMMAND_ID.value:  # /kb command
-        chat_state.embeddings_needed = True
         chat_chain = get_docs_chat_chain(chat_state)
     elif chat_mode_val == ChatMode.DETAILS_COMMAND_ID.value:  # /details command
-        chat_state.embeddings_needed = True
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_SUMMARIZE_KB)
     elif chat_mode_val == ChatMode.QUOTES_COMMAND_ID.value:  # /quotes command
-        chat_state.embeddings_needed = True
         chat_chain = get_docs_chat_chain(chat_state, prompt_qa=QA_PROMPT_QUOTES)
     elif chat_mode_val == ChatMode.WEB_COMMAND_ID.value:  # /web command
-        chat_state.embeddings_needed = False
         return get_websearcher_response(chat_state)
     elif chat_mode_val == ChatMode.SUMMARIZE_COMMAND_ID.value:  # /summarize command
-        chat_state.embeddings_needed = True
         return get_ingester_summarizer_response(chat_state)
     elif chat_mode_val == ChatMode.RESEARCH_COMMAND_ID.value:  # /research command
-        chat_state.embeddings_needed = False
         return get_researcher_response(chat_state)  # includes "vectorstore" if created
     elif chat_mode_val == ChatMode.JUST_CHAT_COMMAND_ID.value:  # /chat command
         chat_chain = get_prompt_llm_chain(
@@ -83,10 +77,8 @@ def get_bot_response(chat_state: ChatState):
         )
         return {"answer": answer}
     elif chat_mode_val == ChatMode.DB_COMMAND_ID.value:  # /db command
-        chat_state.embeddings_needed = True
         return handle_db_command(chat_state)
     elif chat_mode_val == ChatMode.SHARE_COMMAND_ID.value:  # /share command
-        chat_state.embeddings_needed = False
         return handle_share_command(chat_state)
     elif chat_mode_val == ChatMode.HELP_COMMAND_ID.value:  # /help command
         if not chat_state.parsed_query.message:
