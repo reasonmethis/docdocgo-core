@@ -83,6 +83,8 @@ class DDGError(Exception):
 
 class BotSettings(BaseModel):
     model: str = MODEL_NAME
+    model_name: str = model.split("/",0)
+    model_provider: str = model.split("/",1)
     temperature: float = TEMPERATURE
 
 

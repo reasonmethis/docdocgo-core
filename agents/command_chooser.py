@@ -1,9 +1,9 @@
 from utils.chat_state import ChatState
-from utils.query_parsing import get_command
 from utils.helpers import command_ids
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import init_chat_model
 from components.llm import get_prompt_llm_chain
+from utils.query_parsing import parse_query
+from docdocgo import get_bot_response
 
 def get_raw_command(chat_state: ChatState):
     # Create prompt to generate commands from unstructrured user input
@@ -60,6 +60,10 @@ def get_raw_command(chat_state: ChatState):
         - /export: export your data
         - /help <your query>: get help with using DocDocGo
 
+        # THE CURRENT COLLECTION
+        Here is a report on the contents of the current collection so you can decide which command to use: 
+        {details}
+
         # OUTPUT
         You will output 2 strings in a JSON format: The first is an answer to the user's query, informing them what effects the command you choose will have without making reference to the command itself. Your second string will output the raw string of the suggested query, ready to be run.
 
@@ -91,14 +95,23 @@ def get_raw_command(chat_state: ChatState):
         """
     )
 
+    # Get details on the current collection 
+    coll_details_query = "/details What is the current collection about?"
+    parsed_details_query = parse_query(coll_details_query)
+    chat_state.update(parsed_query=parsed_details_query, callbacks=None)
+    details = get_bot_response(chat_state)
+
     # Check if query already starts with a command string, if so return as is
     if any(chat_state.message.startswith(command + "") for command in command_ids):
         return chat_state.message
     # If not formatted as a command, prompt LLM to generate a command
     else:
-        model = chat_state.bot_settings.model
-        prompt_template.invoke({"query": chat_state.message})
-        response = str(get_prompt_llm_chain(prompt_template, chat_state.bot_settings, chat_state.openrouter_api_key))
+        chain = get_prompt_llm_chain(
+                    prompt=prompt_template, 
+                    chat_state=chat_state,
+                    llm_settings=chat_state.bot_settings,
+                    embeddings_needed=False)
+        response = chain.invoke({"details": details, "query": chat_state.message})
         return response
 
 

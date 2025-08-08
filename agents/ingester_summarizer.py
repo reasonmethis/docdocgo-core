@@ -40,7 +40,8 @@ def summarize(docs: list[Document], chat_state: ChatState) -> str:
     summarizer_chain = get_prompt_llm_chain(
         SUMMARIZER_PROMPT,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openrouter_api_key,
+        chat_state=chat_state,
+        embeddings_needed=True,
         callbacks=chat_state.callbacks,
     )
 

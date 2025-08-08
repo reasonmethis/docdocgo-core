@@ -131,12 +131,17 @@ def get_web_research_response_no_ingestion(
     max_tokens_final_context: int = DEFAULT_MAX_TOKENS_FINAL_CONTEXT,
 ):
     query = chat_state.message
+    chat_state.embeddings_needed = True
     # Get queries to search for using query generator prompt
     query_generator_chain = get_prompt_llm_chain(
-        QUERY_GENERATOR_PROMPT,
+        prompt=QUERY_GENERATOR_PROMPT,
+        chat_state=chat_state,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openrouter_api_key,
+        embeddings_needed=False,
     )
+    for a, b in chat_state.__dict__.items():
+        print(a, b)
+
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
         try:
             query_generator_output = "OUTPUT_FAILED"
@@ -248,7 +253,8 @@ def get_web_research_response_no_ingestion(
         chain = get_prompt_llm_chain(
             RESEARCHER_PROMPT_INITIAL_REPORT,
             llm_settings=chat_state.bot_settings,
-            api_key=chat_state.openrouter_api_key,
+            chat_state=chat_state,
+            embeddings_needed=False,
             print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
             callbacks=chat_state.callbacks,
             stream=True,
@@ -522,8 +528,9 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     answer = get_prompt_llm_chain(
         prompt,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openrouter_api_key,
+        chat_state=chat_state,
         print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
+        embeddings_needed=False,
         callbacks=chat_state.callbacks,
         stream=True,
     ).invoke(inputs)
@@ -660,8 +667,9 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
     answer = get_prompt_llm_chain(
         REPORT_COMBINER_PROMPT,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openrouter_api_key,
+        chat_state=chat_state,
         print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
+        embeddings_needed=False,
         callbacks=chat_state.callbacks,
         stream=True,
     ).invoke(inputs)
@@ -917,7 +925,8 @@ def auto_update_search_queries_and_links(chat_state: ChatState) -> Props:
     chain = get_prompt_llm_chain(
         SEARCH_QUERIES_UPDATER_PROMPT,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openrouter_api_key,
+        chat_state=chat_state,
+        embeddings_needed=True,
         print_prompt=True,
     )
 
@@ -1119,8 +1128,8 @@ def get_researcher_response(chat_state: ChatState) -> Props:
             return format_invalid_input_answer(
                 f"Apologies, this command requires {num_iterations_left} research iterations, "
                 f"but a maximum of {MAX_ITERATIONS_IF_COMMUNITY_KEY} iterations is "
-                "allowed when using the community OpenRouter API key.",
-                "Please try a lower number of iterations or use your OpenRouter API key.",
+                "allowed when using the community OpenAI API key.",
+                "Please try a lower number of iterations or use your OpenAI API key.",
             )
     else:
         if num_iterations_left > MAX_ITERATIONS_IF_OWN_KEY:

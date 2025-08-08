@@ -5,7 +5,7 @@ import streamlit as st
 from components.llm import CallbackHandlerDDGConsole
 from docdocgo import do_intro_tasks
 from utils.chat_state import ChatState
-from utils.prepare import OPENAI_API_KEY, DEFAULT_OPENROUTER_API_KEY, DUMMY_OPENROUTER_API_KEY_PLACEHOLDER
+from utils.prepare import OPENAI_API_KEY, DEFAULT_OPENROUTER_API_KEY, DUMMY_OPENROUTER_API_KEY_PLACEHOLDER, MODEL_NAME
 from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.type_utils import OperationMode
 from utils.streamlit.helpers import mode_options
@@ -46,15 +46,17 @@ def prepare_app():
             "placeholder for CallbackHandlerDDGStreamlit",
         ],
         openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
-        openai_api_key=OPENAI_API_KEY
+        openai_api_key=OPENAI_API_KEY,
     )
 
     st.session_state.prev_supplied_openai_api_key = None
     st.session_state.prev_supplied_openrouter_api_key = None
-    st.session_state.default_openai_api_key = DEFAULT_OPENROUTER_API_KEY
+    st.session_state.openai_api_key = OPENAI_API_KEY
     st.session_state.default_openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
     if st.session_state.default_openrouter_api_key == DUMMY_OPENROUTER_API_KEY_PLACEHOLDER:
         st.session_state.default_openrouter_api_key = ""
+
+    st.session_state.model = MODEL_NAME
 
     st.session_state.idx_file_upload = -1
     st.session_state.uploader_form_key = "uploader-form"

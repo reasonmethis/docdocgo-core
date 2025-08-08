@@ -30,7 +30,7 @@ def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
 
 
 # Set up the environment variables
-DEFAULT_OPENROUTER_API_KEY = os.getenv("DEFAULT_OPENROUTER_API_KEY", "")
+DEFAULT_OPENROUTER_API_KEY = os.getenv("DEFAULT_OPENROUTER_API_KEY")
 OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
@@ -50,15 +50,21 @@ CHROMA_SERVER_AUTHN_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTHN_CREDENTIALS", "
 # The following variable is only used if USE_CHROMA_VIA_HTTP is False
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")  # rename to DEFAULT_MODEL?
+MODEL_NAME = os.getenv("MODEL_NAME", "google/gemini-2.5-flash")  # rename to DEFAULT_MODEL?
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))  # it's actually more like max
 # size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
-ALLOWED_MODELS = os.getenv("ALLOWED_MODELS", MODEL_NAME).split(",")
-ALLOWED_MODELS = [model.strip() for model in ALLOWED_MODELS]
-if MODEL_NAME not in ALLOWED_MODELS:
-    raise ValueError("The default model must be in the list of allowed models.")
+
+allowed_models_str = os.getenv("ALLOWED_MODELS", "")
+if allowed_models_str == "all":
+    print("All models allowed")
+    ALLOWED_MODELS: list[str]  = []
+else:
+    ALLOWED_MODELS = [model.strip() for model in ALLOWED_MODELS]
+    if ALLOWED_MODELS:
+        if MODEL_NAME not in ALLOWED_MODELS:
+            raise ValueError("The default model must be in the list of allowed models.")
 
 EMBEDDINGS_MODEL_NAME = os.getenv("EMBEDDINGS_MODEL_NAME", "text-embedding-3-large")
 EMBEDDINGS_DIMENSIONS = int(os.getenv("EMBEDDINGS_DIMENSIONS", 3072))

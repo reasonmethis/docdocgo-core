@@ -98,6 +98,6 @@ def get_web_search_queries_from_prompt(
     web search queries in the format {"queries": ["query1", "query2", ...]}
     """
     logger.info("Submitting prompt to get web search queries")
-    query_generator_chain = chat_state.get_prompt_llm_chain(prompt, to_user=False)
+    query_generator_chain = chat_state.get_prompt_llm_chain(prompt, embeddings_needed=False, to_user=False)
 
     return enforce_pydantic_json(query_generator_chain, inputs, Queries).queries

@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import streamlit as st
 from icecream import ic  # noqa: F401
@@ -9,7 +10,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
-from agents.command_chooser import get_raw_command
+
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
@@ -24,14 +25,12 @@ from utils.helpers import (
 from utils.ingest import extract_text, format_ingest_failure
 from utils.output import format_exception
 from utils.prepare import (
-    ALLOWED_MODELS,
-    BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
     DEFAULT_OPENROUTER_API_KEY,
-    OPENAI_API_KEY,
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
+    ALLOWED_MODELS,
     TEMPERATURE,
     get_logger,
 )
@@ -60,6 +59,7 @@ from utils.type_utils import (
     ChatMode,
     chat_modes_needing_llm,
 )
+from agents.command_chooser import get_raw_command
 
 logger = get_logger()
 
@@ -208,11 +208,11 @@ with st.sidebar:
             # TODO: document this
             # This allows the user to use community key mode (and see public collections
             # even if BYPASS_SETTINGS_RESTRICTIONS is set
-            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            openrouter_api_key_to_use = ss.default_openrouter_api_key
             is_or_community_key = True
 
         elif supplied_openrouter_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
-            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            openrouter_api_key_to_use = ss.default_openrouter_api_key
             is_or_community_key = False
 
             # Collapse key field (not super important, but nice)
@@ -222,7 +222,7 @@ with st.sidebar:
 
         else:
             # Use the key entered by the user as the OpenRouter API key
-            openrouter_api_key_to_use: str = supplied_openrouter_api_key
+            openrouter_api_key_to_use = supplied_openrouter_api_key
             is_or_community_key = False
 
         # In case there's no community key available, set is_or_community_key to False
@@ -253,7 +253,7 @@ with st.sidebar:
                 disabled=True,
             )
         else:
-            chat_state.bot_settings.model = st.text_input(
+            supplied_openrouter_model_name = st.text_input(
                 "OpenRouter Model",
                 label_visibility="collapsed",
                 key="model",
@@ -261,8 +261,12 @@ with st.sidebar:
                 placeholder="google/gemini-2.5-flash",
                 disabled=False,
             )
-
-        st.caption("OpenRouter Model (Enter in the form of provider/model, for example google/gemini-2.5-flash. If you are using the community OpenRouter API key you may not choose a custom model.)")
+            if ALLOWED_MODELS and supplied_openrouter_model_name not in ALLOWED_MODELS:
+                st.caption('That model is not in the allowed list of models. Make sure you are formatting it provider/model with a slash. The model will be set to the default, "google/gemini-2.5-flash"')
+                chat_state.bot_settings.model = MODEL_NAME
+            else:
+                chat_state.bot_settings.model = supplied_openrouter_model_name
+            st.caption("OpenRouter Model (Enter in the form of provider/model, for example google/gemini-2.5-flash. If you are using the community OpenRouter API key you may not choose a custom model.)")
 
         # Temperature
         chat_state.bot_settings.temperature = st.slider(
@@ -356,25 +360,20 @@ if files:
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
 
-chat_input_text = f"[{ss.default_mode}] " if cmd_prefix else ""
+chat_input_text: str = f"[{ss.default_mode}] " if cmd_prefix else ""
 chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
 if full_query:
-    # Prepend the command prefix for the user-selected default mode, if needed
-    if cmd_prefix and not full_query.startswith("/"):
-        full_query = cmd_prefix + full_query
+    # Send query to LLM to select appropriate command, then continue with the command
+    llm_raw_command = get_raw_command(chat_state)
+    #full_query = str(llm_raw_command)
+    print(full_query)
 else:
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
     elif clicked_sample_query:
         full_query = clicked_sample_query
-
-# Send query to LLM to select appropriate command, then continue with the command
-if full_query:
-    llm_raw_command = get_raw_command(chat_state)
-    full_query = str(llm_raw_command)
-    print(llm_raw_command)
 
 # Parse the query or get the next scheduled query, if any
 if full_query:
@@ -430,8 +429,9 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
     chat_state.callbacks[1] = cb
     chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
-        response = get_raw_command(chat_state)
+        response = get_bot_response(chat_state)
         answer = response["answer"]
+        print(answer)
 
         # Check if this is the first time we got a response from the LLM
         if not ss.llm_api_key_ok_status and chat_mode in chat_modes_needing_llm:
@@ -456,12 +456,14 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
             status.write(response.get("status.body", default_status["complete.body"]))
 
         # Add the response to the chat history
-        chat_state.chat_history.append((full_query, answer))
+        if full_query:
+            chat_state.chat_history.append((full_query, answer))
 
         # If the response contains instructions to auto-run a query, record it
         if new_parsed_query := response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
+        print(traceback.format_exc())
         # Add the error message to the likely incomplete response
         err_msg = format_exception(e)
         answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
