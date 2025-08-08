@@ -1,10 +1,9 @@
 from typing import Any
 from uuid import UUID
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
-from langchain_openai import AzureChatOpenAI
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
@@ -106,7 +105,6 @@ def get_llm_with_callbacks(
             verbose=True,  # tmp
         )
     return llm
-
 
 def get_llm(
     settings: BotSettings,

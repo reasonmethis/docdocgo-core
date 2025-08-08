@@ -89,6 +89,7 @@ class ChatState:
         uploaded_docs: list[Document] | None = None,
         session_data: AgentDataDict | None = None,  # currently not used (agent
         # data is stored in collection metadata)
+        command_chooser_chain: int | int = 0
     ) -> None:
         self.operation_mode = operation_mode
         self.is_community_key = is_community_key
@@ -111,6 +112,7 @@ class ChatState:
         self._access_code_by_coll_by_user_id = access_code_by_coll_by_user_id or {}
         self.uploaded_docs = uploaded_docs or []
         self.session_data = session_data or {}
+        self.command_chooser_chain = command_chooser_chain or 0
 
     @property
     def collection_name(self) -> str:

@@ -9,6 +9,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
+from agents.command_chooser import get_raw_command
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
@@ -354,6 +355,7 @@ if files:
 # Check if the user has entered a query
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
+
 chat_input_text = f"[{ss.default_mode}] " if cmd_prefix else ""
 chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
@@ -367,6 +369,12 @@ else:
         full_query = INITIAL_TEST_QUERY_STREAMLIT
     elif clicked_sample_query:
         full_query = clicked_sample_query
+
+# Send query to LLM to select appropriate command, then continue with the command
+if full_query:
+    llm_raw_command = get_raw_command(chat_state)
+    full_query = str(llm_raw_command)
+    print(llm_raw_command)
 
 # Parse the query or get the next scheduled query, if any
 if full_query:
@@ -422,7 +430,7 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
     chat_state.callbacks[1] = cb
     chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
     try:
-        response = get_bot_response(chat_state)
+        response = get_raw_command(chat_state)
         answer = response["answer"]
 
         # Check if this is the first time we got a response from the LLM
