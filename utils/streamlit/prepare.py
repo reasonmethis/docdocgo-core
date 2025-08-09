@@ -5,7 +5,7 @@ import streamlit as st
 from components.llm import CallbackHandlerDDGConsole
 from docdocgo import do_intro_tasks
 from utils.chat_state import ChatState
-from utils.prepare import DEFAULT_OPENAI_API_KEY, DUMMY_OPENAI_API_KEY_PLACEHOLDER
+from utils.prepare import OPENAI_API_KEY, DEFAULT_OPENROUTER_API_KEY, DUMMY_OPENROUTER_API_KEY_PLACEHOLDER, MODEL_NAME
 from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.type_utils import OperationMode
 from utils.streamlit.helpers import mode_options
@@ -19,8 +19,9 @@ def prepare_app():
         )
         st.stop()
 
-    # Flag for whether or not the OpenAI API key has succeeded at least once
+    # Flag for whether or not the OpenRouter and OpenAI API keys have succeeded at least once
     st.session_state.llm_api_key_ok_status = False
+    st.session_state.openrouter_api_key_ok_status = False
 
     print("query params:", st.query_params)
     st.session_state.update_query_params = None
@@ -28,7 +29,7 @@ def prepare_app():
     st.session_state.access_code = st.query_params.get("access_code")
     try:
         remove_tornado_fix()
-        vectorstore = do_intro_tasks(openai_api_key=DEFAULT_OPENAI_API_KEY)
+        vectorstore = do_intro_tasks(openai_api_key=OPENAI_API_KEY)
     except Exception as e:
         st.error(
             "Apologies, I could not load the vector database. This "
@@ -44,13 +45,18 @@ def prepare_app():
             CallbackHandlerDDGConsole(),
             "placeholder for CallbackHandlerDDGStreamlit",
         ],
-        openai_api_key=DEFAULT_OPENAI_API_KEY,
+        openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
+        openai_api_key=OPENAI_API_KEY,
     )
 
     st.session_state.prev_supplied_openai_api_key = None
-    st.session_state.default_openai_api_key = DEFAULT_OPENAI_API_KEY
-    if st.session_state.default_openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
-        st.session_state.default_openai_api_key = ""
+    st.session_state.prev_supplied_openrouter_api_key = None
+    st.session_state.openai_api_key = OPENAI_API_KEY
+    st.session_state.default_openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
+    if st.session_state.default_openrouter_api_key == DUMMY_OPENROUTER_API_KEY_PLACEHOLDER:
+        st.session_state.default_openrouter_api_key = ""
+
+    st.session_state.model = MODEL_NAME
 
     st.session_state.idx_file_upload = -1
     st.session_state.uploader_form_key = "uploader-form"

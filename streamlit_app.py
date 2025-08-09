@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import streamlit as st
 from icecream import ic  # noqa: F401
@@ -9,6 +10,7 @@ from agents.dbmanager import (
     get_short_user_id,
     get_user_facing_collection_name,
 )
+
 from components.llm import CallbackHandlerDDGStreamlit
 from docdocgo import get_bot_response, get_source_links
 from utils.chat_state import ChatState
@@ -23,13 +25,12 @@ from utils.helpers import (
 from utils.ingest import extract_text, format_ingest_failure
 from utils.output import format_exception
 from utils.prepare import (
-    ALLOWED_MODELS,
-    BYPASS_SETTINGS_RESTRICTIONS,
     BYPASS_SETTINGS_RESTRICTIONS_PASSWORD,
     DEFAULT_COLLECTION_NAME,
-    DEFAULT_OPENAI_API_KEY,
+    DEFAULT_OPENROUTER_API_KEY,
     INITIAL_TEST_QUERY_STREAMLIT,
     MODEL_NAME,
+    ALLOWED_MODELS,
     TEMPERATURE,
     get_logger,
 )
@@ -58,6 +59,7 @@ from utils.type_utils import (
     ChatMode,
     chat_modes_needing_llm,
 )
+from agents.command_chooser import get_raw_command
 
 logger = get_logger()
 
@@ -89,7 +91,7 @@ with st.sidebar:
     st.header("DocDocGo " + VERSION)
 
     # Default mode
-    with st.expander("Command Mode", expanded=False):
+    with st.expander("Command Mode", expanded=True):
         ss.default_mode = st.selectbox(
             "Command used if none provided",
             mode_options,
@@ -98,18 +100,19 @@ with st.sidebar:
         )
         cmd_prefix, cmd_prefix_explainer = mode_option_to_prefix[ss.default_mode]
         st.caption(cmd_prefix_explainer)
-
-    with st.expander("OpenAI API Key", expanded=not ss.llm_api_key_ok_status):
+    
+    with st.expander("OpenAI API Key", expanded=False):
         supplied_openai_api_key = st.text_input(
             "OpenAI API Key",
             label_visibility="collapsed",
+            placeholder="",
             key="openai_api_key",
             type="password",
         )
 
         if not supplied_openai_api_key:
             openai_api_key_to_use: str = ss.default_openai_api_key
-            is_community_key = not BYPASS_SETTINGS_RESTRICTIONS
+            is_community_key = True
 
         elif supplied_openai_api_key in ("public", "community"):
             # TODO: document this
@@ -189,18 +192,81 @@ with st.sidebar:
                 chat_state.chat_history_all.append((None, init_msg))
                 chat_state.sources_history.append(None)
 
+    with st.expander("OpenRouter API Key", expanded=False):
+        supplied_openrouter_api_key = st.text_input(
+            "OpenRouter API Key",
+            label_visibility="collapsed",
+            key="openrouter_api_key",
+            type="password",
+        )
+
+        if not supplied_openrouter_api_key:
+            openrouter_api_key_to_use: str = ss.default_openrouter_api_key
+            is_or_community_key = True
+
+        elif supplied_openrouter_api_key in ("public", "community"):
+            # TODO: document this
+            # This allows the user to use community key mode (and see public collections
+            # even if BYPASS_SETTINGS_RESTRICTIONS is set
+            openrouter_api_key_to_use = ss.default_openrouter_api_key
+            is_or_community_key = True
+
+        elif supplied_openrouter_api_key == BYPASS_SETTINGS_RESTRICTIONS_PASSWORD:
+            openrouter_api_key_to_use = ss.default_openrouter_api_key
+            is_or_community_key = False
+
+            # Collapse key field (not super important, but nice)
+            if not ss.openrouter_api_key_ok_status:
+                ss.openrouter_api_key_ok_status = True  # collapse key field
+                st.rerun()  # otherwise won't collapse until next interaction
+
+        else:
+            # Use the key entered by the user as the OpenRouter API key
+            openrouter_api_key_to_use = supplied_openrouter_api_key
+            is_or_community_key = False
+
+        # In case there's no community key available, set is_or_community_key to False
+        if not openrouter_api_key_to_use:
+            is_or_community_key = False
+            st.caption("To use this app, you'll need an OpenRouter API key. "
+            "[Get an OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+            )
+        elif is_or_community_key:
+            st.caption(
+                "Using the default OpenRouter API key (You may not select a custom model.). "
+                "[Get your OpenRouter API key](https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up)"
+            )
+
+        chat_state.is_or_community_key = is_or_community_key  # in case it changed
+        chat_state.openrouter_api_key = openrouter_api_key_to_use # in case it changed
+
+
     # Settings
     with st.expander("Settings", expanded=False):
-        if is_community_key:
-            model_options = [MODEL_NAME]  # show only 3.5 if community key
-            index = 0
+        if is_or_community_key:
+            chat_state.bot_settings.model = st.text_input(
+                "OpenRouter Model",
+                label_visibility="collapsed",
+                key="model",
+                type="default",
+                placeholder="google/gemini-2.5-flash",
+                disabled=True,
+            )
         else:
-            model_options = ALLOWED_MODELS  # guaranteed to include MODEL_NAME
-            index = model_options.index(chat_state.bot_settings.llm_model_name)
-        # TODO: adjust context length (for now assume 16k)
-        chat_state.bot_settings.llm_model_name = st.selectbox(
-            "Language model", model_options, disabled=is_community_key, index=index
-        )
+            supplied_openrouter_model_name = st.text_input(
+                "OpenRouter Model",
+                label_visibility="collapsed",
+                key="model",
+                type="default",
+                placeholder="google/gemini-2.5-flash",
+                disabled=False,
+            )
+            if ALLOWED_MODELS and supplied_openrouter_model_name not in ALLOWED_MODELS:
+                st.caption('That model is not in the allowed list of models. Make sure you are formatting it provider/model with a slash. The model will be set to the default, "google/gemini-2.5-flash"')
+                chat_state.bot_settings.model = MODEL_NAME
+            else:
+                chat_state.bot_settings.model = supplied_openrouter_model_name
+            st.caption("OpenRouter Model (Enter in the form of provider/model, for example google/gemini-2.5-flash. If you are using the community OpenRouter API key you may not choose a custom model.)")
 
         # Temperature
         chat_state.bot_settings.temperature = st.slider(
@@ -290,16 +356,29 @@ if files:
     if docs:
         ingest_docs(docs, chat_state)
 
-# Check if the user has entered a query
+# Get and display collection name
 coll_name_full = chat_state.vectorstore.name
 coll_name_as_shown = get_user_facing_collection_name(chat_state.user_id, coll_name_full)
-chat_input_text = f"[{ss.default_mode}] " if cmd_prefix else ""
+# Get text input by user
+chat_input_text: str = f"[{ss.default_mode}] " if cmd_prefix else ""
 chat_input_text = limit_num_characters(chat_input_text + coll_name_as_shown, 35) + "/"
 full_query = st.chat_input(chat_input_text)
 if full_query:
-    # Prepend the command prefix for the user-selected default mode, if needed
-    if cmd_prefix and not full_query.startswith("/"):
-        full_query = cmd_prefix + full_query
+    # Send query to LLM to select appropriate command, then display the response and continue with the command
+    with st.chat_message("assistant", avatar=ss.bot_avatar):
+        try:
+            llm_raw_command: dict[str, str] = get_raw_command(full_query, chat_state)
+            response = llm_raw_command['answer']
+            st.markdown(fix_markdown(response))
+            # Check if this is the first time we got a response from the LLM
+            if not ss.llm_api_key_ok_status and not ss.openrouter_api_key_ok_status:
+                # Set a temp value to trigger a rerun to collapse the API key fields
+                ss.llm_api_key_ok_status = "RERUN_PLEASE"
+                ss.openrouter_api_key_ok_status = "RERUN_PLEASE"
+        except KeyError:
+            status = None    
+    full_query = llm_raw_command['command']
+    print(full_query)
 else:
     # If no message from the user, check if we should run an initial test query
     if not chat_state.chat_history_all and INITIAL_TEST_QUERY_STREAMLIT:
@@ -352,47 +431,47 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
     # Prepare container and callback handler for showing streaming response
     message_placeholder = st.empty()
 
-    cb = CallbackHandlerDDGStreamlit(
-        message_placeholder,
-        end_str=STAND_BY_FOR_INGESTION_MESSAGE
-        if parsed_query.is_ingestion_needed()
-        else "",
-    )
-    chat_state.callbacks[1] = cb
-    chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
-    try:
-        response = get_bot_response(chat_state)
-        answer = response["answer"]
+    # Commenting Callback handling logic for now as it is not working
+    # cb = CallbackHandlerDDGStreamlit(
+    #     message_placeholder,
+    #     end_str=STAND_BY_FOR_INGESTION_MESSAGE
+    #     if parsed_query.is_ingestion_needed()
+    #     else "",
+    # )
 
-        # Check if this is the first time we got a response from the LLM
-        if not ss.llm_api_key_ok_status and chat_mode in chat_modes_needing_llm:
-            # Set a temp value to trigger a rerun to collapse the API key field
-            ss.llm_api_key_ok_status = "RERUN_PLEASE"
+    # chat_state.callbacks[1] = cb
+    # chat_state.add_to_output = lambda x: cb.on_llm_new_token(x, run_id=None)
+
+    try:
+        llm_response: dict[str, str] | None = get_bot_response(chat_state)
+        answer = llm_response['answer']
 
         # Display non-streaming responses slowly (in particular avoids chat prompt flicker)
-        if chat_mode not in chat_modes_needing_llm or "needs_print" in response:
+        if chat_mode not in chat_modes_needing_llm or "needs_print" in llm_response:
             write_slowly(message_placeholder, answer)
 
         # Display sources if present
-        sources = get_source_links(response) or None  # Cheaper to store None than []
-        show_sources(sources, cb)
+        sources = get_source_links(llm_response) or None  # Cheaper to store None than []
+        show_sources(sources)
 
         # Display the "complete" status - custom or default
         if status:
             default_status = status_config.get(chat_mode, just_chat_status_config)
             status.update(
-                label=response.get("status.header", default_status["complete.header"]),
+                label=llm_response.get("status.header", default_status["complete.header"]),
                 state="complete",
             )
-            status.write(response.get("status.body", default_status["complete.body"]))
+            status.write(llm_response.get("status.body", default_status["complete.body"]))
 
         # Add the response to the chat history
-        chat_state.chat_history.append((full_query, answer))
+        if full_query:
+            chat_state.chat_history.append((full_query, answer))
 
         # If the response contains instructions to auto-run a query, record it
-        if new_parsed_query := response.get("new_parsed_query"):
+        if new_parsed_query := llm_response.get("new_parsed_query"):
             chat_state.scheduled_queries.add_to_front(new_parsed_query)
     except Exception as e:
+        print(traceback.format_exc())
         # Add the error message to the likely incomplete response
         err_msg = format_exception(e)
         answer = f"Apologies, an error has occurred:\n```\n{err_msg}\n```"
@@ -403,23 +482,22 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
             status.write(status_config[chat_mode]["error.body"])
 
         err_type = (
-            "OPENAI_API_AUTH"
+            "OPENROUTER_API_AUTH"
             if (
                 err_msg.startswith("AuthenticationError")
-                and "key at https://platform.openai" in err_msg
             )
             else "EMBEDDINGS_DIM"
             if err_msg.startswith("InvalidDimensionException")
             else "OTHER"
         )
 
-        if err_type == "OPENAI_API_AUTH":
+        if err_type == "OPENROUTER_API_AUTH":
             if is_community_key:
-                answer = f"Apologies, the community OpenAI API key ({ss.default_openai_api_key[:4]}...{DEFAULT_OPENAI_API_KEY[-4:]}) was rejected by the OpenAI API. Possible reasons:\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
-            elif openai_api_key_to_use:
-                answer = f"Apologies, the OpenAI API key you entered ({openai_api_key_to_use[:4]}...) was rejected by the OpenAI API. Possible reasons:\n- The key is invalid\n- OpenAI believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+                answer = f"Apologies, the community OpenRouter API key ({ss.default_openrouter_api_key[:4]}...{DEFAULT_OPENROUTER_API_KEY[-4:]}) was rejected by the OpenRouter API. Possible reasons:\n- OpenRouter believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get your own key at https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up and enter it in the sidebar."
+            elif openrouter_api_key_to_use:
+                answer = f"Apologies, the OpenRouter API key you entered ({openrouter_api_key_to_use[:4]}...) was rejected by the OpenRouter API. Possible reasons:\n- The key is invalid\n- OpenRouter believes that the key has leaked\n- The key has reached its usage limit\n\n**What to do:** Please get a new key at https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up and enter it in the sidebar."
             else:
-                answer = "In order to use DocDocGo, you'll need an OpenAI API key. Please get one at https://platform.openai.com/account/api-keys and enter it in the sidebar."
+                answer = "In order to use DocDocGo, you'll need an OpenRouter API key. Please get one at https://openrouter.ai/CLERK-ROUTER/VIRTUAL/sign-up and enter it in the sidebar."
 
         elif err_type == "EMBEDDINGS_DIM":
             answer = (
@@ -429,8 +507,8 @@ with st.chat_message("assistant", avatar=ss.bot_avatar):
                 "via the project's GitHub repository or through LinkedIn at "
                 "https://www.linkedin.com/in/dmitriyvasilyuk/."
             )
-        elif cb.buffer:
-            answer = f"{cb.buffer}\n\n{answer}"
+        # elif cb.buffer:
+        #    answer = f"{cb.buffer}\n\n{answer}"
 
         # Assign sources
         sources = None
@@ -454,7 +532,7 @@ if is_ingest_via_file_uploader:
     files, allow_all_ext = show_uploader(is_teleporting=True)
 
 # Display the file downloader if needed
-for instruction in response.get("instructions", []):
+for instruction in llm_response.get("instructions", []):
     if instruction.type == INSTRUCT_EXPORT_CHAT_HISTORY:
         ss.idx_file_download = len(chat_state.chat_history_all) - 1
         is_downloaded = show_downloader(
@@ -463,8 +541,8 @@ for instruction in response.get("instructions", []):
         )
 
 # Update vectorstore if needed
-if "vectorstore" in response:
-    chat_state.vectorstore = response["vectorstore"]
+if "vectorstore" in llm_response:
+    chat_state.vectorstore = llm_response["vectorstore"]
 
 # Update the collection name in the address bar if collection has changed
 if coll_name_full != chat_state.vectorstore.name:
@@ -473,6 +551,11 @@ if coll_name_full != chat_state.vectorstore.name:
         if chat_state.vectorstore.name != DEFAULT_COLLECTION_NAME
         else {}
     )
+
+# If this was the first LLM response, rerun to collapse the OpenRouter API key field
+if ss.openrouter_api_key_ok_status == "RERUN_PLEASE":
+    ss.openrouter_api_key_ok_status = True
+    st.rerun()
 
 # If this was the first LLM response, rerun to collapse the OpenAI API key field
 if ss.llm_api_key_ok_status == "RERUN_PLEASE":

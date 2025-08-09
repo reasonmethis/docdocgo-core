@@ -208,12 +208,13 @@ def write_slowly(message_placeholder, answer, delay=None):
 
 def show_sources(
     sources: list[str] | None,
-    callback_handler=None,
+    # Commenting callback logic as it is not needed for now
+    # callback_handler=None,
 ):
     """Show the sources if present."""
     # If the cb handler is provided, remove the stand-by message
-    if callback_handler and callback_handler.end_str_printed:
-        callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
+    # if callback_handler and callback_handler.end_str_printed:
+    #    callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
 
     if not sources:
         return

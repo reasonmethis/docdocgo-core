@@ -3,6 +3,8 @@ chroma-cloud*
 .tmp*
 credentials/
 chroma-cloud-backup/
+chroma/
+chroma.cf.json
 .chroma_env
 my-chroma*
 .chroma_env

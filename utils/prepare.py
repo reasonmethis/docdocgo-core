@@ -30,10 +30,12 @@ def get_logger(logger_name: str = DEFAULT_LOGGER_NAME):
 
 
 # Set up the environment variables
-DEFAULT_OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY", "")
+DEFAULT_OPENROUTER_API_KEY = os.getenv("DEFAULT_OPENROUTER_API_KEY")
+OPENAI_API_KEY = os.getenv("DEFAULT_OPENAI_API_KEY")
 IS_AZURE = bool(os.getenv("OPENAI_API_BASE") or os.getenv("AZURE_OPENAI_API_KEY"))
 EMBEDDINGS_DEPLOYMENT_NAME = os.getenv("EMBEDDINGS_DEPLOYMENT_NAME")
 CHAT_DEPLOYMENT_NAME = os.getenv("CHAT_DEPLOYMENT_NAME")
+OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL")
 
 DEFAULT_COLLECTION_NAME = os.getenv("DEFAULT_COLLECTION_NAME", "docdocgo-documentation")
 
@@ -48,15 +50,21 @@ CHROMA_SERVER_AUTHN_CREDENTIALS = os.getenv("CHROMA_SERVER_AUTHN_CREDENTIALS", "
 # The following variable is only used if USE_CHROMA_VIA_HTTP is False
 VECTORDB_DIR = os.getenv("VECTORDB_DIR", "chroma/")
 
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")  # rename to DEFAULT_MODEL?
+MODEL_NAME = os.getenv("MODEL_NAME", "google/gemini-2.5-flash")  # rename to DEFAULT_MODEL?
 CONTEXT_LENGTH = int(os.getenv("CONTEXT_LENGTH", 16000))  # it's actually more like max
 # size of what we think we can feed to the model so that it doesn't get overwhelmed
 TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
 
-ALLOWED_MODELS = os.getenv("ALLOWED_MODELS", MODEL_NAME).split(",")
-ALLOWED_MODELS = [model.strip() for model in ALLOWED_MODELS]
-if MODEL_NAME not in ALLOWED_MODELS:
-    raise ValueError("The default model must be in the list of allowed models.")
+
+allowed_models_str = os.getenv("ALLOWED_MODELS", "")
+if allowed_models_str == "all":
+    print("All models allowed")
+    ALLOWED_MODELS: list[str]  = []
+else:
+    ALLOWED_MODELS = [model.strip() for model in ALLOWED_MODELS]
+    if ALLOWED_MODELS:
+        if MODEL_NAME not in ALLOWED_MODELS:
+            raise ValueError("The default model must be in the list of allowed models.")
 
 EMBEDDINGS_MODEL_NAME = os.getenv("EMBEDDINGS_MODEL_NAME", "text-embedding-3-large")
 EMBEDDINGS_DIMENSIONS = int(os.getenv("EMBEDDINGS_DIMENSIONS", 3072))
@@ -81,7 +89,7 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 INITIAL_TEST_QUERY_STREAMLIT = os.getenv("INITIAL_QUERY_STREAMLIT")
 
 # Check that the necessary environment variables are set
-DUMMY_OPENAI_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
+DUMMY_OPENROUTER_API_KEY_PLACEHOLDER = "DUMMY NON-EMPTY VALUE"
 
 if IS_AZURE and not (
     EMBEDDINGS_DEPLOYMENT_NAME
@@ -93,17 +101,17 @@ if IS_AZURE and not (
         "You have set some but not all environment variables necessary to utilize the "
         "Azure OpenAI API endpoint. Please refer to .env.example for details."
     )
-elif not IS_AZURE and not DEFAULT_OPENAI_API_KEY:
+elif not IS_AZURE and not DEFAULT_OPENROUTER_API_KEY:
     # We don't exit because we could get the key from the Streamlit app
     print(
-        "WARNING: You have not set the DEFAULT_OPENAI_API_KEY environment variable. "
+        "WARNING: You have not set the DEFAULT_OPENROUTER_API_KEY environment variable. "
         "This is ok when running the Streamlit app, but not when running "
         "the command line app. For now, we will set it to a dummy non-empty value "
         "to avoid problems initializing the vectorstore etc. "
         "Please refer to .env.example for additional information."
     )
-    os.environ["DEFAULT_OPENAI_API_KEY"] = DUMMY_OPENAI_API_KEY_PLACEHOLDER
-    DEFAULT_OPENAI_API_KEY = DUMMY_OPENAI_API_KEY_PLACEHOLDER
+    os.environ["DEFAULT_OPENROUTER_API_KEY"] = DUMMY_OPENROUTER_API_KEY_PLACEHOLDER
+    DEFAULT_OPENROUTER_API_KEY = DUMMY_OPENROUTER_API_KEY_PLACEHOLDER
     # TODO investigate the behavior when this happens
 
 if not os.getenv("SERPER_API_KEY") and not os.getenv("IGNORE_LACK_OF_SERPER_API_KEY"):

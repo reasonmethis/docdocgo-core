@@ -2,6 +2,7 @@ import os
 from typing import Any
 
 from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate, ChatPromptTemplate
 
 from _prepare_env import is_env_loaded
 from agents.dbmanager import get_user_facing_collection_name, handle_db_command
@@ -25,7 +26,7 @@ from utils.helpers import (
 from utils.lang_utils import pairwise_chat_history_to_msg_list
 
 # Load environment variables
-from utils.prepare import DEFAULT_COLLECTION_NAME, DEFAULT_OPENAI_API_KEY, get_logger
+from utils.prepare import DEFAULT_COLLECTION_NAME, OPENAI_API_KEY, DEFAULT_OPENROUTER_API_KEY, get_logger
 from utils.prompts import (
     CHAT_WITH_DOCS_PROMPT,
     CONDENSE_QUESTION_PROMPT,
@@ -39,7 +40,6 @@ from utils.type_utils import ChatMode, OperationMode
 logger = get_logger()
 
 default_vectorstore = None  # can move to chat_state
-
 
 def get_bot_response(chat_state: ChatState):
     global default_vectorstore
@@ -61,9 +61,10 @@ def get_bot_response(chat_state: ChatState):
     elif chat_mode_val == ChatMode.JUST_CHAT_COMMAND_ID.value:  # /chat command
         chat_chain = get_prompt_llm_chain(
             JUST_CHAT_PROMPT,
+            chat_state=chat_state,
             llm_settings=chat_state.bot_settings,
-            api_key=chat_state.openai_api_key,
             callbacks=chat_state.callbacks,
+            embeddings_needed=False,
             stream=True,
         )
         answer = chat_chain.invoke(
@@ -155,7 +156,7 @@ def get_source_links(result_from_chain: dict[str, Any]) -> list[str]:
 
 def get_docs_chat_chain(
     chat_state: ChatState,
-    prompt_qa=CHAT_WITH_DOCS_PROMPT,
+    prompt_qa: PromptTemplate | ChatPromptTemplate = CHAT_WITH_DOCS_PROMPT,
 ):
     """
     Create a chain to respond to queries using a vectorstore of documents.
@@ -163,7 +164,8 @@ def get_docs_chat_chain(
     # Initialize chain for query generation from chat history
     llm_for_q_generation = get_llm(
         settings=chat_state.bot_settings.model_copy(update={"temperature": 0}),
-        api_key=chat_state.openai_api_key,
+        chat_state=chat_state,
+        api_key=chat_state.openrouter_api_key,
     )
     query_generator_chain = LLMChain(
         llm=llm_for_q_generation,
@@ -187,19 +189,15 @@ def get_docs_chat_chain(
         llm_for_token_counting=None,  # will be assigned in a moment
         verbose=bool(os.getenv("PRINT_SIMILARITIES")),
     )
-    # retriever = VectorStoreRetriever(vectorstore=chat_state.vectorstore)
-    # search_kwargs={
-    #     "k": num_docs_max,
-    #     "score_threshold": relevance_threshold,
-    # },
 
     # Initialize chain for answering queries based on provided doc snippets
     qa_from_docs_chain = get_prompt_llm_chain(
         prompt_qa,
+        chat_state=chat_state,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
         callbacks=chat_state.callbacks,
         print_prompt=bool(os.getenv("PRINT_QA_PROMPT")),
+        embeddings_needed=False,
         stream=True,
     )
 
@@ -219,7 +217,7 @@ def get_docs_chat_chain(
 
 
 def do_intro_tasks(
-    openai_api_key: str, collection_name: str | None = None
+    openai_api_key: str | None = None, collection_name: str | None = None
 ) -> ChromaDDG:
     global default_vectorstore
 
@@ -229,7 +227,7 @@ def do_intro_tasks(
     # Load and save default vector store
     try:
         vectorstore = default_vectorstore = get_vectorstore_using_openai_api_key(
-            DEFAULT_COLLECTION_NAME, openai_api_key=openai_api_key
+            DEFAULT_COLLECTION_NAME, openai_api_key=OPENAI_API_KEY
         )
     except Exception as e:
         logger.error(
@@ -256,7 +254,7 @@ def do_intro_tasks(
 
 
 if __name__ == "__main__":
-    vectorstore = do_intro_tasks(DEFAULT_OPENAI_API_KEY)
+    vectorstore = do_intro_tasks(OPENAI_API_KEY)
     TWO_BOTS = False  # os.getenv("TWO_BOTS", False) # disabled for now
 
     # Start chat
@@ -292,7 +290,8 @@ if __name__ == "__main__":
                     parsed_query=parsed_query,
                     chat_history=chat_history,
                     vectorstore=vectorstore,  # callbacks and bot_settings can be default here
-                    openai_api_key=DEFAULT_OPENAI_API_KEY,
+                    openai_api_key=OPENAI_API_KEY,
+                    openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
                     user_id=None,  # would be set to None by default but just to be explicit
                 )
             )

@@ -1,7 +1,8 @@
 from typing import Any
 from uuid import UUID
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
+from langchain.prompts import PromptTemplate
 from langchain_core.outputs import ChatGenerationChunk, GenerationChunk, LLMResult
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from streamlit.delta_generator import DeltaGenerator
 
 from utils.helpers import DELIMITER, MAIN_BOT_PREFIX
@@ -10,14 +11,17 @@ from utils.prepare import (
     CHAT_DEPLOYMENT_NAME,
     IS_AZURE,
     LLM_REQUEST_TIMEOUT,
+    EMBEDDINGS_MODEL_NAME,
+    OPENROUTER_BASE_URL
 )
 from utils.streamlit.helpers import fix_markdown
 from utils.type_utils import BotSettings, CallbacksOrNone
+from utils.chat_state import ChatState
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompt_values import ChatPromptValue
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 
 
 class CallbackHandlerDDGStreamlit(BaseCallbackHandler):
@@ -73,7 +77,11 @@ class CallbackHandlerDDGConsole(BaseCallbackHandler):
 
 
 def get_llm_with_callbacks(
-    settings: BotSettings, api_key: str | None = None, callbacks: CallbacksOrNone = None
+    settings: BotSettings, 
+    chat_state: ChatState, 
+    api_key: str | None = None, 
+    embeddings_needed=False, callbacks: 
+    CallbacksOrNone = None
 ) -> BaseChatModel:
     """
     Returns a chat model instance (either AzureChatOpenAI or ChatOpenAI, depending
@@ -81,31 +89,45 @@ def get_llm_with_callbacks(
     determined by CHAT_DEPLOYMENT_NAME (and other Azure-specific environment variables),
     not by settings.model_name.
     """
+    llm: AzureChatOpenAI | ChatOpenAI | None = None
     if IS_AZURE:
         llm = AzureChatOpenAI(
-            deployment_name=CHAT_DEPLOYMENT_NAME,
+            azure_deployment=CHAT_DEPLOYMENT_NAME,
             temperature=settings.temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
+            timeout=LLM_REQUEST_TIMEOUT,
             streaming=True,  # seems to help with timeouts
             callbacks=callbacks,
         )
     else:
-        llm = ChatOpenAI(
-            api_key=api_key or "",  # don't allow None, no implicit key from env
-            model=settings.llm_model_name,
-            temperature=settings.temperature,
-            request_timeout=LLM_REQUEST_TIMEOUT,
-            streaming=True,
-            callbacks=callbacks,
-            verbose=True,  # tmp
-        )
+        # if chat mode requires OpenAI, create special llm using embeddings model 
+        if embeddings_needed:
+            llm = ChatOpenAI(
+                api_key=chat_state.openai_api_key,
+                model="text-embedding-3-large",
+                temperature=0,
+                timeout=LLM_REQUEST_TIMEOUT,
+                streaming=True,
+                callbacks=callbacks,
+                verbose=True,  # tmp
+            )
+        else:
+            llm = ChatOpenAI(
+                api_key=chat_state.openrouter_api_key,
+                base_url=OPENROUTER_BASE_URL,
+                model=chat_state.bot_settings.model,
+                timeout=LLM_REQUEST_TIMEOUT,
+                streaming=True,
+                callbacks=callbacks,
+                verbose=True,  # tmp
+            )
     return llm
-
 
 def get_llm(
     settings: BotSettings,
+    chat_state: ChatState,
     api_key: str | None = None,
     callbacks: CallbacksOrNone = None,
+    embeddings_needed=False,
     stream=False,
     init_str=MAIN_BOT_PREFIX,
 ) -> BaseChatModel:
@@ -117,33 +139,47 @@ def get_llm(
     """
     if callbacks is None:
         callbacks = [CallbackHandlerDDGConsole(init_str)] if stream else []
-    return get_llm_with_callbacks(settings, api_key, callbacks)
+    return get_llm_with_callbacks(settings, chat_state, api_key, embeddings_needed, callbacks)
 
 
 def get_prompt_llm_chain(
-    prompt: PromptTemplate,
+    prompt: ChatPromptTemplate | PromptTemplate,
+    chat_state: ChatState,
     llm_settings: BotSettings,
-    api_key: str | None = None,
+    embeddings_needed: bool,
     print_prompt=False,
     **kwargs,
 ):
-    if not print_prompt:
-        return prompt | get_llm(llm_settings, api_key, **kwargs) | StrOutputParser()
-
-    def print_and_return(thing):
-        if isinstance(thing, ChatPromptValue):
-            print(f"PROMPT:\n{msg_list_chat_history_to_string(thing.messages)}")
+    # If the embeddings model is not needed, use OpenRouter
+    if not embeddings_needed:
+        if not print_prompt:
+            return (
+                prompt 
+                | get_llm(llm_settings, chat_state, chat_state.openrouter_api_key, embeddings_needed=False, **kwargs) 
+                | StrOutputParser()
+            )
         else:
-            print(f"PROMPT:\n{type(thing)}\n{thing}")
-        print(DELIMITER)
-        return thing
-
-    return (
-        prompt
-        | print_and_return
-        | get_llm(llm_settings, api_key, **kwargs)
-        | StrOutputParser()
-    )
+            def print_and_return(thing):
+                if isinstance(thing, ChatPromptValue):
+                    print(f"PROMPT:\n{msg_list_chat_history_to_string(thing.messages)}")
+                else:
+                    print(f"PROMPT:\n{type(thing)}\n{thing}")
+                print(DELIMITER)
+                return thing
+            return (
+            prompt
+            | print_and_return
+            | get_llm(llm_settings, chat_state, chat_state.openrouter_api_key, embeddings_needed=False, **kwargs)
+            | StrOutputParser()
+        )
+    # If embeddings are needed, use OpenAI
+    else:
+        llm_settings.model = EMBEDDINGS_MODEL_NAME
+        return (
+            prompt
+            | get_llm(llm_settings, chat_state, chat_state.openai_api_key, embeddings_needed=True, **kwargs)
+            | StrOutputParser()
+        )
 
 
 def get_llm_from_prompt_llm_chain(prompt_llm_chain):
