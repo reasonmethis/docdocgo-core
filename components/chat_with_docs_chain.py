@@ -5,9 +5,7 @@ import inspect
 from pathlib import Path
 from typing import Any, Callable
 from langchain.chains.base import Chain
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain.chains.llm import LLMChain
 
 from components.llm import get_llm_from_prompt_llm_chain
 from utils import lang_utils
