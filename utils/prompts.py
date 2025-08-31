@@ -449,7 +449,7 @@ if __name__ == "__main__":
         for i, t in enumerate(prompts_templates_to_test):
             prompt = PromptTemplate.from_template(t)
             chain = get_prompt_llm_chain(
-                prompt, BotSettings(), os.getenv("DEFAULT_OPENAI_API_KEY"), stream=True
+                prompt, BotSettings(), chat_state, os.getenv("DEFAULT_OPENROUTER_API_KEY"), stream=True
             )
             print("Prompt", i)
             try:

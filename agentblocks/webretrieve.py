@@ -17,6 +17,7 @@ class URLRetrievalData(BaseModel):
 
 
 MAX_INIT_BATCH_SIZE = 10
+MAX_URLS_TO_TRY = 25
 
 
 def get_content_from_urls(
@@ -31,8 +32,6 @@ def get_content_from_urls(
     Otherwise, fetch a new batch of urls, and repeat until at least min_ok_urls
     urls are fetched successfully.
 
-    If there are duplicate URLs
-
     Args:
     - urls: list of urls to fetch content from
     - min_ok_urls: minimum number of urls that need to be fetched successfully
@@ -42,11 +41,10 @@ def get_content_from_urls(
     Returns:
     - URLRetrievalData: object containing the fetched content
     """
+    urls = urls[:MAX_URLS_TO_TRY]
     try:
         batch_fetcher = batch_fetcher or get_batch_url_fetcher()
-        init_batch_size = init_batch_size or min(
-            MAX_INIT_BATCH_SIZE, round(min_ok_urls * 1.2)
-        )  # NOTE: could optimize
+        init_batch_size = init_batch_size or min(MAX_INIT_BATCH_SIZE, round(min_ok_urls * 1.2))  # NOTE: could optimize
 
         logger.info(
             f"Fetching content from {len(urls)} urls:\n"
@@ -85,11 +83,18 @@ def get_content_from_urls(
             batch_htmls = batch_fetcher(batch_urls)
 
             # Process fetched content
+            at_least_one_ok = False
             for url, html in zip(batch_urls, batch_htmls):
                 link_data = LinkData.from_raw_content(html)
                 res.link_data_dict[url] = link_data
                 if not link_data.error:
                     res.num_ok_urls += 1
+                    at_least_one_ok = True
+
+            if not at_least_one_ok:
+                errors = [res.link_data_dict[url].error for url in batch_urls]
+                error_string = "\n- ".join(f"{url}: {error}" for url, error in zip(batch_urls, errors))
+                logger.warning(f"No usable content found for any of the {batch_size} urls: {error_string}")
 
             logger.info(
                 f"Total URLs processed: {res.idx_first_not_tried} ({num_urls} total)\n"
@@ -98,6 +103,4 @@ def get_content_from_urls(
 
         return res
     except Exception as e:
-        raise DDGError(
-            user_facing_message="Apologies, I ran into a problem trying to fetch URL content."
-        ) from e
+        raise DDGError(user_facing_message="Apologies, I ran into a problem trying to fetch URL content.") from e

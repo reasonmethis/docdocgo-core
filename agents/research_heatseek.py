@@ -1,6 +1,7 @@
 import json
 from pydantic import BaseModel, Field
 
+from agents.command_chooser import get_raw_command
 from agentblocks.collectionhelper import (
     construct_new_collection_name,
     ingest_into_collection,
@@ -374,7 +375,7 @@ def run_main_heatseek_workflow(
         source = docs[0].metadata["source"]
         logger.info(
             f"Getting response from LLM for source: {source} "
-            f"(values of part_id: {[doc.metadata.get('part_id') for doc in docs]}"
+            f"(values of part_id: {[doc.metadata.get('part_id') for doc in docs]})"
         )
 
         # Construct the context and get response from LLM
@@ -451,13 +452,6 @@ def run_main_heatseek_workflow(
         if init_reply:
             piece = "\n\n"
         piece += "I checked but didn't find a good answer on this round."
-
-    if chat_state.parsed_query.research_params.num_iterations_left < 2:
-        piece += (
-            "\n\nTo continue checking more sources, type "
-            "`/research heatseek <number of iterations to auto-run>`. For example, try "
-            "`/re hs 4` (shorthand is ok)."
-        )
 
     if piece:
         full_reply += piece
@@ -570,7 +564,6 @@ def get_new_heatseek_response(chat_state: ChatState) -> JSONishDict:
         is_new_collection=True,
         retry_with_random_name=True,
     )
-
     # Return response (next iteration info will be added upstream)
     return {"answer": full_reply, "vectorstore": vectorstore}
 
@@ -606,7 +599,11 @@ def get_heatseek_in_progress_response(
 
 # NOTE: should catch and handle exceptions in main handler
 def get_research_heatseek_response(chat_state: ChatState) -> Props:
-    if chat_state.message:
+    query = chat_state.message
+    llm_raw_command = {}
+    llm_raw_command = get_raw_command(query, chat_state)
+    command = llm_raw_command['command']
+    if "/research heatseek" in command:
         return get_new_heatseek_response(chat_state)
 
     hs_data = chat_state.get_agent_data(use_cached_metadata=True).get("hs")

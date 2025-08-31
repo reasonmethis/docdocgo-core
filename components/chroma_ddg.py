@@ -227,7 +227,7 @@ def ensure_chroma_client(client: ClientAPI | None = None) -> ClientAPI:
 def get_vectorstore_using_openai_api_key(
     collection_name: str,
     *,
-    openai_api_key: str,
+    openai_api_key: str | None = None,
     client: ClientAPI | None = None,
     create_if_not_exists: bool = False,
 ) -> ChromaDDG:

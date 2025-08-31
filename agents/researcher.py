@@ -133,10 +133,13 @@ def get_web_research_response_no_ingestion(
     query = chat_state.message
     # Get queries to search for using query generator prompt
     query_generator_chain = get_prompt_llm_chain(
-        QUERY_GENERATOR_PROMPT,
-        llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
+        prompt=QUERY_GENERATOR_PROMPT,
+        chat_state=chat_state,
+        llm_settings=chat_state.bot_settings
     )
+    for a, b in chat_state.__dict__.items():
+        print(a, b)
+
     for i in range(MAX_QUERY_GENERATOR_ATTEMPTS):
         try:
             query_generator_output = "OUTPUT_FAILED"
@@ -248,7 +251,7 @@ def get_web_research_response_no_ingestion(
         chain = get_prompt_llm_chain(
             RESEARCHER_PROMPT_INITIAL_REPORT,
             llm_settings=chat_state.bot_settings,
-            api_key=chat_state.openai_api_key,
+            chat_state=chat_state,
             print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
             callbacks=chat_state.callbacks,
             stream=True,
@@ -330,8 +333,11 @@ def get_initial_researcher_response(chat_state: ChatState) -> Props:
 def prepare_next_iteration(chat_state: ChatState) -> dict[str, ParsedQuery]:
     # NOTE: just mutate chat_state instead?
     research_params = chat_state.parsed_query.research_params
-    if research_params.num_iterations_left < 2:
-        return {}
+    if research_params:
+        if research_params.num_iterations_left < 2:
+            return {}
+    else:
+        research_params.num_iterations_left = 1
     new_parsed_query = chat_state.parsed_query.model_copy(deep=True)
     new_parsed_query.research_params.num_iterations_left -= 1
     new_parsed_query.message = (
@@ -522,7 +528,7 @@ def get_iterative_researcher_response(chat_state: ChatState) -> Props:
     answer = get_prompt_llm_chain(
         prompt,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
+        chat_state=chat_state,
         print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
@@ -660,7 +666,7 @@ def get_report_combiner_response(chat_state: ChatState) -> Props:
     answer = get_prompt_llm_chain(
         REPORT_COMBINER_PROMPT,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
+        chat_state=chat_state,
         print_prompt=bool(os.getenv("PRINT_RESEARCHER_PROMPT")),
         callbacks=chat_state.callbacks,
         stream=True,
@@ -917,7 +923,7 @@ def auto_update_search_queries_and_links(chat_state: ChatState) -> Props:
     chain = get_prompt_llm_chain(
         SEARCH_QUERIES_UPDATER_PROMPT,
         llm_settings=chat_state.bot_settings,
-        api_key=chat_state.openai_api_key,
+        chat_state=chat_state,
         print_prompt=True,
     )
 
@@ -1048,7 +1054,10 @@ def get_researcher_response_single_iter(chat_state: ChatState) -> Props:
 
 def get_researcher_response(chat_state: ChatState) -> Props:
     research_params = chat_state.parsed_query.research_params
-    num_iterations_left = research_params.num_iterations_left
+    if research_params:
+        num_iterations_left = research_params.num_iterations_left
+    else:
+        num_iterations_left = 1
 
     # Due to Streamlit reloading quirks, we need to do this dance:
     research_params.task_type = ResearchCommand(research_params.task_type.value)

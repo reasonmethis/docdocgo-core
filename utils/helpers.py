@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from utils.prepare import DEFAULT_MODE
 from utils.type_utils import ChatMode
 
-VERSION = "v0.2.7"
+VERSION = "v0.2.8"
 DELIMITER = "-" * 94 + "\n"
 DELIMITER40 = "-" * 40 + "\n"
 DELIMITER20_NONL = "-" * 20
@@ -64,47 +64,16 @@ command_ids = {
 DEFAULT_CHAT_MODE = command_ids[DEFAULT_MODE]
 
 GREETING_MESSAGE = """\
-🦉**Hi, I'm DocDocGo!** With my signature _infinite research_, I can save you time when finding the information you need takes more than a quick Google search. I can comb through hundreds of sites, find which ones have relevant information, and:
-
-- give you the aswer from each relevant source (_heatseek_ research mode)
-- write a report using all sources, put them in a knowledge base for follow-up chat (_classic_ research)
-"""
-
-"""I have two research modes: 
-
-- **Heatseek mode**: I keep looking for sites with the exact information you need
-- **Classic mode**: I keep ingesting sites relevant to your query into a knowledge base to use when chatting
-
-In heatseek mode, I give you candidate answers as I find them. In report mode, you get a report that combines insights from the ingested sources and a knowledge base for follow-up questions. 
-
-"""
-
-GREETING_MESSAGE = """\
 👋**Hi, I'm DocDoc:green[Go]!** My superpower is **infinite research** - when you need to go beyond a quick Google search, I will comb through hundreds of websites looking for the information you need. I can:
 
-- look for sources containing something specific you need (_heatseek_ research mode), or
+- look for sources containing something specific you need (_heatseek_ research), or
 - write a report using all sources and put them in a knowledge base for follow-up chat (_classic_ research)
 
-"""
-
-_older_draft2 = """\
-🦉**Hi, I'm DocDocGo!** I can help when you need information that can't be found with a quick Google search. I can comb through hundreds of sites and:
-
-- give you the answer from each relevant source (_heatseek_ research mode)
-- write a report using all sources, put them in a knowledge base for follow-up questions (_classic_ research)
+You don't need to specify which type of research to use, I'll determine it based on your query and collections.
 
 """
 
-_older_draft = """I have two research modes: 
-
-- **Heatseek mode**: I keep looking for sites with the exact information you need
-- **Classic mode**: I keep ingesting sites relevant to your query into a knowledge base to use when chatting
-
-In heatseek mode, I give you candidate answers as I find them. In report mode, you get a report that combines insights from the ingested sources and a knowledge base for follow-up questions. 
-
-"""
-
-GREETING_MESSAGE_SUFFIX_DEFAULT = "I have lots of cool commands, but the only one to remember is: `/help <any question on using me>`"
+GREETING_MESSAGE_SUFFIX_DEFAULT = "Go ahead and ask me any question and I'll determine how best to research it!"
 # GREETING_MESSAGE_SUFFIX_DEFAULT = "I'm also _self-aware_ - I know how to use me, `/help <your question>`"
 GREETING_MESSAGE_SUFFIX_OTHER = GREETING_MESSAGE_SUFFIX_DEFAULT
 # "How? Just ask me by typing `/help <your question>`."
@@ -126,8 +95,8 @@ After performing the "deeper" command above, you will end up with a report that 
 information from 2x as many sources as the original report. If you wanted to quadruple \
 the number of sources, you could use `/research deeper 2` instead. 
 
-:grey[**Tip:** Swiching from GPT 3.5 to 4 (in the sidebar) improves my performance. \
-You'll need your own OpenAI API key for that. Using your own key also relaxes the restriction \
+:grey[**Tip:** Swiching to a different model (in the sidebar) may improve my performance. \
+You'll need your own OpenRouter API key for that. Using your own key also relaxes the restriction \
 on the maximum number of automatic research iterations.]
 """
 
@@ -145,9 +114,12 @@ HELP_MESSAGE = """\
 ### How to use me
 
 First things first, I know figuring out how to use a new tool can be a bit overwhelming. But don't \
-worry, you won't have to memorize all the commands. Instead, you can just type `/help` followed by \
-what you want to do, and I'll guide you through it. For example:
+worry, you won't have to memorize any commands. I'll automatically determine which command is appropriate \
+for your query. And if you prefer to specify a command, great! Go ahead and use the commands and I will obey.
 
+"""
+
+TRUNCATED_HELP_INFO = """
 ```markdown
 /help How can I have you do web research for me?
 ```

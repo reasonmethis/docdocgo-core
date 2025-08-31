@@ -2,10 +2,10 @@ import os
 
 import streamlit as st
 
-from components.llm import CallbackHandlerDDGConsole
+from components.llm import CallbackHandlerDDGConsole, NoOpCallbackHandler
 from docdocgo import do_intro_tasks
 from utils.chat_state import ChatState
-from utils.prepare import DEFAULT_OPENAI_API_KEY, DUMMY_OPENAI_API_KEY_PLACEHOLDER
+from utils.prepare import DEFAULT_OPENAI_API_KEY, DEFAULT_OPENROUTER_API_KEY, DUMMY_OPENAI_API_KEY_PLACEHOLDER, DUMMY_OPENROUTER_API_KEY_PLACEHOLDER, MODEL_NAME
 from utils.streamlit.fix_event_loop import remove_tornado_fix
 from utils.type_utils import OperationMode
 from utils.streamlit.helpers import mode_options
@@ -19,8 +19,9 @@ def prepare_app():
         )
         st.stop()
 
-    # Flag for whether or not the OpenAI API key has succeeded at least once
+    # Flag for whether or not the OpenRouter and OpenAI API keys have succeeded at least once
     st.session_state.llm_api_key_ok_status = False
+    st.session_state.openrouter_api_key_ok_status = False
 
     print("query params:", st.query_params)
     st.session_state.update_query_params = None
@@ -42,15 +43,22 @@ def prepare_app():
         vectorstore=vectorstore,
         callbacks=[
             CallbackHandlerDDGConsole(),
-            "placeholder for CallbackHandlerDDGStreamlit",
+            NoOpCallbackHandler()
         ],
+        openrouter_api_key=DEFAULT_OPENROUTER_API_KEY,
         openai_api_key=DEFAULT_OPENAI_API_KEY,
     )
 
     st.session_state.prev_supplied_openai_api_key = None
-    st.session_state.default_openai_api_key = DEFAULT_OPENAI_API_KEY
-    if st.session_state.default_openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
-        st.session_state.default_openai_api_key = ""
+    st.session_state.prev_supplied_openrouter_api_key = None
+    st.session_state.openai_api_key = DEFAULT_OPENAI_API_KEY
+    st.session_state.default_openrouter_api_key = DEFAULT_OPENROUTER_API_KEY
+    if st.session_state.openai_api_key == DUMMY_OPENAI_API_KEY_PLACEHOLDER:
+        st.session_state.default_openrouter_api_key = ""
+    if st.session_state.default_openrouter_api_key == DUMMY_OPENROUTER_API_KEY_PLACEHOLDER:
+        st.session_state.default_openrouter_api_key = ""
+
+    st.session_state.model = MODEL_NAME
 
     st.session_state.idx_file_upload = -1
     st.session_state.uploader_form_key = "uploader-form"
@@ -66,4 +74,4 @@ def prepare_app():
         "/research heatseek Code for row of buttons Streamlit, /research What are the biggest AI news this month?, /help How does infinite research work?",
     )
     st.session_state.sample_queries = [q.strip() for q in SAMPLE_QUERIES.split(",")]
-    st.session_state.default_mode = mode_options[0]
+    st.session_state.default_mode = mode_options[12]

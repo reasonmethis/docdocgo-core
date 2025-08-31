@@ -51,7 +51,7 @@ If you are done uploading, you can rename it:
 """
 
 mode_option_to_prefix = {
-    "/kb (main mode)": (
+    "/kb": (
         "",  # TODO: this presupposes that DEFAULT_MODE is /kb
         "Chat using the current collection as a knowledge base.",
     ),
@@ -98,6 +98,10 @@ mode_option_to_prefix = {
     "/chat": (
         "/ch ",
         "Regular chat, without retrieving information from the current collection.",
+    ),
+    "/auto (main mode)": (
+        "/au ",
+        "Default mode, chat in natural language and a mode will be chosen for your query.",
     ),
 }
 mode_options = list(mode_option_to_prefix.keys())
@@ -149,6 +153,7 @@ status_config = {
     ChatMode.RESEARCH_COMMAND_ID: research_status_config,
     ChatMode.INGEST_COMMAND_ID: ingest_status_config,
     ChatMode.SUMMARIZE_COMMAND_ID: summarize_status_config,
+    ChatMode.AUTO_COMMAND_ID: chat_with_docs_status_config,
 }
 
 STAND_BY_FOR_INGESTION_MESSAGE = (
@@ -208,12 +213,13 @@ def write_slowly(message_placeholder, answer, delay=None):
 
 def show_sources(
     sources: list[str] | None,
-    callback_handler=None,
+    # Commenting callback logic as it is not needed for now
+    # callback_handler=None,
 ):
     """Show the sources if present."""
     # If the cb handler is provided, remove the stand-by message
-    if callback_handler and callback_handler.end_str_printed:
-        callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
+    # if callback_handler and callback_handler.end_str_printed:
+    #    callback_handler.container.markdown(fix_markdown(callback_handler.buffer))
 
     if not sources:
         return
@@ -296,3 +302,32 @@ def show_downloader(
             key=st.session_state.downloader_form_key,
         )
     return is_downloaded
+
+def sanitize_markdown_links(text: str) -> str:
+    """
+    Finds all Markdown links in the text and neutralizes any that are not valid,
+    absolute HTTP/HTTPS URLs, by turning them into plain text or code blocks.
+    
+    Example:
+    - "[Click me](https://example.com)" -> remains unchanged
+    - "[Click me](?collection=xyz)" -> becomes "[Click me](`?collection=xyz`)"
+    - "[Click me](/local/path)" -> becomes "[Click me](`/local/path`)"
+    """
+    # Regex to find all markdown links: [text](url)
+    markdown_link_regex = r"\[([^\]]+)\]\(([^)]+)\)"
+
+    def replacer(match):
+        link_text = match.group(1)
+        url = match.group(2)
+        
+        # Check if the URL is a valid, absolute HTTP/HTTPS URL
+        if url.startswith("http://") or url.startswith("https://"):
+            # It's a valid link, so return it as is
+            return f"[{link_text}]({url})"
+        else:
+            # It's a relative path or potentially malicious link. Neutralize it.
+            # We'll display it as text with the 'url' part in a code block.
+            # This prevents Streamlit from rendering it as a clickable link.
+            return f"{link_text} (source: `{url}`)"
+
+    return re.sub(markdown_link_regex, replacer, text)

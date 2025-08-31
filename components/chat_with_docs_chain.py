@@ -184,7 +184,7 @@ class ChatWithDocsChain(Chain):
                 {
                     "question": user_query,
                     "chat_history": _format_chat_history(chat_history_for_rephrasing),
-                }
+                },
                 # callbacks=_run_manager.get_child(),
             )["text"]
 

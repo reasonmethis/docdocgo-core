@@ -429,4 +429,4 @@ def parse_query(
         e, m = get_command(query, export_command_to_enum, ExportCommand.NONE)
         return ParsedQuery(chat_mode=chat_mode, export_command=e, message=m)
 
-    return ParsedQuery(chat_mode=chat_mode, message=query)
+    return ParsedQuery(chat_mode=ChatMode.AUTO_COMMAND_ID, message=query)
